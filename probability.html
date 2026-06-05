@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Probability Explorer — PhysicsLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:      #0a0e1a;
+  --bg2:     #0f1526;
+  --bg3:     #141c32;
+  --bg4:     #1a2440;
+  --border:  rgba(100,140,255,0.12);
+  --border2: rgba(100,140,255,0.22);
+  --text:    #e8eeff;
+  --text2:   #8899cc;
+  --text3:   #4a5880;
+  --accent:  #4d8cff;
+  --accent2: #7eb3ff;
+  --teal:    #3df0c8;
+  --orange:  #ff6b35;
+  --purple:  #c77dff;
+  --gold:    #ffd166;
+  --rose:    #ff6b8a;
+  --font:    'Space Grotesk', sans-serif;
+  --mono:    'JetBrains Mono', monospace;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background:var(--bg); color:var(--text); font-family:var(--font);
+  font-size:14px; line-height:1.6; min-height:100vh;
+}
+body::after {
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(77,140,255,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(77,140,255,0.025) 1px,transparent 1px);
+  background-size:60px 60px;
+}
+.container { max-width:1200px; margin:0 auto; padding:24px 20px; position:relative; z-index:1; }
+
+/* ── HEADER ── */
+header {
+  border-bottom:1px solid var(--border); padding-bottom:20px; margin-bottom:28px;
+  display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px;
+}
+.header-left h1 { font-size:26px; font-weight:700; letter-spacing:-0.5px; }
+.header-left h1 span { color:var(--accent2); }
+.header-sub { font-size:12px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+.header-nav { display:flex; align-items:center; gap:10px; }
+.home-link {
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:12px; color:var(--text3); text-decoration:none;
+  padding:5px 12px; border-radius:6px; border:1px solid var(--border); transition:all .2s;
+}
+.home-link:hover { color:var(--text2); border-color:var(--border2); background:var(--bg3); }
+.badge {
+  font-size:11px; font-family:var(--mono); padding:4px 10px; border-radius:4px;
+  border:1px solid var(--border2); color:var(--text2); background:var(--bg3);
+}
+
+/* ── TABS ── */
+.tabs {
+  display:flex; gap:4px; background:var(--bg2); border:1px solid var(--border);
+  border-radius:10px; padding:4px; margin-bottom:24px; flex-wrap:wrap;
+}
+.tab-btn {
+  flex:1; min-width:90px; padding:9px 14px; background:transparent; border:none;
+  border-radius:7px; color:var(--text3); font-family:var(--font); font-size:13px;
+  font-weight:500; cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.tab-btn:hover { color:var(--text2); background:var(--bg3); }
+.tab-btn.active { background:var(--bg4); color:var(--text); border:1px solid var(--border2); }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* ── PANELS ── */
+.panel { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+.panel-title { font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:var(--text3); margin-bottom:14px; font-weight:500; }
+
+/* ── LAYOUT ── */
+.split { display:grid; grid-template-columns:280px 1fr; gap:20px; }
+@media(max-width:800px){ .split{ grid-template-columns:1fr; } }
+.split-3 { display:grid; grid-template-columns:260px 1fr 260px; gap:16px; }
+@media(max-width:900px){ .split-3{ grid-template-columns:1fr; } }
+
+/* ── CONTROLS ── */
+.ctrl-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+.ctrl-label { font-size:12px; color:var(--text2); min-width:130px; font-weight:500; }
+.ctrl-val { font-size:12px; font-family:var(--mono); color:var(--accent2); min-width:44px; text-align:right; }
+input[type=range] { flex:1; accent-color:var(--accent); height:4px; min-width:80px; }
+input[type=number] {
+  padding:6px 10px; background:var(--bg3); border:1px solid var(--border);
+  border-radius:6px; color:var(--text); font-family:var(--mono); font-size:13px; outline:none; width:80px;
+}
+input[type=number]:focus { border-color:var(--accent); }
+select {
+  padding:6px 10px; background:var(--bg3); border:1px solid var(--border);
+  border-radius:6px; color:var(--text); font-family:var(--font); font-size:13px; outline:none; cursor:pointer;
+}
+select:focus { border-color:var(--accent); }
+.btn {
+  padding:8px 18px; border-radius:7px; border:1px solid var(--border2);
+  background:var(--bg3); color:var(--text); font-family:var(--font); font-size:13px;
+  font-weight:500; cursor:pointer; transition:all .15s;
+}
+.btn:hover { background:var(--bg4); border-color:var(--accent); }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn.primary:hover { background:#3a7af0; }
+.btn.danger { border-color:rgba(255,107,53,.4); color:var(--orange); }
+.btn.danger:hover { background:rgba(255,107,53,.1); }
+.btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+
+/* ── STAT CARDS ── */
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+.stat-grid-2 { grid-template-columns:repeat(2,1fr); }
+.stat-card { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+.stat-label { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; }
+.stat-val { font-size:18px; font-weight:600; font-family:var(--mono); color:var(--text); margin-top:2px; }
+.stat-val.teal  { color:var(--teal); }
+.stat-val.gold  { color:var(--gold); }
+.stat-val.rose  { color:var(--rose); }
+.stat-val.purple{ color:var(--purple); }
+
+/* ── NOTE ── */
+.note {
+  background:rgba(77,140,255,.06); border:1px solid rgba(77,140,255,.15);
+  border-radius:8px; padding:10px 14px; font-size:12px; color:var(--text2); margin-top:12px;
+}
+.note strong { color:var(--accent2); }
+
+/* ── CHART AREA ── */
+.chart-wrap { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px; position:relative; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--bg2); }
+::-webkit-scrollbar-thumb { background:var(--bg4); border-radius:3px; }
+
+/* ══════════════════════════════════
+   GALTON BOARD
+══════════════════════════════════ */
+#galton-canvas {
+  display:block; width:100%; border-radius:10px;
+  border:1px solid var(--border); background:var(--bg); image-rendering:pixelated;
+}
+.galton-hist-wrap { height:180px; }
+
+/* ══════════════════════════════════
+   DICE
+══════════════════════════════════ */
+.dice-face {
+  display:inline-grid; place-items:center;
+  width:52px; height:52px; border-radius:10px;
+  background:var(--bg3); border:1.5px solid var(--border2);
+  font-size:26px; cursor:default; user-select:none;
+  transition:transform .12s;
+}
+.dice-face.rolling { animation:diceRoll .4s ease; }
+@keyframes diceRoll { 0%{transform:rotate(-15deg) scale(.9)} 50%{transform:rotate(8deg) scale(1.08)} 100%{transform:rotate(0) scale(1)} }
+.dice-row { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; min-height:60px; align-items:center; }
+.dice-hist-wrap { height:260px; }
+
+/* ══════════════════════════════════
+   COINS
+══════════════════════════════════ */
+.coin {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:44px; height:44px; border-radius:50%;
+  font-size:22px; font-weight:700;
+  border:2px solid var(--gold);
+  background:rgba(255,209,102,.08);
+  color:var(--gold);
+  transition:transform .15s;
+  user-select:none;
+}
+.coin.tails { border-color:var(--text3); background:rgba(74,88,128,.15); color:var(--text3); }
+.coin.flipping { animation:coinFlip .5s ease; }
+@keyframes coinFlip { 0%{transform:rotateY(0)} 50%{transform:rotateY(90deg) scale(.8)} 100%{transform:rotateY(0)} }
+.coin-row { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; min-height:52px; align-items:center; }
+.coin-hist-wrap { height:260px; }
+
+/* ══════════════════════════════════
+   URN
+══════════════════════════════════ */
+.ball {
+  display:inline-block; width:28px; height:28px; border-radius:50%;
+  margin:3px; vertical-align:middle; transition:opacity .3s;
+  box-shadow:inset -3px -3px 6px rgba(0,0,0,.3), inset 2px 2px 4px rgba(255,255,255,.15);
+}
+.ball.red    { background:radial-gradient(circle at 35% 35%, #ff8a6a, #c0392b); }
+.ball.blue   { background:radial-gradient(circle at 35% 35%, #7eb3ff, #1a5ccc); }
+.ball.green  { background:radial-gradient(circle at 35% 35%, #6ee79a, #1a7a3c); }
+.ball.yellow { background:radial-gradient(circle at 35% 35%, #ffe066, #c49a00); }
+.urn-display {
+  background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+  padding:14px; min-height:100px; display:flex; flex-wrap:wrap; align-items:flex-start;
+  max-height:160px; overflow-y:auto;
+}
+.draw-result {
+  background:var(--bg3); border:1px solid var(--border2); border-radius:8px;
+  padding:10px 14px; margin-top:10px; font-family:var(--mono); font-size:13px;
+}
+.urn-hist-wrap { height:220px; }
+
+/* ══════════════════════════════════
+   BAYES
+══════════════════════════════════ */
+.bayes-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+@media(max-width:700px){ .bayes-grid{ grid-template-columns:1fr; } }
+.bayes-box {
+  background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:16px;
+}
+.bayes-box h3 { font-size:13px; font-weight:600; color:var(--text2); margin-bottom:12px; }
+.prob-bar-wrap { margin:8px 0; }
+.prob-bar-label { display:flex; justify-content:space-between; font-size:12px; color:var(--text2); margin-bottom:4px; }
+.prob-bar-track { height:8px; background:var(--bg4); border-radius:4px; overflow:hidden; }
+.prob-bar-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+
+.bayes-equation {
+  background:var(--bg); border:1px solid var(--border); border-radius:8px;
+  padding:16px; text-align:center; font-size:15px; font-family:var(--mono); color:var(--text);
+  letter-spacing:.5px; margin:16px 0;
+}
+.bayes-equation .fraction { display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; margin:0 4px; }
+.bayes-equation .num { border-bottom:1px solid var(--text2); padding-bottom:2px; }
+.bayes-equation .den { padding-top:2px; }
+
+/* Tree / posterior visual */
+#bayes-canvas { display:block; width:100%; border-radius:10px; border:1px solid var(--border); background:var(--bg); }
+
+/* Preset selector row */
+.preset-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.preset-btn {
+  padding:5px 12px; border-radius:6px; font-size:12px; font-weight:500;
+  border:1px solid var(--border); background:var(--bg3); color:var(--text2);
+  cursor:pointer; transition:all .15s;
+}
+.preset-btn:hover { border-color:var(--accent); color:var(--text); }
+.preset-btn.active { background:rgba(77,140,255,.12); border-color:var(--accent); color:var(--accent2); }
+
+/* ── FORMULA CHIP ── */
+.formula-chip {
+  display:inline-block; background:var(--bg3); border:1px solid var(--border);
+  border-radius:6px; padding:6px 12px; font-family:var(--mono); font-size:12px;
+  color:var(--accent2); margin:6px 4px 0;
+}
+
+/* ── TOGGLE ── */
+.toggle { position:relative; width:36px; height:20px; }
+.toggle input { opacity:0; width:0; height:0; }
+.slider-sw {
+  position:absolute; inset:0; background:var(--bg4); border:1px solid var(--border2);
+  border-radius:10px; cursor:pointer; transition:.2s;
+}
+.slider-sw:before {
+  content:''; position:absolute; width:14px; height:14px; left:2px; top:2px;
+  background:var(--text3); border-radius:50%; transition:.2s;
+}
+.toggle input:checked + .slider-sw { background:rgba(77,140,255,.2); border-color:var(--accent); }
+.toggle input:checked + .slider-sw:before { transform:translateX(16px); background:var(--accent); }
+.toggle-row { display:flex; align-items:center; gap:8px; }
+.toggle-label { font-size:12px; color:var(--text2); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="header-left">
+    <h1>Probability <span>Explorer</span></h1>
+    <div class="header-sub">Mathematics &amp; Statistics · Distributions &amp; Inference</div>
+  </div>
+  <div class="header-nav">
+    <a href="index.html" class="home-link">← PhysicsLab</a>
+    <span class="badge">v1.0 · IB Maths · IGCSE Stats</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tbtn-galton" onclick="switchTab('galton',this)">🔵 Galton Board</button>
+  <button class="tab-btn" id="tbtn-dice"   onclick="switchTab('dice',this)">🎲 Dice</button>
+  <button class="tab-btn" id="tbtn-coins"  onclick="switchTab('coins',this)">🪙 Coins</button>
+  <button class="tab-btn" id="tbtn-urn"    onclick="switchTab('urn',this)">⚱ Urn</button>
+  <button class="tab-btn" id="tbtn-bayes"  onclick="switchTab('bayes',this)">🔍 Bayes</button>
+</div>
+
+<!-- ═══════════════════════════════════════
+     TAB 1 — GALTON BOARD
+═══════════════════════════════════════ -->
+<div id="tab-galton" class="tab-content active">
+  <div class="split">
+    <!-- Controls -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Galton Board Parameters</div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Peg rows</span>
+          <input type="range" id="g-rows" min="4" max="14" value="8" oninput="galtonRowsChange()">
+          <span class="ctrl-val" id="g-rows-val">8</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Drop speed</span>
+          <input type="range" id="g-speed" min="1" max="5" value="2">
+          <span class="ctrl-val" id="g-speed-val">×2</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Balls per drop</span>
+          <select id="g-batch">
+            <option value="1">1</option>
+            <option value="5">5</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Bias (p right)</span>
+          <input type="range" id="g-bias" min="0" max="100" value="50" oninput="galtonBiasChange()">
+          <span class="ctrl-val" id="g-bias-val">0.50</span>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" onclick="galtonDrop()">▶ Drop</button>
+          <button class="btn primary" onclick="galtonAutoRun()" id="g-auto-btn">⏩ Auto</button>
+          <button class="btn danger"  onclick="galtonReset()">↺ Reset</button>
+        </div>
+
+        <div class="note" style="margin-top:14px">
+          <strong>Galton Board (Bean Machine):</strong> Each marble bounces left or right at every peg with probability p. After n rows the landing column follows a <em>Binomial(n, p)</em> distribution — which converges to a <strong>Gaussian</strong> as n grows (Central Limit Theorem).
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="formula-chip">Bin(n,k) = C(n,k)·pᵏ·(1−p)ⁿ⁻ᵏ</div>
+          <div class="formula-chip">μ = np &nbsp; σ² = np(1−p)</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-title">Counts</div>
+        <div class="stat-grid stat-grid-2">
+          <div class="stat-card"><div class="stat-label">Total dropped</div><div class="stat-val teal" id="g-total">0</div></div>
+          <div class="stat-card"><div class="stat-label">Observed σ</div><div class="stat-val gold" id="g-sigma">—</div></div>
+        </div>
+        <div class="stat-card" style="margin-top:8px">
+          <div class="stat-label">Expected σ = √(n·p·q)</div>
+          <div class="stat-val purple" id="g-exp-sigma">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div>
+      <canvas id="galton-canvas" height="500"></canvas>
+      <div style="margin-top:4px;font-size:11px;color:var(--text3)">
+        Teal bars = observed counts &nbsp;·&nbsp; Gold curve = theoretical Binomial PMF
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     TAB 2 — DICE
+═══════════════════════════════════════ -->
+<div id="tab-dice" class="tab-content">
+  <div class="split">
+    <div>
+      <div class="panel">
+        <div class="panel-title">Dice Settings</div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Number of dice</span>
+          <select id="d-count" onchange="diceSetup()">
+            <option value="1">1 die</option>
+            <option value="2" selected>2 dice</option>
+            <option value="3">3 dice</option>
+            <option value="4">4 dice</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Faces per die</span>
+          <select id="d-faces">
+            <option value="4">d4</option>
+            <option value="6" selected>d6</option>
+            <option value="8">d8</option>
+            <option value="10">d10</option>
+            <option value="12">d12</option>
+            <option value="20">d20</option>
+          </select>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Rolls per click</span>
+          <select id="d-batch">
+            <option value="1">1</option>
+            <option value="10">10</option>
+            <option value="100" selected>100</option>
+            <option value="1000">1 000</option>
+            <option value="10000">10 000</option>
+          </select>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" onclick="diceRoll()">🎲 Roll</button>
+          <button class="btn danger"  onclick="diceReset()">↺ Reset</button>
+        </div>
+
+        <div class="note" style="margin-top:14px">
+          <strong>Sum of dice:</strong> When you add multiple fair dice, the distribution of their sum converges towards a <em>normal distribution</em> as the number of dice increases — another manifestation of the <strong>Central Limit Theorem</strong>.
+        </div>
+        <div style="margin-top:10px">
+          <div class="formula-chip" id="d-range-chip">Sum ∈ [2, 12]</div>
+          <div class="formula-chip" id="d-mean-chip">μ = 7.0</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-title">Last Roll</div>
+        <div class="dice-row" id="dice-display"></div>
+        <div class="stat-grid" style="margin-top:10px">
+          <div class="stat-card"><div class="stat-label">Total rolls</div><div class="stat-val teal" id="d-total">0</div></div>
+          <div class="stat-card"><div class="stat-label">Last sum</div><div class="stat-val gold" id="d-last">—</div></div>
+          <div class="stat-card"><div class="stat-label">Observed mean</div><div class="stat-val purple" id="d-obs-mean">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-title">Sum Distribution</div>
+        <div class="chart-wrap dice-hist-wrap"><canvas id="dice-chart"></canvas></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-title">Probability Table (theoretical)</div>
+        <div id="dice-prob-table" style="font-size:12px;color:var(--text2);font-family:var(--mono);max-height:150px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     TAB 3 — COINS
+═══════════════════════════════════════ -->
+<div id="tab-coins" class="tab-content">
+  <div class="split">
+    <div>
+      <div class="panel">
+        <div class="panel-title">Coin Settings</div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Number of coins</span>
+          <input type="range" id="c-count" min="1" max="20" value="5" oninput="coinCountChange()">
+          <span class="ctrl-val" id="c-count-val">5</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">P(Heads)</span>
+          <input type="range" id="c-bias" min="0" max="100" value="50" oninput="coinBiasChange()">
+          <span class="ctrl-val" id="c-bias-val">0.50</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Flips per click</span>
+          <select id="c-batch">
+            <option value="1">1</option>
+            <option value="10">10</option>
+            <option value="100" selected>100</option>
+            <option value="1000">1 000</option>
+            <option value="5000">5 000</option>
+          </select>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" onclick="coinFlip()">🪙 Flip</button>
+          <button class="btn danger"  onclick="coinReset()">↺ Reset</button>
+        </div>
+
+        <div class="note" style="margin-top:14px">
+          <strong>Binomial distribution:</strong> The number of heads in n coin flips with bias p follows <em>B(n, p)</em>. For large n it resembles the normal distribution.
+        </div>
+        <div style="margin-top:10px">
+          <div class="formula-chip">P(k heads) = C(n,k)·pᵏ·(1−p)ⁿ⁻ᵏ</div>
+          <div class="formula-chip" id="c-mu-chip">μ = 2.50 &nbsp; σ = 1.12</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-title">Last flip</div>
+        <div class="coin-row" id="coin-display"></div>
+        <div class="stat-grid stat-grid-2" style="margin-top:10px">
+          <div class="stat-card"><div class="stat-label">Total flips (sets)</div><div class="stat-val teal" id="c-total">0</div></div>
+          <div class="stat-card"><div class="stat-label">Last heads</div><div class="stat-val gold" id="c-last-h">—</div></div>
+        </div>
+        <div class="stat-grid stat-grid-2" style="margin-top:8px">
+          <div class="stat-card"><div class="stat-label">Observed P(H)</div><div class="stat-val purple" id="c-obs-ph">—</div></div>
+          <div class="stat-card"><div class="stat-label">Observed mean heads</div><div class="stat-val rose" id="c-obs-mean">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-title">Heads Count Distribution</div>
+        <div class="chart-wrap coin-hist-wrap"><canvas id="coin-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     TAB 4 — URN
+═══════════════════════════════════════ -->
+<div id="tab-urn" class="tab-content">
+  <div class="split-3">
+    <!-- Controls -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Urn Setup</div>
+
+        <div style="margin-bottom:10px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:500">Ball counts</div>
+          <div class="ctrl-row" style="margin-bottom:8px">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#c0392b;margin-right:8px;flex-shrink:0"></span>
+            <span class="ctrl-label" style="min-width:60px">Red</span>
+            <input type="number" id="u-red"    value="5" min="0" max="50" oninput="urnSetup()">
+          </div>
+          <div class="ctrl-row" style="margin-bottom:8px">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#1a5ccc;margin-right:8px;flex-shrink:0"></span>
+            <span class="ctrl-label" style="min-width:60px">Blue</span>
+            <input type="number" id="u-blue"   value="4" min="0" max="50" oninput="urnSetup()">
+          </div>
+          <div class="ctrl-row" style="margin-bottom:8px">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#1a7a3c;margin-right:8px;flex-shrink:0"></span>
+            <span class="ctrl-label" style="min-width:60px">Green</span>
+            <input type="number" id="u-green"  value="2" min="0" max="50" oninput="urnSetup()">
+          </div>
+          <div class="ctrl-row">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#c49a00;margin-right:8px;flex-shrink:0"></span>
+            <span class="ctrl-label" style="min-width:60px">Yellow</span>
+            <input type="number" id="u-yellow" value="1" min="0" max="50" oninput="urnSetup()">
+          </div>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Draw without replacement</span>
+          <label class="toggle"><input type="checkbox" id="u-without" checked onchange="urnSetup()"><span class="slider-sw"></span></label>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Balls to draw</span>
+          <input type="number" id="u-draws" value="3" min="1" max="20" oninput="urnSetup()">
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" onclick="urnDraw()">Draw</button>
+          <button class="btn"         onclick="urnDraw100()">× 100</button>
+          <button class="btn danger"  onclick="urnReset()">↺ Reset</button>
+        </div>
+
+        <div id="urn-probabilities" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <!-- Urn visual -->
+    <div>
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-title">Urn contents</div>
+        <div class="urn-display" id="urn-display"></div>
+        <div class="draw-result" id="urn-draw-result" style="display:none"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Draw history (last 200)</div>
+        <div class="chart-wrap urn-hist-wrap"><canvas id="urn-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Statistics</div>
+        <div id="urn-stats-detail"></div>
+        <div class="note" style="margin-top:12px">
+          <strong>Without replacement:</strong> follows the <em>Hypergeometric</em> distribution. <strong>With replacement:</strong> follows <em>Binomial</em>.
+        </div>
+        <div style="margin-top:10px">
+          <div class="formula-chip">P = k/n (with repl.)</div>
+          <div class="formula-chip">P = C(K,k)·C(N−K,n−k) / C(N,n)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     TAB 5 — BAYES
+═══════════════════════════════════════ -->
+<div id="tab-bayes" class="tab-content">
+  <div class="split">
+    <!-- Controls -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Preset Scenarios</div>
+        <div class="preset-row" id="bayes-presets"></div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-title">Parameters</div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label" id="b-prior-label">P(Disease)</span>
+          <input type="range" id="b-prior" min="1" max="500" value="10" oninput="bayesCalc()">
+          <span class="ctrl-val" id="b-prior-val">1.0%</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label" id="b-sens-label">Sensitivity (TPR)</span>
+          <input type="range" id="b-sens" min="1" max="100" value="95" oninput="bayesCalc()">
+          <span class="ctrl-val" id="b-sens-val">95%</span>
+        </div>
+        <div class="ctrl-row">
+          <span class="ctrl-label" id="b-spec-label">Specificity (TNR)</span>
+          <input type="range" id="b-spec" min="1" max="100" value="90" oninput="bayesCalc()">
+          <span class="ctrl-val" id="b-spec-val">90%</span>
+        </div>
+
+        <div class="bayes-equation">
+          P(H|E) = <span class="fraction"><span class="num">P(E|H)·P(H)</span><span class="den">P(E)</span></span>
+        </div>
+
+        <div class="note">
+          <strong>Base rate neglect:</strong> Even a highly accurate test can give mostly false positives when the condition is rare. Bayes' theorem quantifies this precisely.
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div>
+      <div class="bayes-grid">
+        <div class="bayes-box">
+          <h3 id="b-h-label">🦠 Has Disease</h3>
+          <div id="b-priors-display"></div>
+        </div>
+        <div class="bayes-box">
+          <h3 id="b-e-label">🔬 Test Result</h3>
+          <div id="b-evidence-display"></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-title">Posterior — P(Disease | Positive Test)</div>
+        <div style="margin:8px 0 4px">
+          <div style="font-size:28px;font-weight:700;font-family:var(--mono);color:var(--teal)" id="b-posterior">—</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px" id="b-posterior-note">—</div>
+        </div>
+        <div class="prob-bar-wrap" style="margin-top:12px">
+          <div class="prob-bar-label"><span>P(Disease | Positive)</span><span id="b-ppv-label">—</span></div>
+          <div class="prob-bar-track"><div class="prob-bar-fill" id="b-ppv-bar" style="background:var(--teal);width:0%"></div></div>
+        </div>
+        <div class="prob-bar-wrap">
+          <div class="prob-bar-label"><span>P(No Disease | Negative)</span><span id="b-npv-label">—</span></div>
+          <div class="prob-bar-track"><div class="prob-bar-fill" id="b-npv-bar" style="background:var(--accent2);width:0%"></div></div>
+        </div>
+        <div class="prob-bar-wrap">
+          <div class="prob-bar-label"><span>P(False positive | Positive test)</span><span id="b-fdr-label">—</span></div>
+          <div class="prob-bar-track"><div class="prob-bar-fill" id="b-fdr-bar" style="background:var(--rose);width:0%"></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Frequency tree (per 10 000 people)</div>
+        <canvas id="bayes-canvas" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════════
+//  GALTON BOARD
+// ═══════════════════════════════════════════════════
+const GALTON = {
+  rows: 8, bins: 9, counts: [],
+  total: 0, autoInterval: null,
+  pegR: 5, ballR: 4,
+  animBalls: [], // {x,y,vx,vy,col,row,col_path}
+  canvas: null, ctx: null,
+  animId: null,
+
+  init() {
+    this.rows = +document.getElementById('g-rows').value;
+    this.bins = this.rows + 1;
+    this.counts = new Array(this.bins).fill(0);
+    this.total = 0;
+    this.animBalls = [];
+    this.canvas = document.getElementById('galton-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    const W = this.canvas.offsetWidth || 600;
+    this.canvas.width  = W;
+    this.canvas.height = 500;
+    this.render();
+    this.updateStats();
+    if (this.animId) cancelAnimationFrame(this.animId);
+    this.animId = requestAnimationFrame(() => this.loop());
+  },
+
+  getPeg(row, col) {
+    const W = this.canvas.width, H = this.canvas.height;
+    const histH = 130;
+    const boardH = H - histH - 20;
+    const margin = 50;
+    const spacing = (W - margin*2) / (this.rows + 1);
+    const rowH = (boardH - 40) / (this.rows + 1);
+    const x = margin + spacing * (col + (this.rows - row) * 0.5);
+    const y = 40 + rowH * (row + 1);
+    return { x, y };
+  },
+
+  loop() {
+    this.animId = requestAnimationFrame(() => this.loop());
+    const spd = +document.getElementById('g-speed').value;
+    for (let s = 0; s < spd; s++) this.step();
+    this.render();
+  },
+
+  step() {
+    const p = +document.getElementById('g-bias').value / 100;
+    // advance each animated ball
+    for (let b of this.animBalls) {
+      if (b.landed) continue;
+      b.y += b.vy;
+      b.x += b.vx;
+      // check if reached next peg row
+      if (b.currentRow < this.rows) {
+        const peg = this.getPeg(b.currentRow, b.pegCol);
+        if (b.y >= peg.y - this.pegR) {
+          b.currentRow++;
+          b.pegCol = (Math.random() < p) ? b.pegCol + 1 : b.pegCol;
+          b.vx = 0;
+          b.vy = 2.5;
+          // target x for next peg
+          if (b.currentRow < this.rows) {
+            const nextPeg = this.getPeg(b.currentRow, b.pegCol);
+            b.targetX = nextPeg.x;
+            b.vx = (b.targetX - b.x) * 0.1;
+          } else {
+            // heading to bin
+            const W = this.canvas.width;
+            const margin = 50;
+            const binW = (W - margin*2) / this.bins;
+            b.targetX = margin + binW * (b.pegCol + 0.5);
+            b.vx = (b.targetX - b.x) * 0.08;
+          }
+        }
+      } else {
+        // falling into bin
+        const W = this.canvas.width, H = this.canvas.height;
+        const histH = 130, boardH = H - histH - 20;
+        const floorY = boardH + 10;
+        if (b.y >= floorY) {
+          b.landed = true;
+          this.counts[b.pegCol]++;
+          this.total++;
+          this.updateStats();
+        }
+      }
+    }
+    this.animBalls = this.animBalls.filter(b => !b.landed || b.scint > 0);
+    this.animBalls.forEach(b => { if (b.landed && b.scint > 0) b.scint -= 0.05; });
+  },
+
+  dropBatch() {
+    const n = +document.getElementById('g-batch').value;
+    const p = +document.getElementById('g-bias').value / 100;
+    for (let i = 0; i < n; i++) {
+      const topPeg = this.getPeg(0, 0);
+      const W = this.canvas.width;
+      this.animBalls.push({
+        x: W/2 + (Math.random()-0.5)*4,
+        y: 8,
+        vx: 0, vy: 2,
+        currentRow: 0, pegCol: 0,
+        targetX: topPeg.x,
+        landed: false, scint: 0,
+        col: `hsl(${180+Math.random()*60},80%,60%)`
+      });
+    }
+  },
+
+  render() {
+    const cv = this.canvas, ctx = this.ctx;
+    const W = cv.width, H = cv.height;
+    const histH = 130, boardH = H - histH - 20;
+    ctx.clearRect(0,0,W,H);
+
+    // Background
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+
+    // Pegs
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c <= r; c++) {
+        const {x,y} = this.getPeg(r,c);
+        ctx.beginPath();
+        ctx.arc(x, y, this.pegR, 0, Math.PI*2);
+        ctx.fillStyle = '#1a2440';
+        ctx.strokeStyle = 'rgba(100,140,255,0.5)';
+        ctx.lineWidth = 1.2;
+        ctx.fill(); ctx.stroke();
+      }
+    }
+
+    // Bin dividers
+    const margin = 50, binW = (W - margin*2) / this.bins;
+    for (let i = 0; i <= this.bins; i++) {
+      const x = margin + binW*i;
+      ctx.beginPath();
+      ctx.moveTo(x, boardH-10);
+      ctx.lineTo(x, boardH+10);
+      ctx.strokeStyle = 'rgba(100,140,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Histogram bars + theoretical curve
+    const maxCount = Math.max(...this.counts, 1);
+    const p = +document.getElementById('g-bias').value / 100;
+    const n = this.rows;
+    const theorMax = Math.max(...Array.from({length:this.bins},(_,k)=>binomial(n,k,p)));
+
+    for (let i = 0; i < this.bins; i++) {
+      const bx = margin + binW*i + 2;
+      const bw = binW - 4;
+      // bar
+      const frac = this.counts[i] / maxCount;
+      const barH = frac * (histH - 20);
+      const by = H - barH - 10;
+      ctx.fillStyle = 'rgba(61,240,200,0.25)';
+      ctx.strokeStyle = 'rgba(61,240,200,0.7)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(bx, by, bw, barH);
+      ctx.strokeRect(bx, by, bw, barH);
+      // bin label
+      ctx.fillStyle = 'rgba(74,88,128,0.9)';
+      ctx.font = `10px "JetBrains Mono"`;
+      ctx.textAlign = 'center';
+      ctx.fillText(i, margin + binW*(i+0.5), H-2);
+    }
+
+    // Theoretical PMF curve
+    if (this.total > 0) {
+      ctx.beginPath();
+      for (let i = 0; i < this.bins; i++) {
+        const th = binomial(n,i,p) / theorMax;
+        const x = margin + binW*(i+0.5);
+        const y = H - 10 - th*(histH-20);
+        i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle = 'rgba(255,209,102,0.8)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      // dots
+      for (let i = 0; i < this.bins; i++) {
+        const th = binomial(n,i,p)/theorMax;
+        const x = margin + binW*(i+0.5);
+        const y = H - 10 - th*(histH-20);
+        ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+        ctx.fillStyle = 'rgba(255,209,102,0.9)'; ctx.fill();
+      }
+    }
+
+    // Animated balls
+    for (let b of this.animBalls) {
+      if (b.landed) continue;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, this.ballR, 0, Math.PI*2);
+      ctx.fillStyle = b.col;
+      ctx.fill();
+    }
+
+    // Separator line
+    ctx.beginPath();
+    ctx.moveTo(margin, boardH+10);
+    ctx.lineTo(W-margin, boardH+10);
+    ctx.strokeStyle = 'rgba(100,140,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  },
+
+  updateStats() {
+    document.getElementById('g-total').textContent = this.total;
+    if (this.total < 2) { document.getElementById('g-sigma').textContent='—'; return; }
+    const mean = this.counts.reduce((s,c,i)=>s+c*i,0)/this.total;
+    const variance = this.counts.reduce((s,c,i)=>s+c*(i-mean)**2,0)/this.total;
+    document.getElementById('g-sigma').textContent = Math.sqrt(variance).toFixed(3);
+    const p = +document.getElementById('g-bias').value/100;
+    const n = this.rows;
+    document.getElementById('g-exp-sigma').textContent = Math.sqrt(n*p*(1-p)).toFixed(3);
+  }
+};
+
+function galtonRowsChange() {
+  const v = +document.getElementById('g-rows').value;
+  document.getElementById('g-rows-val').textContent = v;
+  galtonReset();
+}
+function galtonBiasChange() {
+  const v = +document.getElementById('g-bias').value;
+  document.getElementById('g-bias-val').textContent = (v/100).toFixed(2);
+  document.getElementById('g-speed').oninput = null;
+}
+function galtonDrop() { GALTON.dropBatch(); }
+let galtonAutoRunning = false;
+function galtonAutoRun() {
+  galtonAutoRunning = !galtonAutoRunning;
+  document.getElementById('g-auto-btn').textContent = galtonAutoRunning ? '⏸ Stop' : '⏩ Auto';
+  if (galtonAutoRunning) {
+    GALTON.autoInterval = setInterval(() => GALTON.dropBatch(), 300);
+  } else {
+    clearInterval(GALTON.autoInterval);
+  }
+}
+function galtonReset() {
+  if (GALTON.autoInterval) { clearInterval(GALTON.autoInterval); galtonAutoRunning=false; document.getElementById('g-auto-btn').textContent='⏩ Auto'; }
+  GALTON.init();
+}
+
+// speed label
+document.getElementById('g-speed').addEventListener('input', function() {
+  document.getElementById('g-speed-val').textContent = '×'+this.value;
+});
+
+// ═══════════════════════════════════════════════════
+//  DICE
+// ═══════════════════════════════════════════════════
+const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+let diceChart = null, diceCounts = {}, diceTotal = 0, diceLastRoll = [];
+let diceN = 2, diceFaces = 6;
+
+function diceSetup() {
+  diceN = +document.getElementById('d-count').value;
+  diceFaces = +document.getElementById('d-faces').value;
+  const min = diceN, max = diceN * diceFaces;
+  document.getElementById('d-range-chip').textContent = `Sum ∈ [${min}, ${max}]`;
+  const expMean = diceN * (diceFaces+1)/2;
+  document.getElementById('d-mean-chip').textContent = `μ = ${expMean.toFixed(1)}`;
+  diceReset(false);
+  buildDiceProb();
+}
+
+function diceReset(rebuild=true) {
+  diceN = +document.getElementById('d-count').value;
+  diceFaces = +document.getElementById('d-faces').value;
+  const min = diceN, max = diceN*diceFaces;
+  diceCounts = {}; for (let i=min;i<=max;i++) diceCounts[i]=0;
+  diceTotal=0; diceLastRoll=[];
+  document.getElementById('d-total').textContent='0';
+  document.getElementById('d-last').textContent='—';
+  document.getElementById('d-obs-mean').textContent='—';
+  document.getElementById('dice-display').innerHTML='';
+  if (rebuild) buildDiceProb();
+  drawDiceChart();
+}
+
+function diceRoll() {
+  diceN = +document.getElementById('d-count').value;
+  diceFaces = +document.getElementById('d-faces').value;
+  const batch = +document.getElementById('d-batch').value;
+  let lastSum=0;
+  for (let b=0;b<batch;b++) {
+    let sum=0, rolls=[];
+    for (let i=0;i<diceN;i++) { const v=Math.ceil(Math.random()*diceFaces); sum+=v; rolls.push(v); }
+    diceCounts[sum]=(diceCounts[sum]||0)+1;
+    diceTotal++;
+    if (b===batch-1) { lastSum=sum; diceLastRoll=rolls; }
+  }
+  // display last roll
+  const disp = document.getElementById('dice-display');
+  disp.innerHTML='';
+  diceLastRoll.forEach(v => {
+    const el = document.createElement('div');
+    el.className='dice-face rolling';
+    el.textContent = diceFaces===6 ? DICE_FACES[v-1] : v;
+    disp.appendChild(el);
+  });
+  const sum = diceLastRoll.reduce((a,b)=>a+b,0);
+  document.getElementById('d-last').textContent=sum;
+  document.getElementById('d-total').textContent=diceTotal;
+  const obsMean = Object.entries(diceCounts).reduce((s,[k,c])=>s+k*c,0)/diceTotal;
+  document.getElementById('d-obs-mean').textContent=obsMean.toFixed(2);
+  drawDiceChart();
+}
+
+function buildDiceProb() {
+  diceN = +document.getElementById('d-count').value;
+  diceFaces = +document.getElementById('d-faces').value;
+  const probs = diceConvolution(diceN, diceFaces);
+  const wrap = document.getElementById('dice-prob-table');
+  wrap.innerHTML = Object.entries(probs).map(([s,p])=>
+    `<span style="display:inline-block;margin:2px 6px"><b style="color:var(--accent2)">${s}</b>: ${(p*100).toFixed(2)}%</span>`
+  ).join('');
+}
+
+function diceConvolution(n, faces) {
+  let dist = {};
+  for (let i=1;i<=faces;i++) dist[i]=1/faces;
+  for (let d=1;d<n;d++) {
+    const next={};
+    for (let [k1,p1] of Object.entries(dist)) {
+      for (let v=1;v<=faces;v++) {
+        const key=+k1+v;
+        next[key]=(next[key]||0)+p1*(1/faces);
+      }
+    }
+    dist=next;
+  }
+  return dist;
+}
+
+function drawDiceChart() {
+  diceN = +document.getElementById('d-count').value;
+  diceFaces = +document.getElementById('d-faces').value;
+  const min=diceN, max=diceN*diceFaces;
+  const labels=[], obsData=[], thData=[];
+  const probs=diceConvolution(diceN,diceFaces);
+  for (let s=min;s<=max;s++) {
+    labels.push(s);
+    obsData.push(diceTotal>0 ? (diceCounts[s]||0)/diceTotal : 0);
+    thData.push(probs[s]||0);
+  }
+  const ctx=document.getElementById('dice-chart').getContext('2d');
+  if (diceChart) diceChart.destroy();
+  diceChart = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Observed frequency', data:obsData, backgroundColor:'rgba(61,240,200,0.3)', borderColor:'rgba(61,240,200,0.8)', borderWidth:1.5, order:2},
+        {label:'Theoretical P', data:thData, type:'line', borderColor:'rgba(255,209,102,0.9)', backgroundColor:'transparent', pointRadius:3, borderWidth:2.5, tension:0.2, order:1, pointBackgroundColor:'rgba(255,209,102,0.9)'}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8899cc',font:{size:11}}},
+        tooltip:{backgroundColor:'#141c32',borderColor:'rgba(100,140,255,.2)',borderWidth:1,titleColor:'#8899cc',bodyColor:'#e8eeff'}},
+      scales:{
+        x:{ticks:{color:'#4a5880',font:{size:11}}, grid:{color:'rgba(100,140,255,.06)'}},
+        y:{ticks:{color:'#4a5880',font:{size:11},callback:v=>(v*100).toFixed(1)+'%'}, grid:{color:'rgba(100,140,255,.06)'}, min:0}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  COINS
+// ═══════════════════════════════════════════════════
+let coinChart=null, coinCounts=[], coinTotal=0, coinN=5, coinP=0.5;
+let coinTotalFlips=0, coinTotalHeads=0;
+
+function coinCountChange() {
+  coinN=+document.getElementById('c-count').value;
+  document.getElementById('c-count-val').textContent=coinN;
+  coinReset();
+}
+function coinBiasChange() {
+  coinP=+document.getElementById('c-bias').value/100;
+  document.getElementById('c-bias-val').textContent=coinP.toFixed(2);
+  updateCoinFormula();
+  coinReset();
+}
+function updateCoinFormula() {
+  coinN=+document.getElementById('c-count').value;
+  coinP=+document.getElementById('c-bias').value/100;
+  const mu=(coinN*coinP).toFixed(2), sigma=Math.sqrt(coinN*coinP*(1-coinP)).toFixed(2);
+  document.getElementById('c-mu-chip').textContent=`μ = ${mu}  σ = ${sigma}`;
+}
+function coinReset() {
+  coinN=+document.getElementById('c-count').value;
+  coinP=+document.getElementById('c-bias').value/100;
+  coinCounts=new Array(coinN+1).fill(0);
+  coinTotal=0; coinTotalFlips=0; coinTotalHeads=0;
+  document.getElementById('c-total').textContent='0';
+  document.getElementById('c-last-h').textContent='—';
+  document.getElementById('c-obs-ph').textContent='—';
+  document.getElementById('c-obs-mean').textContent='—';
+  document.getElementById('coin-display').innerHTML='';
+  updateCoinFormula(); drawCoinChart();
+}
+function coinFlip() {
+  coinN=+document.getElementById('c-count').value;
+  coinP=+document.getElementById('c-bias').value/100;
+  const batch=+document.getElementById('c-batch').value;
+  let lastFlip=[];
+  for (let b=0;b<batch;b++) {
+    let h=0, flips=[];
+    for (let i=0;i<coinN;i++) { const r=Math.random()<coinP; h+=r?1:0; flips.push(r); }
+    coinCounts[h]++;
+    coinTotal++;
+    coinTotalFlips+=coinN;
+    coinTotalHeads+=h;
+    if (b===batch-1) lastFlip=flips;
+  }
+  const lastH=lastFlip.filter(Boolean).length;
+  const disp=document.getElementById('coin-display');
+  disp.innerHTML='';
+  lastFlip.forEach(h=>{
+    const el=document.createElement('div');
+    el.className='coin flipping'+(h?'':' tails');
+    el.textContent=h?'H':'T';
+    disp.appendChild(el);
+  });
+  document.getElementById('c-last-h').textContent=lastH;
+  document.getElementById('c-total').textContent=coinTotal;
+  document.getElementById('c-obs-ph').textContent=(coinTotalHeads/coinTotalFlips).toFixed(3);
+  document.getElementById('c-obs-mean').textContent=(coinTotalHeads/coinTotal).toFixed(2);
+  drawCoinChart();
+}
+function drawCoinChart() {
+  coinN=+document.getElementById('c-count').value;
+  coinP=+document.getElementById('c-bias').value/100;
+  const labels=[], obsData=[], thData=[];
+  for (let k=0;k<=coinN;k++) {
+    labels.push(k);
+    obsData.push(coinTotal>0?coinCounts[k]/coinTotal:0);
+    thData.push(binomial(coinN,k,coinP));
+  }
+  const ctx=document.getElementById('coin-chart').getContext('2d');
+  if (coinChart) coinChart.destroy();
+  coinChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Observed', data:obsData, backgroundColor:'rgba(255,209,102,0.25)', borderColor:'rgba(255,209,102,0.8)', borderWidth:1.5, order:2},
+        {label:'Theoretical B(n,p)', data:thData, type:'line', borderColor:'rgba(77,140,255,0.9)', backgroundColor:'transparent', pointRadius:4, borderWidth:2.5, tension:0.2, order:1, pointBackgroundColor:'rgba(77,140,255,0.9)'}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8899cc',font:{size:11}}},
+        tooltip:{backgroundColor:'#141c32',borderColor:'rgba(100,140,255,.2)',borderWidth:1,titleColor:'#8899cc',bodyColor:'#e8eeff'}},
+      scales:{
+        x:{title:{display:true,text:'Number of heads',color:'#4a5880',font:{size:11}},ticks:{color:'#4a5880',font:{size:11}},grid:{color:'rgba(100,140,255,.06)'}},
+        y:{ticks:{color:'#4a5880',font:{size:11},callback:v=>(v*100).toFixed(1)+'%'},grid:{color:'rgba(100,140,255,.06)'},min:0}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  URN
+// ═══════════════════════════════════════════════════
+let urnChart=null;
+let urnHistory=[]; // [{red,blue,green,yellow}]
+const URN_COLORS=['red','blue','green','yellow'];
+const URN_HEX={red:'#c0392b',blue:'#1a5ccc',green:'#1a7a3c',yellow:'#c49a00'};
+
+function urnSetup() {
+  // rebuild urn display
+  const counts = urnGetCounts();
+  const disp=document.getElementById('urn-display');
+  disp.innerHTML='';
+  URN_COLORS.forEach(col=>{
+    for (let i=0;i<counts[col];i++) {
+      const b=document.createElement('span');
+      b.className=`ball ${col}`; disp.appendChild(b);
+    }
+  });
+  urnProbDisplay(counts);
+  urnStatsDetail();
+}
+function urnGetCounts() {
+  return {
+    red:   Math.max(0,+document.getElementById('u-red').value||0),
+    blue:  Math.max(0,+document.getElementById('u-blue').value||0),
+    green: Math.max(0,+document.getElementById('u-green').value||0),
+    yellow:Math.max(0,+document.getElementById('u-yellow').value||0)
+  };
+}
+function urnProbDisplay(counts) {
+  const total=Object.values(counts).reduce((a,b)=>a+b,0);
+  const wrap=document.getElementById('urn-probabilities');
+  if (total===0){ wrap.innerHTML='<p style="color:var(--text3);font-size:12px">Add balls to the urn.</p>'; return; }
+  wrap.innerHTML='<div class="panel-title">Initial probabilities</div>'+
+    URN_COLORS.filter(c=>counts[c]>0).map(c=>`
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-label"><span style="color:${URN_HEX[c]}">${c.charAt(0).toUpperCase()+c.slice(1)}</span><span>${counts[c]}/${total} = ${(counts[c]/total*100).toFixed(1)}%</span></div>
+        <div class="prob-bar-track"><div class="prob-bar-fill" style="background:${URN_HEX[c]};width:${counts[c]/total*100}%"></div></div>
+      </div>`).join('');
+}
+function urnDraw() {
+  const counts=urnGetCounts();
+  const without=document.getElementById('u-without').checked;
+  const draws=Math.max(1,+document.getElementById('u-draws').value||1);
+  const total=Object.values(counts).reduce((a,b)=>a+b,0);
+  if (total===0) return;
+  const maxDraw=without?Math.min(draws,total):draws;
+  let pool=[];
+  URN_COLORS.forEach(c=>{ for(let i=0;i<counts[c];i++) pool.push(c); });
+  const drawn=[];
+  for (let i=0;i<maxDraw;i++) {
+    if (without && pool.length===0) break;
+    const idx=Math.floor(Math.random()*pool.length);
+    drawn.push(pool[idx]);
+    if (without) pool.splice(idx,1);
+  }
+  // count
+  const result={red:0,blue:0,green:0,yellow:0};
+  drawn.forEach(c=>result[c]++);
+  urnHistory.push(result);
+  if (urnHistory.length>200) urnHistory.shift();
+  // display result
+  const res=document.getElementById('urn-draw-result');
+  res.style.display='block';
+  res.innerHTML='Drew: '+drawn.map(c=>`<span style="color:${URN_HEX[c]}">${c}</span>`).join(', ');
+  urnStatsDetail();
+  drawUrnChart();
+}
+function urnDraw100() { for(let i=0;i<100;i++) urnDraw(); }
+function urnReset() {
+  urnHistory=[];
+  document.getElementById('urn-draw-result').style.display='none';
+  urnStatsDetail();
+  drawUrnChart();
+}
+function urnStatsDetail() {
+  const n=urnHistory.length;
+  const wrap=document.getElementById('urn-stats-detail');
+  if (n===0) { wrap.innerHTML='<p style="color:var(--text3);font-size:12px;padding:8px 0">No draws yet.</p>'; return; }
+  const totals={red:0,blue:0,green:0,yellow:0};
+  urnHistory.forEach(r=>URN_COLORS.forEach(c=>totals[c]+=r[c]));
+  const totalBalls=Object.values(totals).reduce((a,b)=>a+b,0);
+  wrap.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px">${n} draw sets · ${totalBalls} balls total</div>`+
+    URN_COLORS.filter(c=>totals[c]>0).map(c=>`
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-label"><span style="color:${URN_HEX[c]}">${c}</span><span>${totals[c]} (${(totals[c]/totalBalls*100).toFixed(1)}%)</span></div>
+        <div class="prob-bar-track"><div class="prob-bar-fill" style="background:${URN_HEX[c]};width:${totals[c]/totalBalls*100}%"></div></div>
+      </div>`).join('');
+}
+function drawUrnChart() {
+  const n=Math.min(urnHistory.length,200);
+  const labels=Array.from({length:n},(_,i)=>i+1);
+  const datasets=URN_COLORS.map(c=>({
+    label:c,
+    data:urnHistory.slice(-n).map(r=>r[c]),
+    backgroundColor:URN_HEX[c]+'99',
+    borderColor:URN_HEX[c],
+    borderWidth:1.5,
+    stack:'s'
+  }));
+  const ctx=document.getElementById('urn-chart').getContext('2d');
+  if (urnChart) urnChart.destroy();
+  urnChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8899cc',font:{size:10}}},
+        tooltip:{backgroundColor:'#141c32',borderColor:'rgba(100,140,255,.2)',borderWidth:1,titleColor:'#8899cc',bodyColor:'#e8eeff'}},
+      scales:{
+        x:{stacked:true,ticks:{color:'#4a5880',font:{size:9},maxTicksLimit:10},grid:{color:'rgba(100,140,255,.04)'}},
+        y:{stacked:true,ticks:{color:'#4a5880',font:{size:10}},grid:{color:'rgba(100,140,255,.06)'},min:0}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  BAYES
+// ═══════════════════════════════════════════════════
+const BAYES_PRESETS = [
+  { name:'Medical test', prior:1, sens:95, spec:90, hLabel:'Has Disease', eLabel:'Test Positive' },
+  { name:'Spam filter',  prior:20, sens:98, spec:95, hLabel:'Is Spam',    eLabel:'Flagged as spam' },
+  { name:'Quality ctrl', prior:5, sens:92, spec:98, hLabel:'Defective',   eLabel:'Flagged defective' },
+  { name:'DNA match',    prior:0.1, sens:99.9, spec:99.99, hLabel:'Suspect matches', eLabel:'DNA positive' },
+  { name:'Rare disease', prior:0.5, sens:90, spec:85, hLabel:'Has Condition', eLabel:'Symptom present' },
+];
+let bayesCanvas=null, bayesCtx=null;
+
+function bayesSetPresets() {
+  const wrap=document.getElementById('bayes-presets');
+  wrap.innerHTML=BAYES_PRESETS.map((p,i)=>`<button class="preset-btn" id="bp-${i}" onclick="bayesApplyPreset(${i})">${p.name}</button>`).join('');
+}
+function bayesApplyPreset(i) {
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('bp-'+i).classList.add('active');
+  const p=BAYES_PRESETS[i];
+  document.getElementById('b-prior').value=p.prior*5; // scale slider: 0-500 maps to 0-100%
+  document.getElementById('b-sens').value=p.sens;
+  document.getElementById('b-spec').value=p.spec;
+  document.getElementById('b-prior-label').textContent='P('+p.hLabel+')';
+  document.getElementById('b-sens-label').textContent='Sensitivity (TPR)';
+  document.getElementById('b-spec-label').textContent='Specificity (TNR)';
+  document.getElementById('b-h-label').textContent='🎯 '+p.hLabel;
+  document.getElementById('b-e-label').textContent='🔬 '+p.eLabel;
+  bayesCalc();
+}
+function bayesCalc() {
+  const prior = +document.getElementById('b-prior').value / 500; // 0–1
+  const sens  = +document.getElementById('b-sens').value  / 100;
+  const spec  = +document.getElementById('b-spec').value  / 100;
+  document.getElementById('b-prior-val').textContent = (prior*100).toFixed(1)+'%';
+  document.getElementById('b-sens-val').textContent  = (sens*100).toFixed(0)+'%';
+  document.getElementById('b-spec-val').textContent  = (spec*100).toFixed(0)+'%';
+
+  // P(E) = P(E|H)P(H) + P(E|¬H)P(¬H)
+  const PE = sens*prior + (1-spec)*(1-prior);
+  const PPV = PE>0 ? sens*prior/PE : 0; // P(H|E) positive predictive value
+  const NPV = (1-PE)>0 ? spec*(1-prior)/(1-PE) : 1; // negative predictive value
+  const FDR = 1-PPV;
+
+  document.getElementById('b-posterior').textContent = (PPV*100).toFixed(2)+'%';
+  document.getElementById('b-posterior-note').textContent =
+    `If you test positive, there is only a ${(PPV*100).toFixed(1)}% chance you actually have it${prior<0.05?' — base rate neglect in action!':'.'}`;
+
+  document.getElementById('b-ppv-label').textContent = (PPV*100).toFixed(2)+'%';
+  document.getElementById('b-npv-label').textContent = (NPV*100).toFixed(2)+'%';
+  document.getElementById('b-fdr-label').textContent = (FDR*100).toFixed(2)+'%';
+  document.getElementById('b-ppv-bar').style.width = (PPV*100)+'%';
+  document.getElementById('b-npv-bar').style.width = (NPV*100)+'%';
+  document.getElementById('b-fdr-bar').style.width = (FDR*100)+'%';
+
+  // priors display
+  document.getElementById('b-priors-display').innerHTML = `
+    <div class="prob-bar-wrap"><div class="prob-bar-label"><span>P(H)</span><span>${(prior*100).toFixed(1)}%</span></div>
+    <div class="prob-bar-track"><div class="prob-bar-fill" style="background:var(--teal);width:${prior*100}%"></div></div></div>
+    <div class="prob-bar-wrap"><div class="prob-bar-label"><span>P(¬H)</span><span>${((1-prior)*100).toFixed(1)}%</span></div>
+    <div class="prob-bar-track"><div class="prob-bar-fill" style="background:var(--text3);width:${(1-prior)*100}%"></div></div></div>`;
+
+  document.getElementById('b-evidence-display').innerHTML = `
+    <div class="prob-bar-wrap"><div class="prob-bar-label"><span>P(E|H) sensitivity</span><span>${(sens*100).toFixed(0)}%</span></div>
+    <div class="prob-bar-track"><div class="prob-bar-fill" style="background:var(--accent2);width:${sens*100}%"></div></div></div>
+    <div class="prob-bar-wrap"><div class="prob-bar-label"><span>P(E|¬H) false pos.</span><span>${((1-spec)*100).toFixed(1)}%</span></div>
+    <div class="prob-bar-track"><div class="prob-bar-fill" style="background:var(--rose);width:${(1-spec)*100}%"></div></div></div>
+    <div class="prob-bar-wrap"><div class="prob-bar-label"><span>P(E) marginal</span><span>${(PE*100).toFixed(2)}%</span></div>
+    <div class="prob-bar-track"><div class="prob-bar-fill" style="background:var(--gold);width:${PE*100}%"></div></div></div>`;
+
+  drawBayesTree(prior, sens, spec, PPV, NPV);
+}
+
+function drawBayesTree(prior, sens, spec, ppv, npv) {
+  const cv=document.getElementById('bayes-canvas');
+  const ctx=cv.getContext('2d');
+  const W=cv.offsetWidth||600; cv.width=W; cv.height=220;
+  ctx.clearRect(0,0,W,220);
+  ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,220);
+
+  // Scale: per 10000 people
+  const N=10000;
+  const nH=Math.round(prior*N), nNotH=N-nH;
+  const nTP=Math.round(sens*nH), nFN=nH-nTP;
+  const nFP=Math.round((1-spec)*nNotH), nTN=nNotH-nFP;
+
+  const treeX=40, rootY=110;
+  const col1X=W*0.30, col2X=W*0.65;
+  const yH=55, yNotH=165, yTP=30, yFN=90, yFP=140, yTN=190;
+
+  const line=(x1,y1,x2,y2,col='rgba(100,140,255,.3)',w=1)=>{
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+    ctx.strokeStyle=col; ctx.lineWidth=w; ctx.stroke();
+  };
+  const label=(x,y,txt,col='#8899cc',size=11,align='left')=>{
+    ctx.font=`${size}px "JetBrains Mono"`;
+    ctx.fillStyle=col; ctx.textAlign=align; ctx.fillText(txt,x,y);
+  };
+  const node=(x,y,col,r=6)=>{
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=col+'33'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+    ctx.fill(); ctx.stroke();
+  };
+
+  // root
+  node(treeX,rootY,'#7eb3ff',8);
+  label(treeX+12,rootY+4,'N=10,000','#7eb3ff',10);
+
+  // H / ¬H
+  line(treeX,rootY,col1X,yH,'rgba(61,240,200,.4)',1.5);
+  line(treeX,rootY,col1X,yNotH,'rgba(74,88,128,.4)',1.5);
+  node(col1X,yH,'#3df0c8');
+  node(col1X,yNotH,'#4a5880');
+  label(col1X+10,yH+4,`H: ${nH}  (${(prior*100).toFixed(1)}%)`, '#3df0c8',10);
+  label(col1X+10,yNotH+4,`¬H: ${nNotH}  (${((1-prior)*100).toFixed(1)}%)`, '#8899cc',10);
+
+  // TP / FN
+  line(col1X,yH,col2X,yTP,'rgba(61,240,200,.4)',1.2);
+  line(col1X,yH,col2X,yFN,'rgba(74,88,128,.3)',1);
+  node(col2X,yTP,'#3df0c8',5);
+  node(col2X,yFN,'#ff6b8a',5);
+  label(col2X+10,yTP+4,`✔ TP: ${nTP}  (sens ${(sens*100).toFixed(0)}%)`, '#3df0c8',9);
+  label(col2X+10,yFN+4,`✘ FN: ${nFN}`, '#ff6b8a',9);
+
+  // FP / TN
+  line(col1X,yNotH,col2X,yFP,'rgba(255,107,53,.4)',1.2);
+  line(col1X,yNotH,col2X,yTN,'rgba(100,140,255,.35)',1);
+  node(col2X,yFP,'#ff6b35',5);
+  node(col2X,yTN,'#4d8cff',5);
+  label(col2X+10,yFP+4,`✘ FP: ${nFP}  (FPR ${((1-spec)*100).toFixed(0)}%)`, '#ff6b35',9);
+  label(col2X+10,yTN+4,`✔ TN: ${nTN}  (spec ${(spec*100).toFixed(0)}%)`, '#4d8cff',9);
+
+  // PPV annotation
+  const ppvX=W-16, ppvY1=yTP, ppvY2=yFP;
+  line(ppvX,ppvY1,ppvX,ppvY2,'rgba(255,209,102,.5)',2);
+  const mid=(ppvY1+ppvY2)/2;
+  label(ppvX-4,mid-6,`PPV`,'#ffd166',9,'right');
+  label(ppvX-4,mid+8,`${(ppv*100).toFixed(1)}%`,'#ffd166',9,'right');
+}
+
+// ═══════════════════════════════════════════════════
+//  MATH HELPERS
+// ═══════════════════════════════════════════════════
+function binomial(n,k,p) {
+  if (k<0||k>n) return 0;
+  return comb(n,k) * Math.pow(p,k) * Math.pow(1-p,n-k);
+}
+function comb(n,k) {
+  if (k>n) return 0; if (k===0||k===n) return 1;
+  k=Math.min(k,n-k);
+  let r=1; for (let i=0;i<k;i++) r=r*(n-i)/(i+1);
+  return r;
+}
+
+// ═══════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════════
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id==='galton') { GALTON.init(); }
+  if (id==='dice')   { diceSetup(); }
+  if (id==='coins')  { drawCoinChart(); }
+  if (id==='urn')    { urnSetup(); drawUrnChart(); }
+  if (id==='bayes')  { bayesCalc(); }
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+window.addEventListener('load', ()=>{
+  GALTON.init();
+  diceSetup();
+  coinReset();
+  urnSetup();
+  bayesSetPresets();
+  bayesApplyPreset(0);
+});
+</script>
+</body>
+</html>
