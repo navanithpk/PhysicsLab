@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radioactivity Simulator — PhysicsLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --bg2: #0f1526;
+  --bg3: #141c32;
+  --bg4: #1a2440;
+  --border: rgba(100,140,255,0.12);
+  --border2: rgba(100,140,255,0.2);
+  --text: #e8eeff;
+  --text2: #8899cc;
+  --text3: #4a5880;
+  --accent: #4d8cff;
+  --accent2: #7eb3ff;
+  --alpha: #ff6b35;
+  --beta: #3df0c8;
+  --gamma: #c77dff;
+  --stable: #4a5880;
+  --gold: #ffd166;
+  --font: 'Space Grotesk', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+
+/* Header */
+header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header-left h1 {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.5px; color: var(--text);
+}
+.header-left h1 span { color: var(--accent2); }
+.header-sub {
+  font-size: 12px; color: var(--text3); font-weight: 400; margin-top: 2px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.header-nav { display: flex; align-items: center; gap: 12px; }
+.home-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text3); text-decoration: none;
+  padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.home-link:hover { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+.badge {
+  font-size: 11px; font-family: var(--mono);
+  padding: 4px 10px; border-radius: 4px;
+  border: 1px solid var(--border2); color: var(--text2); background: var(--bg3);
+}
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 4px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px; margin-bottom: 24px;
+}
+.tab-btn {
+  flex: 1; padding: 9px 16px; background: transparent; border: none;
+  border-radius: 7px; color: var(--text3); font-family: var(--font);
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text2); background: var(--bg3); }
+.tab-btn.active { background: var(--bg4); color: var(--text); border: 1px solid var(--border2); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Panels */
+.panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.panel-title {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--text3); margin-bottom: 14px; font-weight: 500;
+}
+
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+@media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+/* Isotope selector */
+.isotope-search { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.search-input {
+  flex: 1; min-width: 140px; padding: 8px 12px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 7px; color: var(--text); font-family: var(--font);
+  font-size: 13px; outline: none; transition: border-color 0.2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
+}
+.pill-alpha { border-color: var(--alpha); color: var(--alpha); }
+.pill-alpha.active { background: var(--alpha); color: #000; }
+.pill-beta { border-color: var(--beta); color: var(--beta); }
+.pill-beta.active { background: var(--beta); color: #000; }
+.pill-gamma { border-color: var(--gamma); color: var(--gamma); }
+.pill-gamma.active { background: var(--gamma); color: #fff; }
+.pill-stable { border-color: var(--stable); color: var(--text3); }
+.pill-stable.active { background: var(--bg4); color: var(--text2); border-color: var(--border2); }
+.pill-all { border-color: var(--border2); color: var(--text2); }
+.pill-all.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Isotope table */
+.isotope-table-wrap { max-height: 280px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border); }
+.isotope-table { width: 100%; border-collapse: collapse; }
+.isotope-table th {
+  background: var(--bg3); padding: 8px 12px; text-align: left;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--text3); font-weight: 500; position: sticky; top: 0;
+}
+.isotope-table td { padding: 7px 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.isotope-table tr.selected td { background: rgba(77,140,255,0.08); }
+.isotope-table tr:hover td { background: var(--bg3); cursor: pointer; }
+.rad-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 3px;
+  font-size: 11px; font-weight: 600; font-family: var(--mono);
+}
+.rad-alpha { background: rgba(255,107,53,0.15); color: var(--alpha); }
+.rad-beta { background: rgba(61,240,200,0.12); color: var(--beta); }
+.rad-gamma { background: rgba(199,125,255,0.12); color: var(--gamma); }
+.rad-stable { background: rgba(74,88,128,0.2); color: var(--text3); }
+
+/* Isotope detail */
+.iso-info {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
+}
+.iso-symbol {
+  text-align: center; background: var(--bg4); border-radius: 8px;
+  padding: 8px 14px; border: 1px solid var(--border2); min-width: 68px;
+}
+.iso-symbol .sym { font-size: 22px; font-weight: 700; color: var(--text); }
+.iso-symbol .num { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.iso-details { flex: 1; }
+.iso-name { font-weight: 600; font-size: 15px; color: var(--text); }
+.iso-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.iso-hl { font-family: var(--mono); color: var(--accent2); }
+
+/* Controls */
+.control-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.control-label { font-size: 12px; color: var(--text2); min-width: 110px; font-weight: 500; }
+.control-value { font-size: 12px; font-family: var(--mono); color: var(--accent2); min-width: 60px; text-align: right; }
+
+input[type=range] { flex: 1; accent-color: var(--accent); height: 4px; min-width: 80px; }
+input[type=number] {
+  padding: 6px 10px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: var(--mono);
+  font-size: 13px; width: 90px; outline: none;
+}
+input[type=number]:focus { border-color: var(--accent); }
+select {
+  padding: 6px 10px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: var(--font);
+  font-size: 13px; outline: none; cursor: pointer;
+}
+select:focus { border-color: var(--accent); }
+
+/* Stepper (number + buttons) */
+.stepper {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 7px; overflow: hidden; width: fit-content;
+}
+.stepper-btn {
+  background: transparent; border: none; color: var(--text2);
+  width: 30px; height: 32px; font-size: 16px; cursor: pointer;
+  transition: background 0.15s; font-family: var(--mono);
+}
+.stepper-btn:hover { background: var(--bg4); color: var(--text); }
+.stepper input[type=number] {
+  width: 64px; border: none; border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border); border-radius: 0;
+  text-align: center; padding: 4px 6px; height: 32px;
+  -moz-appearance: textfield;
+}
+.stepper input[type=number]::-webkit-outer-spin-button,
+.stepper input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+/* Half-life combo: dropdown + custom number box */
+.hl-combo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hl-combo select { min-width: 160px; }
+.hl-custom { display: flex; align-items: center; gap: 4px; }
+.hl-custom input[type=number] { width: 80px; }
+.hl-unit-label { font-size: 12px; color: var(--text3); min-width: 50px; }
+
+/* Canvas */
+#sim-canvas {
+  display: block; width: 100%; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg); cursor: default;
+}
+
+/* Stats */
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px; margin-top: 14px;
+}
+.stat-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+}
+.stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-val { font-size: 18px; font-weight: 600; font-family: var(--mono); color: var(--text); margin-top: 2px; }
+.stat-val.green { color: var(--beta); }
+.stat-val.red { color: var(--alpha); }
+@media (max-width: 700px) { .stats-row { grid-template-columns: 1fr 1fr; } }
+
+/* Buttons */
+.sim-btn-row { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+.btn {
+  padding: 8px 18px; border-radius: 7px; border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--text); font-family: var(--font);
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.btn:hover { background: var(--bg4); border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: #3a7af0; }
+.btn.danger { border-color: rgba(255,107,53,0.4); color: var(--alpha); }
+.btn.danger:hover { background: rgba(255,107,53,0.1); }
+
+/* Graph tab */
+.graph-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+.gc { display: flex; flex-direction: column; gap: 4px; }
+.gc label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+.toggle-row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.toggle-label { font-size: 12px; color: var(--text2); }
+.toggle { position: relative; width: 36px; height: 20px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider-sw {
+  position: absolute; inset: 0; background: var(--bg4);
+  border: 1px solid var(--border2); border-radius: 10px; cursor: pointer; transition: 0.2s;
+}
+.slider-sw:before {
+  content: ''; position: absolute; width: 14px; height: 14px;
+  left: 2px; top: 2px; background: var(--text3); border-radius: 50%; transition: 0.2s;
+}
+.toggle input:checked + .slider-sw { background: rgba(77,140,255,0.2); border-color: var(--accent); }
+.toggle input:checked + .slider-sw:before { transform: translateX(16px); background: var(--accent); }
+
+/* Chart */
+.chart-area {
+  position: relative; height: 340px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px;
+}
+/* Live chart for simulation */
+.chart-area-live {
+  position: relative; height: 200px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px; margin-top: 14px;
+}
+.live-chart-title {
+  font-size: 11px; color: var(--text3); text-transform: uppercase;
+  letter-spacing: 0.6px; margin-bottom: 6px; font-weight: 500;
+}
+
+/* Legend */
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+
+/* Radiation type cards */
+.rad-explain { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+@media (max-width: 700px) { .rad-explain { grid-template-columns: 1fr; } }
+.rad-card { border-radius: 10px; padding: 14px; border: 1px solid; }
+.rad-card.alpha { border-color: rgba(255,107,53,0.3); background: rgba(255,107,53,0.05); }
+.rad-card.beta { border-color: rgba(61,240,200,0.2); background: rgba(61,240,200,0.04); }
+.rad-card.gamma { border-color: rgba(199,125,255,0.25); background: rgba(199,125,255,0.04); }
+.rad-card-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; font-family: var(--mono); }
+.rad-card.alpha .rad-card-title { color: var(--alpha); }
+.rad-card.beta .rad-card-title { color: var(--beta); }
+.rad-card.gamma .rad-card-title { color: var(--gamma); }
+.rad-card p { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.rad-card .prop { margin-top: 6px; }
+.rad-card .prop span { font-size: 11px; font-family: var(--mono); }
+.prop-label { color: var(--text3); margin-right: 4px; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+.note {
+  background: rgba(77,140,255,0.06); border: 1px solid rgba(77,140,255,0.15);
+  border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text2); margin-top: 12px;
+}
+.note strong { color: var(--accent2); }
+
+/* Sim layout: controls left, canvas+graph right */
+.sim-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+@media (max-width: 800px) { .sim-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="header-left">
+    <h1>Radio<span>activity</span> Simulator</h1>
+    <div class="header-sub">IGCSE Physics · Nuclear Radiation &amp; Half-Life</div>
+  </div>
+  <div class="header-nav">
+    <a href="index.html" class="home-link">← PhysicsLab</a>
+    <span class="badge">v2.0 · Cambridge IGCSE 0625</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tbtn-isotopes" onclick="switchTab('isotopes', this)">Isotope Library</button>
+  <button class="tab-btn" id="tbtn-simulation" onclick="switchTab('simulation', this)">Random Decay</button>
+  <button class="tab-btn" id="tbtn-graph" onclick="switchTab('graph', this)">Activity vs Time</button>
+  <button class="tab-btn" id="tbtn-reference" onclick="switchTab('reference', this)">Radiation Types</button>
+</div>
+
+<!-- TAB 1: ISOTOPE LIBRARY -->
+<div id="tab-isotopes" class="tab-content active">
+  <div class="grid-2" style="gap:20px">
+    <div>
+      <div class="panel">
+        <div class="panel-title">Select an isotope</div>
+        <div class="isotope-search">
+          <input class="search-input" type="text" id="iso-search" placeholder="Search element, symbol…" oninput="filterIsotopes()">
+          <div class="filter-pills">
+            <span class="pill pill-all active" id="pill-all" onclick="setFilter('all')">All</span>
+            <span class="pill pill-alpha" id="pill-alpha" onclick="setFilter('alpha')">α</span>
+            <span class="pill pill-beta" id="pill-beta" onclick="setFilter('beta')">β</span>
+            <span class="pill pill-gamma" id="pill-gamma" onclick="setFilter('gamma')">γ</span>
+            <span class="pill pill-stable" id="pill-stable" onclick="setFilter('stable')">Stable</span>
+          </div>
+        </div>
+        <div class="isotope-table-wrap">
+          <table class="isotope-table" id="iso-table">
+            <thead><tr><th>Isotope</th><th>Name</th><th>Type</th><th>Half-life</th></tr></thead>
+            <tbody id="iso-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div id="iso-info-panel" class="panel">
+        <div class="panel-title">Isotope details</div>
+        <div id="iso-detail"><p style="color:var(--text3);font-size:13px;">Select an isotope from the table to view details.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2: SIMULATION -->
+<div id="tab-simulation" class="tab-content">
+  <div class="sim-layout">
+    <!-- Controls -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Simulation parameters</div>
+
+        <!-- Initial nuclei: slider + stepper -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span class="control-label" style="min-width:unset">Initial nuclei</span>
+            <div class="stepper">
+              <button class="stepper-btn" onclick="adjustStepper('s-initial', -10)">−</button>
+              <input type="number" id="s-initial" value="100" min="1" max="500" oninput="clampStepper('s-initial',1,500);updateSimCtrl()">
+              <button class="stepper-btn" onclick="adjustStepper('s-initial', 10)">+</button>
+            </div>
+          </div>
+          <input type="range" id="s-initial-range" min="1" max="500" value="100" oninput="syncRange('s-initial',this.value);updateSimCtrl()" style="width:100%">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:3px"><span>1</span><span>500</span></div>
+        </div>
+
+        <!-- Half-life: isotope dropdown OR custom -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:6px">Half-life</div>
+          <div class="hl-combo">
+            <select id="s-hl-preset" onchange="applyHlPreset()">
+              <option value="custom">— Custom —</option>
+              <optgroup label="Seconds">
+                <option value="1.637e-4">Po-214 · 163.7 µs</option>
+                <option value="3.96">Rn-219 · 3.96 s</option>
+                <option value="55.6">Rn-220 · 55.6 s</option>
+                <option value="183">Po-218 · 3.05 min</option>
+              </optgroup>
+              <optgroup label="Minutes–Hours">
+                <option value="1620">F-18 · 110 min (PET)</option>
+                <option value="4500">I-131 · 8 days (preview)</option>
+                <option value="26400">At-211 · 7.21 h</option>
+              </optgroup>
+              <optgroup label="Days">
+                <option value="119232">Rn-222 · 3.82 days</option>
+                <option value="313632">Ra-224 · 3.63 days</option>
+                <option value="8640000">Cs-137 · 30 yr (preview)</option>
+              </optgroup>
+              <optgroup label="Years">
+                <option value="1.36e10">Am-241 · 432 yr</option>
+                <option value="1.807e11">C-14 · 5730 yr</option>
+                <option value="5.05e10">Ra-226 · 1600 yr</option>
+              </optgroup>
+            </select>
+          </div>
+          <div style="margin-top:8px">
+            <div class="hl-custom" id="hl-custom-row">
+              <span style="font-size:12px;color:var(--text3);margin-right:4px">Custom:</span>
+              <input type="number" id="s-hl-val" value="10" min="0.001" step="any" style="width:80px" oninput="updateSimCtrl()">
+              <select id="s-hl-unit" onchange="updateSimCtrl()">
+                <option value="1" selected>seconds</option>
+                <option value="60">minutes</option>
+                <option value="3600">hours</option>
+                <option value="86400">days</option>
+                <option value="31557600">years</option>
+              </select>
+            </div>
+            <div id="hl-display" style="font-size:12px;color:var(--accent2);font-family:var(--mono);margin-top:4px">t½ = 10 s</div>
+          </div>
+        </div>
+
+        <!-- Speed -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span class="control-label" style="min-width:unset">Playback speed</span>
+            <span id="s-speed-val" style="font-size:12px;font-family:var(--mono);color:var(--accent2)">×1</span>
+          </div>
+          <input type="range" id="s-speed" min="1" max="10" value="1" oninput="updateSimCtrl()" style="width:100%">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:3px"><span>×1</span><span>×10</span></div>
+        </div>
+
+        <!-- Radiation type -->
+        <div class="control-row">
+          <span class="control-label">Radiation type</span>
+          <select id="s-type" onchange="updateSimCtrl()">
+            <option value="alpha">Alpha (α)</option>
+            <option value="beta" selected>Beta (β)</option>
+            <option value="gamma">Gamma (γ)</option>
+          </select>
+        </div>
+
+        <div class="sim-btn-row">
+          <button class="btn primary" id="sim-playbtn" onclick="toggleSim()">▶ Start</button>
+          <button class="btn" onclick="resetSim()">↺ Reset</button>
+        </div>
+        <div class="note">
+          <strong>Randomness:</strong> Each nucleus has a fixed probability of decaying per frame, independent of all others. No two runs are identical.
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas + live graph -->
+    <div>
+      <canvas id="sim-canvas" height="280"></canvas>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Undecayed</div>
+          <div class="stat-val" id="s-undecayed">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Decayed</div>
+          <div class="stat-val red" id="s-decayed">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Elapsed</div>
+          <div class="stat-val" id="s-elapsed" style="font-size:14px">0 s</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Half-lives</div>
+          <div class="stat-val green" id="s-halflives">0</div>
+        </div>
+      </div>
+
+      <!-- Live decay plot -->
+      <div style="margin-top:14px">
+        <div class="live-chart-title">Live decay curve — N vs time</div>
+        <div class="chart-area-live">
+          <canvas id="live-chart"></canvas>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text3)">
+          Dashed line = theoretical N₀·(½)<sup>t/t½</sup> &nbsp;·&nbsp; Solid = observed
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: GRAPH -->
+<div id="tab-graph" class="tab-content">
+  <div class="panel" style="margin-bottom:16px">
+    <div class="panel-title">Graph parameters</div>
+    <div class="graph-controls">
+      <div class="gc">
+        <label>Initial count rate (Bq)</label>
+        <input type="number" id="g-initial" value="800" min="10" max="5000" oninput="drawGraph()">
+      </div>
+      <div class="gc">
+        <label>Half-life</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="g-hl-val" value="20" min="0.001" max="1e9" step="any" style="width:80px" oninput="drawGraph()">
+          <select id="g-hl-unit" onchange="drawGraph()">
+            <option value="1">seconds</option>
+            <option value="60">minutes</option>
+            <option value="3600">hours</option>
+            <option value="86400">days</option>
+            <option value="31557600">years</option>
+          </select>
+        </div>
+      </div>
+      <div class="gc">
+        <label>Background count (Bq)</label>
+        <input type="number" id="g-bg" value="20" min="0" max="500" oninput="drawGraph()">
+      </div>
+      <div class="gc">
+        <label>Half-lives shown</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" id="g-tmax" min="2" max="10" value="5" oninput="drawGraph()">
+          <span style="font-size:12px;color:var(--accent2);font-family:var(--mono);min-width:24px" id="g-tmax-label">5</span>
+        </div>
+      </div>
+    </div>
+    <div class="toggle-row" style="gap:20px;flex-wrap:wrap">
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="g-show-bg" checked onchange="drawGraph()"><span class="slider-sw"></span></label>
+        <span class="toggle-label">Show background radiation</span>
+      </div>
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="g-show-corrected" checked onchange="drawGraph()"><span class="slider-sw"></span></label>
+        <span class="toggle-label">Show corrected count rate</span>
+      </div>
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="g-show-expected" checked onchange="drawGraph()"><span class="slider-sw"></span></label>
+        <span class="toggle-label">Show N = N₀ × (½)ⁿ curve</span>
+      </div>
+    </div>
+  </div>
+  <div class="legend" id="graph-legend"></div>
+  <div class="chart-area">
+    <canvas id="activity-chart"></canvas>
+  </div>
+  <div class="note" style="margin-top:12px">
+    <strong>Corrected count rate</strong> = measured count rate − background count rate. X-axis labels are at clean multiples of the half-life.
+  </div>
+</div>
+
+<!-- TAB 4: REFERENCE -->
+<div id="tab-reference" class="tab-content">
+  <div class="rad-explain">
+    <div class="rad-card alpha">
+      <div class="rad-card-title">α · Alpha</div>
+      <p>Two protons and two neutrons — identical to a helium-4 nucleus. Emitted by heavy nuclei undergoing alpha decay.</p>
+      <div class="prop"><span class="prop-label">Charge:</span><span>+2</span></div>
+      <div class="prop"><span class="prop-label">Mass (u):</span><span>4</span></div>
+      <div class="prop"><span class="prop-label">Ionisation:</span><span>Very high</span></div>
+      <div class="prop"><span class="prop-label">Penetration:</span><span>~few cm air, stopped by paper</span></div>
+      <div class="prop"><span class="prop-label">Speed:</span><span>~5–7% of c</span></div>
+    </div>
+    <div class="rad-card beta">
+      <div class="rad-card-title">β · Beta</div>
+      <p>A fast electron (β⁻) or positron (β⁺) emitted when a neutron transforms into a proton (or vice versa).</p>
+      <div class="prop"><span class="prop-label">Charge:</span><span>−1 (or +1)</span></div>
+      <div class="prop"><span class="prop-label">Mass (u):</span><span>~1/1836</span></div>
+      <div class="prop"><span class="prop-label">Ionisation:</span><span>Moderate</span></div>
+      <div class="prop"><span class="prop-label">Penetration:</span><span>~1–3 mm aluminium</span></div>
+      <div class="prop"><span class="prop-label">Speed:</span><span>up to ~99% of c</span></div>
+    </div>
+    <div class="rad-card gamma">
+      <div class="rad-card-title">γ · Gamma</div>
+      <p>High-energy electromagnetic radiation emitted when a nucleus moves to a lower energy state after α or β decay.</p>
+      <div class="prop"><span class="prop-label">Charge:</span><span>0</span></div>
+      <div class="prop"><span class="prop-label">Mass:</span><span>0</span></div>
+      <div class="prop"><span class="prop-label">Ionisation:</span><span>Low</span></div>
+      <div class="prop"><span class="prop-label">Penetration:</span><span>Several cm lead / concrete</span></div>
+      <div class="prop"><span class="prop-label">Speed:</span><span>c (speed of light)</span></div>
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="panel">
+    <div class="panel-title">Half-life equation</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">The number of undecayed nuclei N at time t:</p>
+    <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-family:var(--mono);font-size:18px;color:var(--text);letter-spacing:1px">
+      N = N₀ × (½)<sup style="font-size:12px">t / t½</sup>
+    </div>
+    <div style="margin-top:12px;font-size:13px;color:var(--text2)">
+      After <em>n</em> half-lives: <span style="font-family:var(--mono);color:var(--accent2)">N = N₀ / 2ⁿ</span>. Decay constant λ = ln 2 / t½ ≈ <span style="font-family:var(--mono);color:var(--accent2)">0.693 / t½</span>.
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ===================== DATA =====================
+const ISOTOPES = [
+  {sym:'He-4',   name:'Helium-4',       Z:2,  A:4,   type:'stable', hl:'Stable',           hlSec:Infinity,  notes:'Most common helium isotope; stable'},
+  {sym:'C-12',   name:'Carbon-12',       Z:6,  A:12,  type:'stable', hl:'Stable',           hlSec:Infinity,  notes:'Backbone of organic chemistry'},
+  {sym:'C-14',   name:'Carbon-14',       Z:6,  A:14,  type:'beta',   hl:'5730 years',       hlSec:1.807e11,  notes:'Used in radiocarbon dating; β⁻ decay'},
+  {sym:'N-13',   name:'Nitrogen-13',     Z:7,  A:13,  type:'beta',   hl:'9.97 min',         hlSec:598,       notes:'β⁺; used in PET imaging'},
+  {sym:'F-18',   name:'Fluorine-18',     Z:9,  A:18,  type:'beta',   hl:'109.8 min',        hlSec:6588,      notes:'β⁺; the main PET tracer isotope'},
+  {sym:'Na-22',  name:'Sodium-22',       Z:11, A:22,  type:'beta',   hl:'2.6 years',        hlSec:8.21e7,    notes:'β⁺; used in positron annihilation experiments'},
+  {sym:'Na-24',  name:'Sodium-24',       Z:11, A:24,  type:'beta',   hl:'14.96 hours',      hlSec:5.39e4,    notes:'β⁻ + γ; used in medical tracer studies'},
+  {sym:'P-32',   name:'Phosphorus-32',   Z:15, A:32,  type:'beta',   hl:'14.26 days',       hlSec:1.23e6,    notes:'β⁻; used in molecular biology labelling'},
+  {sym:'S-35',   name:'Sulfur-35',       Z:16, A:35,  type:'beta',   hl:'87.5 days',        hlSec:7.56e6,    notes:'β⁻; used in protein labelling'},
+  {sym:'K-40',   name:'Potassium-40',    Z:19, A:40,  type:'beta',   hl:'1.25 billion yr',  hlSec:3.94e16,   notes:'β⁻/EC; natural background; in food'},
+  {sym:'Ca-40',  name:'Calcium-40',      Z:20, A:40,  type:'stable', hl:'Stable',           hlSec:Infinity,  notes:'Most abundant calcium isotope'},
+  {sym:'Co-57',  name:'Cobalt-57',       Z:27, A:57,  type:'gamma',  hl:'271.8 days',       hlSec:2.35e7,    notes:'EC + γ; used in Mössbauer spectroscopy'},
+  {sym:'Co-60',  name:'Cobalt-60',       Z:27, A:60,  type:'gamma',  hl:'5.27 years',       hlSec:1.66e8,    notes:'β⁻ + γ; used in cancer radiotherapy and food irradiation'},
+  {sym:'Kr-85',  name:'Krypton-85',      Z:36, A:85,  type:'beta',   hl:'10.76 years',      hlSec:3.39e8,    notes:'β⁻; fission product; atmospheric tracer'},
+  {sym:'Sr-90',  name:'Strontium-90',    Z:38, A:90,  type:'beta',   hl:'28.8 years',       hlSec:9.09e8,    notes:'β⁻; fission product; bone-seeker hazard'},
+  {sym:'Tc-99m', name:'Technetium-99m',  Z:43, A:99,  type:'gamma',  hl:'6.01 hours',       hlSec:2.16e4,    notes:'γ; most widely used medical diagnostic isotope'},
+  {sym:'I-131',  name:'Iodine-131',      Z:53, A:131, type:'beta',   hl:'8.02 days',        hlSec:6.93e5,    notes:'β⁻ + γ; thyroid cancer treatment; Chernobyl hazard'},
+  {sym:'Xe-133', name:'Xenon-133',       Z:54, A:133, type:'beta',   hl:'5.24 days',        hlSec:4.53e5,    notes:'β⁻ + γ; fission product; lung imaging'},
+  {sym:'Cs-137', name:'Cesium-137',      Z:55, A:137, type:'beta',   hl:'30.17 years',      hlSec:9.51e8,    notes:'β⁻ + γ; fission product; major fallout hazard'},
+  {sym:'Ba-133', name:'Barium-133',      Z:56, A:133, type:'gamma',  hl:'10.54 years',      hlSec:3.32e8,    notes:'EC + γ; calibration source'},
+  {sym:'La-138', name:'Lanthanum-138',   Z:57, A:138, type:'beta',   hl:'102 billion yr',   hlSec:3.22e18,   notes:'β⁻/EC; nearly stable primordial isotope'},
+  {sym:'Sm-147', name:'Samarium-147',    Z:62, A:147, type:'alpha',  hl:'106 billion yr',   hlSec:3.35e18,   notes:'α; primordial; used in Sm-Nd dating'},
+  {sym:'Eu-152', name:'Europium-152',    Z:63, A:152, type:'gamma',  hl:'13.54 years',      hlSec:4.27e8,    notes:'β/EC + γ; gamma calibration standard'},
+  {sym:'Lu-177', name:'Lutetium-177',    Z:71, A:177, type:'beta',   hl:'6.65 days',        hlSec:5.74e5,    notes:'β⁻; targeted cancer therapy'},
+  {sym:'W-187',  name:'Tungsten-187',    Z:74, A:187, type:'beta',   hl:'23.9 hours',       hlSec:8.60e4,    notes:'β⁻; short-lived activation product'},
+  {sym:'Re-187', name:'Rhenium-187',     Z:75, A:187, type:'beta',   hl:'41.2 billion yr',  hlSec:1.30e18,   notes:'β⁻; nearly stable; Re-Os geochronology'},
+  {sym:'Os-191', name:'Osmium-191',      Z:76, A:191, type:'beta',   hl:'15.4 days',        hlSec:1.33e6,    notes:'β⁻; used in iridium generator systems'},
+  {sym:'Ir-192', name:'Iridium-192',     Z:77, A:192, type:'beta',   hl:'73.8 days',        hlSec:6.37e6,    notes:'β⁻ + γ; brachytherapy source; industrial radiography'},
+  {sym:'Tl-201', name:'Thallium-201',    Z:81, A:201, type:'gamma',  hl:'72.9 hours',       hlSec:2.62e5,    notes:'EC + γ; cardiac stress imaging'},
+  {sym:'Pb-210', name:'Lead-210',        Z:82, A:210, type:'beta',   hl:'22.3 years',       hlSec:7.04e8,    notes:'β⁻; uranium decay chain; in bones'},
+  {sym:'Pb-214', name:'Lead-214',        Z:82, A:214, type:'beta',   hl:'26.8 min',         hlSec:1608,      notes:'β⁻; radon-222 decay product'},
+  {sym:'Bi-212', name:'Bismuth-212',     Z:83, A:212, type:'alpha',  hl:'60.55 min',        hlSec:3633,      notes:'α/β; thorium decay chain'},
+  {sym:'Bi-214', name:'Bismuth-214',     Z:83, A:214, type:'beta',   hl:'19.9 min',         hlSec:1194,      notes:'β⁻; radon chain; indoor radon hazard'},
+  {sym:'Po-210', name:'Polonium-210',    Z:84, A:210, type:'alpha',  hl:'138.4 days',       hlSec:1.19e7,    notes:'α; in anti-static devices; very toxic'},
+  {sym:'Po-214', name:'Polonium-214',    Z:84, A:214, type:'alpha',  hl:'163.7 µs',         hlSec:1.637e-4,  notes:'α; extremely short half-life; in radon chain'},
+  {sym:'Po-218', name:'Polonium-218',    Z:84, A:218, type:'alpha',  hl:'3.05 min',         hlSec:183,       notes:'α; radon-222 decay product'},
+  {sym:'At-211', name:'Astatine-211',    Z:85, A:211, type:'alpha',  hl:'7.21 hours',       hlSec:2.60e4,    notes:'α; targeted alpha therapy candidate'},
+  {sym:'Rn-219', name:'Radon-219',       Z:86, A:219, type:'alpha',  hl:'3.96 s',           hlSec:3.96,      notes:'α; actinium series'},
+  {sym:'Rn-220', name:'Radon-220',       Z:86, A:220, type:'alpha',  hl:'55.6 s',           hlSec:55.6,      notes:'α; thoron; thorium decay chain'},
+  {sym:'Rn-222', name:'Radon-222',       Z:86, A:222, type:'alpha',  hl:'3.82 days',        hlSec:3.30e5,    notes:'α; main indoor radon hazard'},
+  {sym:'Ra-224', name:'Radium-224',      Z:88, A:224, type:'alpha',  hl:'3.63 days',        hlSec:3.14e5,    notes:'α; thorium-228 decay product'},
+  {sym:'Ra-226', name:'Radium-226',      Z:88, A:226, type:'alpha',  hl:'1600 years',       hlSec:5.05e10,   notes:'α + γ; Curie\'s element'},
+  {sym:'Ra-228', name:'Radium-228',      Z:88, A:228, type:'beta',   hl:'5.75 years',       hlSec:1.81e8,    notes:'β⁻; thorium-232 decay chain'},
+  {sym:'Ac-225', name:'Actinium-225',    Z:89, A:225, type:'alpha',  hl:'9.9 days',         hlSec:8.55e5,    notes:'α; targeted alpha therapy'},
+  {sym:'Th-232', name:'Thorium-232',     Z:90, A:232, type:'alpha',  hl:'14.05 billion yr', hlSec:4.43e17,   notes:'α; primordial; more abundant than uranium in crust'},
+  {sym:'Th-234', name:'Thorium-234',     Z:90, A:234, type:'beta',   hl:'24.1 days',        hlSec:2.08e6,    notes:'β⁻ + γ; first product in U-238 decay chain'},
+  {sym:'U-235',  name:'Uranium-235',     Z:92, A:235, type:'alpha',  hl:'703.8 million yr', hlSec:2.22e16,   notes:'α; fissile nuclear fuel'},
+  {sym:'U-238',  name:'Uranium-238',     Z:92, A:238, type:'alpha',  hl:'4.47 billion yr',  hlSec:1.41e17,   notes:'α; 99.27% of natural uranium'},
+  {sym:'Pu-239', name:'Plutonium-239',   Z:94, A:239, type:'alpha',  hl:'24,110 years',     hlSec:7.61e11,   notes:'α; fissile; nuclear weapons and reactors'},
+  {sym:'Am-241', name:'Americium-241',   Z:95, A:241, type:'alpha',  hl:'432.2 years',      hlSec:1.36e10,   notes:'α + γ; in smoke detectors'},
+];
+
+// ===================== STATE =====================
+let currentFilter = 'all';
+let selectedIso = null;
+let simRunning = false, simAnimId = null;
+let atoms = [];
+let simN0 = 100, simHLsec = 10, simSpeed = 1, simType = 'beta';
+let simElapsed = 0, simLastTime = null;
+let activityChart = null;
+// Live chart
+let liveChart = null;
+let liveTimeData = [], liveNData = [];
+
+// ===================== HELPERS =====================
+function adjustStepper(id, delta) {
+  const el = document.getElementById(id);
+  let v = (+el.value || 0) + delta;
+  v = Math.max(+el.min, Math.min(+el.max, v));
+  el.value = v;
+  document.getElementById(id + '-range').value = v;
+  updateSimCtrl();
+}
+function syncRange(id, val) {
+  document.getElementById(id).value = val;
+}
+function clampStepper(id, mn, mx) {
+  const el = document.getElementById(id);
+  let v = +el.value;
+  if (isNaN(v)) v = mn;
+  v = Math.max(mn, Math.min(mx, v));
+  el.value = v;
+  document.getElementById(id + '-range').value = v;
+}
+
+function formatTime(sec) {
+  if (sec < 1e-3) return (sec*1e6).toFixed(1) + ' µs';
+  if (sec < 1) return (sec*1000).toFixed(1) + ' ms';
+  if (sec < 120) return sec.toFixed(2) + ' s';
+  if (sec < 7200) return (sec/60).toFixed(2) + ' min';
+  if (sec < 172800) return (sec/3600).toFixed(2) + ' h';
+  if (sec < 3.15e7) return (sec/86400).toFixed(2) + ' days';
+  if (sec < 3.15e10) return (sec/3.15e7).toFixed(3) + ' yr';
+  return (sec/3.15e7).toExponential(3) + ' yr';
+}
+
+function applyHlPreset() {
+  const sel = document.getElementById('s-hl-preset');
+  if (sel.value === 'custom') return;
+  const sec = parseFloat(sel.value);
+  // Pick best unit
+  let val, unit;
+  if (sec < 60) { val = sec; unit = '1'; }
+  else if (sec < 3600) { val = +(sec/60).toFixed(2); unit = '60'; }
+  else if (sec < 86400) { val = +(sec/3600).toFixed(2); unit = '3600'; }
+  else if (sec < 3.15e7) { val = +(sec/86400).toFixed(2); unit = '86400'; }
+  else { val = +(sec/3.15e7).toFixed(3); unit = '31557600'; }
+  document.getElementById('s-hl-val').value = val;
+  document.getElementById('s-hl-unit').value = unit;
+  updateSimCtrl();
+}
+
+function getSimHLsec() {
+  const val = parseFloat(document.getElementById('s-hl-val').value) || 10;
+  const unit = parseFloat(document.getElementById('s-hl-unit').value) || 1;
+  return val * unit;
+}
+
+function updateSimCtrl() {
+  simN0 = Math.min(500, Math.max(1, +document.getElementById('s-initial').value || 100));
+  document.getElementById('s-initial').value = simN0;
+  document.getElementById('s-initial-range').value = simN0;
+  simHLsec = getSimHLsec();
+  simSpeed = +document.getElementById('s-speed').value || 1;
+  simType = document.getElementById('s-type').value;
+  document.getElementById('s-speed-val').textContent = '×' + simSpeed;
+  document.getElementById('hl-display').textContent = 't½ = ' + formatTime(simHLsec);
+}
+
+// ===================== ISOTOPE TABLE =====================
+function renderIsoTable() {
+  const q = document.getElementById('iso-search').value.toLowerCase();
+  const tbody = document.getElementById('iso-tbody');
+  tbody.innerHTML = '';
+  ISOTOPES.filter(iso => {
+    if (currentFilter !== 'all' && iso.type !== currentFilter) return false;
+    if (q && !iso.sym.toLowerCase().includes(q) && !iso.name.toLowerCase().includes(q)) return false;
+    return true;
+  }).forEach(iso => {
+    const tr = document.createElement('tr');
+    if (selectedIso && selectedIso.sym === iso.sym) tr.classList.add('selected');
+    tr.innerHTML = `<td style="font-family:var(--mono);font-weight:500">${iso.sym}</td>
+      <td>${iso.name}</td>
+      <td><span class="rad-badge rad-${iso.type}">${iso.type==='stable'?'Stable':iso.type==='alpha'?'α':iso.type==='beta'?'β':'γ'}</span></td>
+      <td style="font-size:12px;color:var(--text2)">${iso.hl}</td>`;
+    tr.onclick = () => selectIso(iso);
+    tbody.appendChild(tr);
+  });
+}
+function filterIsotopes() { renderIsoTable(); }
+function setFilter(f) {
+  currentFilter = f;
+  ['all','alpha','beta','gamma','stable'].forEach(x => {
+    document.getElementById('pill-'+x)?.classList.toggle('active', x===f);
+  });
+  renderIsoTable();
+}
+function selectIso(iso) {
+  selectedIso = iso;
+  renderIsoTable();
+  const panel = document.getElementById('iso-detail');
+  const typeLabel = iso.type==='alpha'?'Alpha (α)':iso.type==='beta'?'Beta (β)':iso.type==='gamma'?'Gamma (γ)':'Stable';
+  panel.innerHTML = `
+    <div class="iso-info">
+      <div class="iso-symbol">
+        <div class="sym">${iso.sym.split('-')[0]}</div>
+        <div class="num">${iso.sym}</div>
+      </div>
+      <div class="iso-details">
+        <div class="iso-name">${iso.name}</div>
+        <div class="iso-meta">Z = ${iso.Z} · A = ${iso.A} · N = ${iso.A-iso.Z} neutrons</div>
+        <div class="iso-meta">Radiation: <span class="rad-badge rad-${iso.type}" style="margin-left:4px">${typeLabel}</span></div>
+        <div class="iso-meta">Half-life: <span class="iso-hl">${iso.hl}</span></div>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-top:4px">${iso.notes}</p>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="applyIsoToSim()">Use in simulation</button>
+      <button class="btn" onclick="applyIsoToGraph()">Use in graph</button>
+    </div>`;
+}
+function applyIsoToSim() {
+  if (!selectedIso) return;
+  if (selectedIso.type === 'stable') { alert('Stable isotope — no decay.'); return; }
+  const sec = selectedIso.hlSec;
+  let val, unit;
+  if (sec < 60) { val = +sec.toFixed(4); unit = '1'; }
+  else if (sec < 3600) { val = +(sec/60).toFixed(2); unit = '60'; }
+  else if (sec < 86400) { val = +(sec/3600).toFixed(2); unit = '3600'; }
+  else if (sec < 3.15e7) { val = +(sec/86400).toFixed(2); unit = '86400'; }
+  else { val = +(sec/3.15e7).toFixed(3); unit = '31557600'; }
+  document.getElementById('s-hl-val').value = val;
+  document.getElementById('s-hl-unit').value = unit;
+  document.getElementById('s-hl-preset').value = 'custom';
+  document.getElementById('s-type').value = selectedIso.type === 'gamma' ? 'gamma' : selectedIso.type;
+  updateSimCtrl(); resetSim();
+  switchTab('simulation', document.getElementById('tbtn-simulation'));
+}
+function applyIsoToGraph() {
+  if (!selectedIso) return;
+  if (selectedIso.type === 'stable') { alert('Stable isotope — nothing to plot.'); return; }
+  const hlSec = selectedIso.hlSec;
+  let hlVal, hlUnit;
+  if (hlSec < 120) { hlVal=Math.round(hlSec); hlUnit='1'; }
+  else if (hlSec < 7200) { hlVal=+(hlSec/60).toFixed(1); hlUnit='60'; }
+  else if (hlSec < 86400*5) { hlVal=+(hlSec/3600).toFixed(1); hlUnit='3600'; }
+  else if (hlSec < 86400*3650) { hlVal=+(hlSec/86400).toFixed(1); hlUnit='86400'; }
+  else { hlVal=+(hlSec/31557600).toFixed(2); hlUnit='31557600'; }
+  document.getElementById('g-hl-val').value = hlVal;
+  document.getElementById('g-hl-unit').value = hlUnit;
+  drawGraph();
+  switchTab('graph', document.getElementById('tbtn-graph'));
+}
+
+// ===================== SIMULATION =====================
+function initAtoms(n) {
+  const canvas = document.getElementById('sim-canvas');
+  const W = canvas.offsetWidth || 600;
+  const H = 280; canvas.width = W; canvas.height = H;
+  const cols = Math.ceil(Math.sqrt(n * W / H));
+  const rows = Math.ceil(n / cols);
+  const gw = W/cols, gh = H/rows;
+  atoms = [];
+  let id = 0;
+  for (let r = 0; r < rows && id < n; r++) {
+    for (let c = 0; c < cols && id < n; c++) {
+      const x = gw*c + gw*0.5 + (Math.random()-0.5)*gw*0.3;
+      const y = gh*r + gh*0.5 + (Math.random()-0.5)*gh*0.3;
+      const radius = Math.max(3, Math.min(12, gw*0.26));
+      atoms.push({ x, y, r: radius, decayed: false, scintillate: 0 });
+      id++;
+    }
+  }
+}
+
+function resetSim() {
+  simRunning = false;
+  if (simAnimId) cancelAnimationFrame(simAnimId);
+  simElapsed = 0; simLastTime = null;
+  document.getElementById('sim-playbtn').textContent = '▶ Start';
+  updateSimCtrl();
+  initAtoms(simN0);
+  drawSim(); updateSimStats();
+  // Reset live chart
+  liveTimeData = []; liveNData = [];
+  initLiveChart();
+}
+
+function toggleSim() {
+  simRunning = !simRunning;
+  document.getElementById('sim-playbtn').textContent = simRunning ? '⏸ Pause' : '▶ Resume';
+  if (simRunning) { simLastTime = null; simAnimId = requestAnimationFrame(simLoop); }
+}
+
+function simLoop(ts) {
+  if (!simRunning) return;
+  if (!simLastTime) simLastTime = ts;
+  const rawDt = (ts - simLastTime) / 1000;
+  simLastTime = ts;
+  const dt = rawDt * simSpeed;
+  simElapsed += dt;
+  const lambda = Math.log(2) / simHLsec;
+  const pDecay = 1 - Math.exp(-lambda * dt);
+  atoms.forEach(a => {
+    if (!a.decayed && Math.random() < pDecay) { a.decayed = true; a.scintillate = 1.0; }
+    if (a.scintillate > 0) a.scintillate = Math.max(0, a.scintillate - rawDt * 3);
+  });
+  drawSim(); updateSimStats();
+  updateLiveChart();
+  const remaining = atoms.filter(a => !a.decayed).length;
+  if (remaining > 0) simAnimId = requestAnimationFrame(simLoop);
+  else { simRunning = false; document.getElementById('sim-playbtn').textContent = '▶ Start'; }
+}
+
+function drawSim() {
+  const canvas = document.getElementById('sim-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const typeColor = { alpha:'#ff6b35', beta:'#3df0c8', gamma:'#c77dff' };
+  const col = typeColor[simType] || '#4d8cff';
+  const [cr, cg, cb] = col.replace('#','').match(/../g).map(h=>parseInt(h,16));
+  atoms.forEach(a => {
+    const sc = a.scintillate;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, a.r * (a.decayed ? 1 : 1 + sc*0.4), 0, Math.PI*2);
+    if (a.decayed) {
+      ctx.fillStyle = sc > 0 ? `rgba(${cr},${cg},${cb},${0.2+sc*0.6})` : 'rgba(60,80,120,0.35)';
+      ctx.strokeStyle = sc > 0 ? col : 'rgba(60,80,120,0.5)';
+    } else {
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${0.18+sc*0.5})`;
+      ctx.strokeStyle = sc > 0 ? '#fff' : col;
+    }
+    ctx.lineWidth = sc > 0 ? 1.5 : 0.8;
+    ctx.fill(); ctx.stroke();
+    if (!a.decayed && !sc) {
+      ctx.beginPath();
+      ctx.arc(a.x - a.r*0.28, a.y - a.r*0.28, a.r*0.18, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fill();
+    }
+  });
+}
+
+function updateSimStats() {
+  const undecayed = atoms.filter(a => !a.decayed).length;
+  document.getElementById('s-undecayed').textContent = undecayed;
+  document.getElementById('s-decayed').textContent = atoms.length - undecayed;
+  document.getElementById('s-elapsed').textContent = formatTime(simElapsed);
+  document.getElementById('s-halflives').textContent = (simElapsed / simHLsec).toFixed(2);
+}
+
+// ===================== LIVE CHART =====================
+let liveChartLastRecordedHL = -1;
+const LIVE_SAMPLE_INTERVAL_HL = 0.05; // record every 0.05 half-lives
+
+function initLiveChart() {
+  if (liveChart) liveChart.destroy();
+  const ctx = document.getElementById('live-chart').getContext('2d');
+  liveChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Observed N',
+          data: [],
+          borderColor: '#3df0c8',
+          backgroundColor: 'rgba(61,240,200,0.07)',
+          pointRadius: 0, borderWidth: 2, tension: 0.3, fill: true, order: 1
+        },
+        {
+          label: 'Theoretical',
+          data: [],
+          borderColor: 'rgba(77,140,255,0.5)',
+          backgroundColor: 'transparent',
+          pointRadius: 0, borderWidth: 1.5, tension: 0.3,
+          borderDash: [5,4], fill: false, order: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#141c32', borderColor: 'rgba(100,140,255,0.2)', borderWidth: 1,
+          titleColor: '#8899cc', bodyColor: '#e8eeff',
+          callbacks: {
+            title: ctx => `t = ${ctx[0].label} t½`,
+            label: ctx => ` ${ctx.dataset.label}: ${Math.round(ctx.raw.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Time (half-lives)', color: '#4a5880', font:{size:10} },
+          ticks: { color: '#4a5880', font:{size:10},
+            callback: v => Number.isInteger(v) || v*2 === Math.round(v*2) ? v : '' },
+          grid: { color: 'rgba(100,140,255,0.06)' }
+        },
+        y: {
+          title: { display: true, text: 'Nuclei remaining', color: '#4a5880', font:{size:10} },
+          ticks: { color: '#4a5880', font:{size:10} },
+          grid: { color: 'rgba(100,140,255,0.06)' },
+          min: 0
+        }
+      }
+    }
+  });
+  liveChartLastRecordedHL = -1;
+}
+
+function updateLiveChart() {
+  const hlCount = simElapsed / simHLsec;
+  if (hlCount - liveChartLastRecordedHL < LIVE_SAMPLE_INTERVAL_HL) return;
+  liveChartLastRecordedHL = hlCount;
+  const observed = atoms.filter(a => !a.decayed).length;
+  const theoretical = simN0 * Math.pow(0.5, hlCount);
+  liveChart.data.datasets[0].data.push({ x: +hlCount.toFixed(3), y: observed });
+  liveChart.data.datasets[1].data.push({ x: +hlCount.toFixed(3), y: +theoretical.toFixed(2) });
+  liveChart.update('none');
+}
+
+// ===================== GRAPH TAB =====================
+function drawGraph() {
+  const N0 = +document.getElementById('g-initial').value || 800;
+  const hlVal = +document.getElementById('g-hl-val').value || 20;
+  const hlUnit = +document.getElementById('g-hl-unit').value || 1;
+  const hlSec = hlVal * hlUnit;
+  const bgCount = +document.getElementById('g-bg').value || 0;
+  const showBg = document.getElementById('g-show-bg').checked;
+  const showCorrected = document.getElementById('g-show-corrected').checked;
+  const showExpected = document.getElementById('g-show-expected').checked;
+  const tmaxHL = +document.getElementById('g-tmax').value || 5;
+  document.getElementById('g-tmax-label').textContent = tmaxHL;
+
+  // Generate clean x-axis ticks (multiples of 1 half-life, or 0.5 if tmax ≤ 3)
+  const steps = 200;
+  const labels = [], measured = [], corrected = [], theoretical = [];
+
+  // Build tick positions: we want clean half-life multiples
+  // Use tmaxHL as range, pick tick spacing based on tmax
+  let tickSpacing = 1;
+  if (tmaxHL <= 2) tickSpacing = 0.25;
+  else if (tmaxHL <= 5) tickSpacing = 0.5;
+  else tickSpacing = 1;
+
+  for (let i = 0; i <= steps; i++) {
+    const t_hl = (i / steps) * tmaxHL; // time in half-lives
+    const N = N0 * Math.pow(0.5, t_hl);
+    labels.push(+t_hl.toFixed(4));
+    measured.push(+(N + (showBg ? bgCount : 0)).toFixed(1));
+    corrected.push(+N.toFixed(1));
+    theoretical.push(+N.toFixed(1));
+  }
+
+  const unitLabels = {'1':'s','60':'min','3600':'h','86400':'days','31557600':'yr'};
+  const uLabel = unitLabels[hlUnit] || 's';
+  const xLabel = `Time (half-lives) — 1 t½ = ${hlVal} ${uLabel}`;
+
+  // Determine nice tick callback
+  const tickCb = (value) => {
+    const rounded = Math.round(value / tickSpacing) * tickSpacing;
+    if (Math.abs(value - rounded) < 1e-6) {
+      // Format label: show actual time value
+      const sec = value * hlSec;
+      return `${value} t½`;
+    }
+    return '';
+  };
+
+  const datasets = [];
+  const colMap = ['#ffd166','#3df0c8','rgba(77,140,255,0.7)','rgba(255,100,100,0.7)'];
+  const pushIdx = [];
+  if (showBg) { datasets.push({ label:'Measured (with background)', data:measured, borderColor:'#ffd166', backgroundColor:'rgba(255,209,102,0.05)', pointRadius:0, borderWidth:2, tension:0.3, fill:false, borderDash:[5,3] }); pushIdx.push(0); }
+  if (showCorrected) { datasets.push({ label:'Corrected count rate', data:corrected, borderColor:'#3df0c8', backgroundColor:'rgba(61,240,200,0.06)', pointRadius:0, borderWidth:2.5, tension:0.3, fill:false }); pushIdx.push(1); }
+  if (showExpected) { datasets.push({ label:'N = N₀×(½)ⁿ', data:theoretical, borderColor:'rgba(77,140,255,0.45)', backgroundColor:'transparent', pointRadius:0, borderWidth:1.5, tension:0.3, fill:false, borderDash:[3,4] }); pushIdx.push(2); }
+  if (showBg) { datasets.push({ label:'Background', data:Array(steps+1).fill(bgCount), borderColor:'rgba(255,100,100,0.4)', backgroundColor:'transparent', pointRadius:0, borderWidth:1, tension:0, fill:false, borderDash:[2,6] }); pushIdx.push(3); }
+
+  document.getElementById('graph-legend').innerHTML = datasets.map((d,i) =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${colMap[pushIdx[i]]||'#888'}"></div>${d.label}</div>`
+  ).join('');
+
+  if (activityChart) activityChart.destroy();
+  const ctx2 = document.getElementById('activity-chart').getContext('2d');
+  activityChart = new Chart(ctx2, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor:'#141c32', borderColor:'rgba(100,140,255,0.2)', borderWidth:1,
+          titleColor:'#8899cc', bodyColor:'#e8eeff',
+          callbacks: {
+            title: ctx => {
+              const hl = ctx[0].label;
+              const sec = parseFloat(hl) * hlSec;
+              return `t = ${hl} t½  (${formatTime(sec)})`;
+            },
+            label: ctx => ` ${ctx.dataset.label}: ${Math.round(ctx.raw)} Bq`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: xLabel, color:'#4a5880', font:{size:11} },
+          ticks: {
+            color:'#4a5880', font:{size:11},
+            maxTicksLimit: tmaxHL * (1/tickSpacing) + 1,
+            callback: tickCb
+          },
+          grid: { color:'rgba(100,140,255,0.06)' }
+        },
+        y: {
+          title: { display: true, text:'Count rate (Bq)', color:'#4a5880', font:{size:11} },
+          ticks: { color:'#4a5880', font:{size:11} },
+          grid: { color:'rgba(100,140,255,0.06)' },
+          min: 0
+        }
+      }
+    }
+  });
+}
+
+// ===================== TABS =====================
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'graph') drawGraph();
+  if (id === 'simulation') resetSim();
+}
+
+// ===================== INIT =====================
+renderIsoTable();
+updateSimCtrl();
+resetSim();
+drawGraph();
+</script>
+</body>
+</html>
