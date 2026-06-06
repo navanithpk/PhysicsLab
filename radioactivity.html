@@ -335,6 +335,8 @@ select:focus { border-color: var(--accent); }
   <button class="tab-btn active" id="tbtn-isotopes" onclick="switchTab('isotopes', this)">Isotope Library</button>
   <button class="tab-btn" id="tbtn-simulation" onclick="switchTab('simulation', this)">Random Decay</button>
   <button class="tab-btn" id="tbtn-graph" onclick="switchTab('graph', this)">Activity vs Time</button>
+  <button class="tab-btn" id="tbtn-penetration" onclick="switchTab('penetration', this)">☢ Penetration</button>
+  <button class="tab-btn" id="tbtn-deflection" onclick="switchTab('deflection', this)">⚡ Deflection</button>
   <button class="tab-btn" id="tbtn-reference" onclick="switchTab('reference', this)">Radiation Types</button>
 </div>
 
@@ -562,7 +564,182 @@ select:focus { border-color: var(--accent); }
   </div>
 </div>
 
-<!-- TAB 4: REFERENCE -->
+<!-- TAB 4: PENETRATION LAB -->
+<div id="tab-penetration" class="tab-content">
+<div style="display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start">
+  <!-- Controls -->
+  <div>
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-title">Source &amp; Radiation</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:6px">Radiation type</div>
+        <div style="display:flex;gap:6px">
+          <button class="pen-type-btn" id="pen-alpha" onclick="setPenType('alpha',this)" style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--alpha);background:rgba(255,107,53,0.12);color:var(--alpha);font-weight:600;font-size:13px;cursor:pointer;transition:all .15s">α Alpha</button>
+          <button class="pen-type-btn" id="pen-beta"  onclick="setPenType('beta',this)"  style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-weight:600;font-size:13px;cursor:pointer;transition:all .15s">β Beta</button>
+          <button class="pen-type-btn" id="pen-gamma" onclick="setPenType('gamma',this)" style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-weight:600;font-size:13px;cursor:pointer;transition:all .15s">γ Gamma</button>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Source activity <span id="pen-src-lbl" style="font-family:var(--mono);color:var(--accent2);font-size:11px">1000 Bq</span></div>
+        <input type="range" id="pen-source" min="100" max="5000" value="1000" step="50" oninput="penUpdate()" style="width:100%;accent-color:var(--accent)">
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Background <span id="pen-bg-lbl" style="font-family:var(--mono);color:var(--text3);font-size:11px">20 Bq</span></div>
+        <input type="range" id="pen-bg" min="0" max="200" value="20" step="1" oninput="penUpdate()" style="width:100%;accent-color:var(--text3)">
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-title">Absorber</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:6px">Material</div>
+        <select id="pen-material" onchange="penMaterialChange()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;outline:none">
+          <option value="none">None (Air only)</option>
+          <option value="paper">Paper</option>
+          <option value="aluminium">Aluminium sheet</option>
+          <option value="lead">Lead block</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Thickness <span id="pen-thick-lbl" style="font-family:var(--mono);color:var(--accent2);font-size:11px">1.0 mm</span></div>
+        <input type="range" id="pen-thick" min="0.1" max="100" value="1" step="0.1" oninput="penUpdate()" style="width:100%;accent-color:var(--accent)">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px"><span>0.1 mm</span><span id="pen-thick-max-lbl">100 mm</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Detector Position</div>
+      <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Distance from source <span id="pen-dist-lbl" style="font-family:var(--mono);color:var(--accent2);font-size:11px">30 cm</span></div>
+      <input type="range" id="pen-dist" min="5" max="100" value="30" step="1" oninput="penUpdate()" style="width:100%;accent-color:var(--accent)">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px"><span>5 cm</span><span>100 cm</span></div>
+    </div>
+  </div>
+
+  <!-- Simulation canvas + counter -->
+  <div>
+    <!-- 7-segment counter -->
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:500">Count Rate</div>
+        <canvas id="seg-canvas" width="240" height="54" style="display:block"></canvas>
+        <div style="font-size:10px;color:var(--text3)">Bq (counts/sec)</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--teal)" id="pen-transmitted">1000</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Transmitted</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--rose)" id="pen-absorbed">0</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Absorbed</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--gold)" id="pen-pct">100%</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Penetrates</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center">
+          <div style="font-size:14px;font-weight:600;color:var(--accent2)" id="pen-verdict">Passes</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Verdict</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene canvas -->
+    <div style="background:#060914;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <canvas id="pen-canvas" height="300" style="width:100%;display:block"></canvas>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px" id="pen-note">α particles stopped by a sheet of paper. β stopped by mm-thick aluminium. γ requires cm-thick lead.</div>
+  </div>
+</div>
+</div>
+
+<!-- TAB 5: DEFLECTION LAB -->
+<div id="tab-deflection" class="tab-content">
+<div style="display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start">
+  <!-- Controls -->
+  <div>
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-title">Particle Type</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="def-type-btn" id="def-all-btn" onclick="setDefType('all',this)" style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--border2);background:var(--bg4);color:var(--text);font-weight:600;font-size:12px;cursor:pointer;transition:all .15s">All</button>
+        <button class="def-type-btn" id="def-alpha-btn" onclick="setDefType('alpha',this)" style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-weight:600;font-size:12px;cursor:pointer;transition:all .15s">α</button>
+        <button class="def-type-btn" id="def-beta-btn" onclick="setDefType('beta',this)" style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-weight:600;font-size:12px;cursor:pointer;transition:all .15s">β</button>
+        <button class="def-type-btn" id="def-gamma-btn" onclick="setDefType('gamma',this)" style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-weight:600;font-size:12px;cursor:pointer;transition:all .15s">γ</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-title">Electric Field (Plates)</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Plate voltage <span id="def-volt-lbl" style="font-family:var(--mono);color:var(--accent2);font-size:11px">500 V</span></div>
+        <input type="range" id="def-voltage" min="0" max="5000" value="500" step="50" oninput="defUpdate()" style="width:100%;accent-color:var(--accent)">
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Plate separation <span id="def-sep-lbl" style="font-family:var(--mono);color:var(--accent2);font-size:11px">8 cm</span></div>
+        <input type="range" id="def-sep" min="2" max="20" value="8" step="0.5" oninput="defUpdate()" style="width:100%;accent-color:var(--accent)">
+      </div>
+      <div style="margin-bottom:6px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Polarity</div>
+        <div style="display:flex;gap:6px">
+          <button id="def-pol-btn" onclick="togglePolarity()" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s">Top: + &nbsp; Bot: −</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-title">Magnetic Field</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Field strength B <span id="def-B-lbl" style="font-family:var(--mono);color:var(--purple);font-size:11px">0 T</span></div>
+        <input type="range" id="def-B" min="0" max="2" value="0" step="0.05" oninput="defUpdate()" style="width:100%;accent-color:var(--purple)">
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">B direction</div>
+        <select id="def-B-dir" onchange="defUpdate()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;outline:none">
+          <option value="out">Out of page (⊙)</option>
+          <option value="in">Into page (⊗)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Particle Speed</div>
+      <div style="font-size:12px;color:var(--text2);font-weight:500;margin-bottom:5px">Initial speed <span id="def-speed-lbl" style="font-family:var(--mono);color:var(--accent2);font-size:11px">0.10 c</span></div>
+      <input type="range" id="def-speed" min="1" max="99" value="10" step="1" oninput="defUpdate()" style="width:100%;accent-color:var(--accent)">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px"><span>0.01c</span><span>0.99c</span></div>
+      <button onclick="defReset()" style="width:100%;margin-top:12px;padding:8px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">↺ Reset trails</button>
+    </div>
+  </div>
+
+  <!-- Deflection canvas -->
+  <div>
+    <!-- Info strip -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      <div style="background:var(--bg3);border:1px solid rgba(255,107,53,.3);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--alpha)" id="def-alpha-def">—</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">α deflection</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid rgba(61,240,200,.25);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--beta)" id="def-beta-def">—</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">β deflection</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid rgba(199,125,255,.25);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:700;font-family:var(--mono);color:var(--gamma)" id="def-gamma-def">Undeflected</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">γ deflection</div>
+      </div>
+    </div>
+    <div style="background:#060914;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <canvas id="def-canvas" height="400" style="width:100%;display:block"></canvas>
+    </div>
+    <div class="note" style="margin-top:8px" id="def-note">
+      <strong>α (+2e)</strong> deflects toward −ve plate, large curve (heavy, slow). &nbsp;
+      <strong>β (−e)</strong> deflects toward +ve plate, sharp curve (light, fast). &nbsp;
+      <strong>γ (0)</strong> unaffected by electric or magnetic fields.
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB 6: REFERENCE -->
 <div id="tab-reference" class="tab-content">
   <div class="rad-explain">
     <div class="rad-card alpha">
@@ -1097,14 +1274,674 @@ function drawGraph() {
   });
 }
 
+// ===================== PENETRATION LAB =====================
+let penType = 'alpha';
+let penAnimId = null;
+let penParticles = [];
+let penPolarity = 1; // unused here
+
+// Attenuation model — returns fraction that passes through material+thickness
+function penTransmission(type, material, thickMm) {
+  // alpha: stopped by a sheet of paper (~0.1 mm)
+  // beta: stopped by a few mm aluminium
+  // gamma: exponential attenuation in lead, half-value layer ~6mm at diagnostic energies
+  const t = thickMm;
+  if (material === 'none') return 1.0;
+  if (material === 'paper') {
+    if (type === 'alpha') return t < 0.1 ? 1.0 : 0.0;
+    if (type === 'beta')  return Math.exp(-t * 0.02);
+    if (type === 'gamma') return Math.exp(-t * 0.001);
+  }
+  if (material === 'aluminium') {
+    if (type === 'alpha') return 0.0; // stopped completely
+    if (type === 'beta')  return t < 3.0 ? Math.exp(-t * 0.9) : 0.0;
+    if (type === 'gamma') return Math.exp(-t * 0.008);
+  }
+  if (material === 'lead') {
+    if (type === 'alpha') return 0.0;
+    if (type === 'beta')  return 0.0;  // lead stops beta completely
+    if (type === 'gamma') {
+      const hvl = 6.0; // mm, diagnostic ~100keV
+      return Math.exp(-t * Math.log(2) / hvl);
+    }
+  }
+  return 1.0;
+}
+
+// Air attenuation (alpha has very short range in air ~3cm, beta ~1m, gamma negligible)
+function penAirAttenuation(type, distCm) {
+  if (type === 'alpha') return distCm <= 8 ? Math.exp(-distCm * 0.06) : Math.exp(-distCm * 0.6);
+  if (type === 'beta')  return Math.exp(-distCm * 0.003);
+  if (type === 'gamma') return Math.exp(-distCm * 0.0002);
+  return 1;
+}
+
+function setPenType(type, btn) {
+  penType = type;
+  document.querySelectorAll('.pen-type-btn').forEach(b => {
+    const t = b.id.replace('pen-','');
+    const cols = {alpha:'var(--alpha)',beta:'var(--beta)',gamma:'var(--gamma)'};
+    b.style.borderColor = b.id === 'pen-'+type ? cols[t] : 'var(--border)';
+    b.style.background  = b.id === 'pen-'+type ? `rgba(${t==='alpha'?'255,107,53':t==='beta'?'61,240,200':'199,125,255'},.15)` : 'var(--bg3)';
+    b.style.color = b.id === 'pen-'+type ? cols[t] : 'var(--text3)';
+  });
+  // adjust material defaults
+  const mat = document.getElementById('pen-material');
+  if (type === 'alpha' && mat.value === 'none') mat.value = 'paper';
+  if (type === 'beta'  && mat.value === 'paper') mat.value = 'aluminium';
+  if (type === 'gamma' && mat.value !== 'lead')  mat.value = 'lead';
+  penMaterialChange();
+  penUpdate();
+}
+
+function penMaterialChange() {
+  const mat = document.getElementById('pen-material').value;
+  const slider = document.getElementById('pen-thick');
+  const maxLbl = document.getElementById('pen-thick-max-lbl');
+  if (mat === 'paper')     { slider.max = 5;   slider.value = Math.min(slider.value, 5);   maxLbl.textContent = '5 mm'; }
+  if (mat === 'aluminium') { slider.max = 20;  slider.value = Math.min(slider.value, 20);  maxLbl.textContent = '20 mm'; }
+  if (mat === 'lead')      { slider.max = 100; slider.value = Math.min(slider.value, 100); maxLbl.textContent = '100 mm'; }
+  if (mat === 'none')      { slider.max = 0.1; slider.value = 0.1; maxLbl.textContent = '—'; }
+  penUpdate();
+}
+
+// Cached physics state — recomputed whenever a slider/control changes
+let penState = {
+  source:0, bg:0, material:'none', thickMm:1, distCm:30,
+  totalFrac:1, matTrans:1, airTrans:1, absorbed:0,
+  displayed:0  // the value shown on the 7-seg; updated once per second
+};
+let penCounterInterval = null;
+
+// Called whenever any control changes — recomputes physics, restarts scene loop
+function penUpdate() {
+  const source   = +document.getElementById('pen-source').value;
+  const bg       = +document.getElementById('pen-bg').value;
+  const material = document.getElementById('pen-material').value;
+  const thickMm  = +document.getElementById('pen-thick').value;
+  const distCm   = +document.getElementById('pen-dist').value;
+
+  document.getElementById('pen-src-lbl').textContent   = source + ' Bq';
+  document.getElementById('pen-bg-lbl').textContent    = bg + ' Bq';
+  document.getElementById('pen-thick-lbl').textContent = thickMm.toFixed(1) + ' mm';
+  document.getElementById('pen-dist-lbl').textContent  = distCm.toFixed(0) + ' cm';
+
+  const matTrans   = penTransmission(penType, material, thickMm);
+  const airTrans   = penAirAttenuation(penType, distCm);
+  const invSquare  = Math.min(1, Math.pow(10 / distCm, 2));
+  const totalFrac  = Math.min(1, matTrans * airTrans * invSquare);
+  const rawCount   = source * totalFrac;
+  const absorbed   = Math.round(source * (1 - totalFrac));
+
+  penState = { source, bg, material, thickMm, distCm,
+               totalFrac, matTrans, airTrans, absorbed,
+               displayed: penState.displayed }; // keep old display until next tick
+
+  // Update non-counter stats immediately
+  document.getElementById('pen-absorbed').textContent = absorbed.toLocaleString();
+  document.getElementById('pen-pct').textContent      = (totalFrac * 100).toFixed(1) + '%';
+
+  const verdictEl = document.getElementById('pen-verdict');
+  verdictEl.textContent = totalFrac > 0.5 ? 'Passes' : totalFrac > 0.01 ? 'Mostly blocked' : 'Stopped';
+  verdictEl.style.color = totalFrac > 0.5 ? 'var(--teal)' : totalFrac > 0.01 ? 'var(--gold)' : 'var(--rose)';
+
+  const notes = {
+    alpha: 'α particles (helium nuclei, +2e) are stopped by a sheet of paper or a few cm of air. Very high ionising power.',
+    beta:  'β particles (fast electrons) are stopped by a few mm of aluminium. Moderate ionising power.',
+    gamma: 'γ rays (photons) are exponentially attenuated by dense materials. Lead (several cm) reduces intensity significantly.'
+  };
+  document.getElementById('pen-note').textContent = notes[penType];
+
+  // Kick counter to show updated value immediately, then let interval take over
+  penTickCounter();
+
+  // Restart the scene animation loop
+  cancelAnimationFrame(penAnimId);
+  penAnimId = requestAnimationFrame(penSceneLoop);
+}
+
+// Called once per second by setInterval — updates the Geiger counter display with Poisson noise
+function penTickCounter() {
+  const { source, bg, totalFrac } = penState;
+  const rawCount = source * totalFrac;
+  // Poisson-distributed noise: variance = mean, so σ = √mean
+  const noise = (Math.random() + Math.random() + Math.random() + Math.random() - 2) * Math.sqrt(Math.max(1, rawCount + bg));
+  const displayed = Math.max(0, Math.round(rawCount + bg + noise));
+  penState.displayed = displayed;
+
+  draw7Seg(displayed);
+  document.getElementById('pen-transmitted').textContent = displayed.toLocaleString();
+
+  // Flash the LCD border to indicate a new reading
+  const seg = document.getElementById('seg-canvas');
+  if (seg) {
+    seg.style.outline = '1px solid #39ff1466';
+    setTimeout(() => { if (seg) seg.style.outline = 'none'; }, 180);
+  }
+}
+
+// 60fps loop — redraws the particle animation only, no counter recalculation
+function penSceneLoop() {
+  const { source, bg, material, thickMm, distCm, totalFrac, matTrans, airTrans } = penState;
+  penDrawScene(source, bg, material, thickMm, distCm, totalFrac, matTrans, airTrans);
+  penAnimId = requestAnimationFrame(penSceneLoop);
+}
+
+// Start the 1-second counter interval when the tab is activated
+function penStartInterval() {
+  if (penCounterInterval) clearInterval(penCounterInterval);
+  penCounterInterval = setInterval(penTickCounter, 1000);
+}
+function penStopInterval() {
+  if (penCounterInterval) clearInterval(penCounterInterval);
+  penCounterInterval = null;
+}
+
+// ── 7-Segment LCD Display ──────────────────────────────
+const SEG7 = {
+  //   a  b  c  d  e  f  g
+  0: [1, 1, 1, 1, 1, 1, 0],
+  1: [0, 1, 1, 0, 0, 0, 0],
+  2: [1, 1, 0, 1, 1, 0, 1],
+  3: [1, 1, 1, 1, 0, 0, 1],
+  4: [0, 1, 1, 0, 0, 1, 1],
+  5: [1, 0, 1, 1, 0, 1, 1],
+  6: [1, 0, 1, 1, 1, 1, 1],
+  7: [1, 1, 1, 0, 0, 0, 0],
+  8: [1, 1, 1, 1, 1, 1, 1],
+  9: [1, 1, 1, 1, 0, 1, 1],
+};
+
+function draw7Seg(value) {
+  const canvas = document.getElementById('seg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  // LCD green background
+  ctx.fillStyle = '#0a1a0a';
+  ctx.fillRect(0, 0, W, H);
+
+  const str = String(Math.min(99999, Math.round(value))).padStart(5, ' ');
+  const digitW = 44, gap = 4, offX = 6, offY = 5;
+  const segH = H - 10, segW = digitW - 8;
+  const sw = 3; // segment thickness
+
+  str.split('').forEach((ch, i) => {
+    const dx = offX + i * (digitW + gap);
+    const dy = offY;
+    // Background segments (dim)
+    ctx.fillStyle = '#1a2a1a';
+    drawDigit(ctx, 8, dx, dy, segW, segH, sw, '#1a2a1a');
+    if (ch !== ' ') {
+      const segs = SEG7[+ch];
+      if (segs) drawDigit(ctx, +ch, dx, dy, segW, segH, sw, '#39ff14');
+    }
+  });
+  // Unit
+  ctx.font = 'bold 10px JetBrains Mono';
+  ctx.fillStyle = '#39ff14';
+  ctx.textAlign = 'right';
+  ctx.fillText('Bq', W - 3, H - 4);
+}
+
+function drawDigit(ctx, digit, x, y, w, h, sw, color) {
+  const s = SEG7[digit] || [0,0,0,0,0,0,0];
+  const m = 3; // margin
+  ctx.fillStyle = color;
+  // a: top
+  if (s[0]) fillSeg(ctx, x+m,   y,        w-2*m, sw, color);
+  // b: top-right
+  if (s[1]) fillSeg(ctx, x+w-sw, y+m,      sw, h/2-m*2, color);
+  // c: bot-right
+  if (s[2]) fillSeg(ctx, x+w-sw, y+h/2+m,  sw, h/2-m*2, color);
+  // d: bottom
+  if (s[3]) fillSeg(ctx, x+m,   y+h-sw,   w-2*m, sw, color);
+  // e: bot-left
+  if (s[4]) fillSeg(ctx, x,     y+h/2+m,  sw, h/2-m*2, color);
+  // f: top-left
+  if (s[5]) fillSeg(ctx, x,     y+m,      sw, h/2-m*2, color);
+  // g: middle
+  if (s[6]) fillSeg(ctx, x+m,   y+h/2-sw/2, w-2*m, sw, color);
+}
+
+function fillSeg(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
+
+// ── Penetration scene ──────────────────────────────────
+function penResize() {
+  const canvas = document.getElementById('pen-canvas');
+  if (!canvas) return;
+  canvas.width = canvas.offsetWidth;
+}
+
+function penDrawScene(source, bg, material, thickMm, distCm, totalFrac, matTrans, airTrans) {
+  const canvas = document.getElementById('pen-canvas');
+  if (!canvas) return;
+  canvas.width = canvas.offsetWidth || 700;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = 300;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#060914'; ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(77,140,255,0.05)'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  const srcX = 44, midY = H / 2;
+  const matX = W * 0.42;
+  const detX = W - 60;
+
+  // ── Labels ──
+  ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'center';
+
+  // Distances along bottom
+  ctx.fillStyle = 'rgba(74,88,128,0.7)';
+  ctx.fillText(`${distCm} cm`, (srcX+detX)/2, H-6);
+
+  // ── SOURCE ──
+  const typeColor = {alpha:'#ff6b35', beta:'#3df0c8', gamma:'#c77dff'}[penType];
+  // Radioactive source symbol
+  ctx.save();
+  ctx.translate(srcX, midY);
+  ctx.fillStyle = typeColor+'33'; ctx.strokeStyle = typeColor; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = typeColor; ctx.font = 'bold 14px JetBrains Mono'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText({alpha:'α',beta:'β',gamma:'γ'}[penType], 0, 0);
+  ctx.restore();
+  ctx.fillStyle = typeColor; ctx.font = '10px Space Grotesk'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('Source', srcX, midY+28);
+  ctx.fillText(source+' Bq', srcX, midY+40);
+
+  // ── PARTICLES (animated rays) ──
+  const nRays = Math.min(20, Math.max(3, Math.round(totalFrac * 18) + 2));
+  const allRays = 20;
+  const raySpreadHalf = 24;
+  const now = (Date.now() / 800) % 1;
+
+  for (let i = 0; i < allRays; i++) {
+    const frac = (i / allRays + now) % 1;
+    const yOff = (i - allRays/2) * (raySpreadHalf * 2 / allRays);
+    const startX = srcX + 18;
+    const endY = midY + yOff;
+    const passed = i < nRays;
+
+    // Before absorber
+    const alphaPreAbs = passed ? 0.85 : 0.35;
+    ctx.save();
+    ctx.strokeStyle = typeColor + Math.round(alphaPreAbs*255).toString(16).padStart(2,'0');
+    ctx.lineWidth = penType === 'alpha' ? 2 : penType === 'beta' ? 1.5 : 1;
+    ctx.setLineDash(penType === 'gamma' ? [4, 3] : []);
+
+    if (material === 'none') {
+      // straight line to detector
+      const x1 = startX + frac * (detX - startX - 20);
+      ctx.beginPath(); ctx.moveTo(startX, midY); ctx.lineTo(x1, endY);
+      if (passed) ctx.stroke();
+    } else {
+      // Line to absorber
+      ctx.beginPath(); ctx.moveTo(startX, midY);
+      ctx.lineTo(matX, endY); ctx.stroke();
+      // After absorber
+      if (passed) {
+        ctx.strokeStyle = typeColor + 'aa';
+        ctx.lineWidth *= 0.7;
+        const x1 = matX + frac * (detX - matX - 20);
+        ctx.beginPath(); ctx.moveTo(matX, endY); ctx.lineTo(x1, endY); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // ── ABSORBER ──
+  if (material !== 'none') {
+    const matColors = {paper:'#d4b483', aluminium:'#a0b4c8', lead:'#5a6070'};
+    const matThickPx = Math.max(6, Math.min(60, thickMm * 2.5 + 6));
+    const matCol = matColors[material];
+    const matLabels = {paper:'Paper', aluminium:'Aluminium', lead:'Lead'};
+    // Shadow/glow
+    ctx.shadowColor = matCol + '44'; ctx.shadowBlur = 8;
+    ctx.fillStyle = matCol + 'dd';
+    ctx.fillRect(matX - matThickPx/2, midY - 60, matThickPx, 120);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = matCol; ctx.lineWidth = 1;
+    ctx.strokeRect(matX - matThickPx/2, midY - 60, matThickPx, 120);
+    ctx.fillStyle = matCol; ctx.font = '10px Space Grotesk'; ctx.textAlign = 'center';
+    ctx.fillText(matLabels[material], matX, midY - 68);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '9px JetBrains Mono';
+    ctx.fillText(thickMm.toFixed(1)+'mm', matX, midY + 78);
+    // Absorption marker if blocked
+    if (matTrans < 0.05) {
+      ctx.fillStyle = 'rgba(255,107,138,0.7)'; ctx.font = 'bold 12px JetBrains Mono';
+      ctx.fillText('✕ Blocked', matX, midY - 78);
+    }
+  }
+
+  // ── DETECTOR ──
+  const detCol = totalFrac > 0.5 ? 'var(--teal)' : totalFrac > 0.05 ? 'var(--gold)' : '#4a5880';
+  const glowR = totalFrac > 0.5 ? '#3df0c8' : totalFrac > 0.05 ? '#ffd166' : '#4a5880';
+  ctx.shadowColor = glowR+'88'; ctx.shadowBlur = totalFrac * 16;
+  ctx.fillStyle = glowR + '33';
+  ctx.strokeStyle = glowR;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(detX - 16, midY - 50, 32, 100, 4); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Count meter on detector
+  ctx.fillStyle = '#0a1a0a'; ctx.fillRect(detX - 14, midY - 20, 28, 26);
+  ctx.font = 'bold 9px JetBrains Mono'; ctx.fillStyle = '#39ff14'; ctx.textAlign = 'center';
+  const disp = Math.round(source * totalFrac + bg);
+  ctx.fillText(disp > 9999 ? '9999+' : disp, detX, midY - 3);
+
+  ctx.fillStyle = glowR; ctx.font = '10px Space Grotesk';
+  ctx.fillText('Detector', detX, midY + 62);
+  ctx.fillStyle = 'rgba(100,140,255,0.5)'; ctx.font = '9px JetBrains Mono';
+  ctx.fillText(distCm+'cm', detX, midY + 74);
+
+  // ── LEGEND ──
+  ctx.textAlign = 'left'; ctx.font = '10px Space Grotesk';
+  const legX = 8, legY = 16;
+  ctx.fillStyle = typeColor; ctx.fillText('▶ ' + {alpha:'α Alpha (+2e, heavy, slow)',beta:'β Beta (−e, light, fast)',gamma:'γ Gamma (photon, no charge)'}[penType], legX, legY);
+  ctx.fillStyle = '#4a5880'; ctx.fillText('Transmission: '+(totalFrac*100).toFixed(1)+'%', legX, legY+14);
+}
+
+// ===================== DEFLECTION LAB =====================
+let defType = 'all';
+let defPolarity = 1; // +1 = top plate positive
+let defAnimId = null;
+let defParticles = [];
+let defTrails = {alpha:[], beta:[], gamma:[]};
+let defFrameCount = 0;
+
+const DEF_PARTICLES = {
+  alpha: { charge: +2, massU: 4,     color: '#ff6b35', label: 'α', name: 'Alpha' },
+  beta:  { charge: -1, massU: 1/1836, color: '#3df0c8', label: 'β', name: 'Beta'  },
+  gamma: { charge:  0, massU: 0,      color: '#c77dff', label: 'γ', name: 'Gamma' },
+};
+
+function setDefType(type, btn) {
+  defType = type;
+  document.querySelectorAll('.def-type-btn').forEach(b => {
+    const t = b.id.replace('def-','').replace('-btn','');
+    const active = (b.id === 'def-'+type+'-btn');
+    b.style.background = active ? 'var(--bg4)' : 'var(--bg3)';
+    b.style.borderColor = active ? 'var(--border2)' : 'var(--border)';
+    b.style.color = active ? 'var(--text)' : 'var(--text3)';
+  });
+  defReset();
+}
+
+function togglePolarity() {
+  defPolarity *= -1;
+  document.getElementById('def-pol-btn').textContent =
+    defPolarity > 0 ? 'Top: + \u00a0 Bot: −' : 'Top: − \u00a0 Bot: +';
+  defReset();
+}
+
+function defReset() {
+  defTrails = {alpha:[], beta:[], gamma:[]};
+  defFrameCount = 0;
+  defUpdate();
+}
+
+function defUpdate() {
+  const V = +document.getElementById('def-voltage').value;
+  const sep = +document.getElementById('def-sep').value / 100; // m
+  const B = +document.getElementById('def-B').value;
+  const Bdir = document.getElementById('def-B-dir').value;
+  const speedFrac = +document.getElementById('def-speed').value / 100;
+
+  document.getElementById('def-volt-lbl').textContent  = V + ' V';
+  document.getElementById('def-sep-lbl').textContent   = (+document.getElementById('def-sep').value).toFixed(1) + ' cm';
+  document.getElementById('def-B-lbl').textContent     = B.toFixed(2) + ' T';
+  document.getElementById('def-speed-lbl').textContent = '0.' + String(+document.getElementById('def-speed').value).padStart(2,'0') + ' c';
+
+  defDrawScene(V, sep, B, Bdir, speedFrac);
+}
+
+function defResize() {
+  const canvas = document.getElementById('def-canvas');
+  if (canvas) canvas.width = canvas.offsetWidth;
+}
+
+function defDrawScene(V, sepM, B, Bdir, speedFrac) {
+  const canvas = document.getElementById('def-canvas');
+  if (!canvas) return;
+  canvas.width = canvas.offsetWidth || 700;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = 400;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#060914'; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(77,140,255,0.05)'; ctx.lineWidth=1;
+  for (let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for (let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  const c = 3e8;
+  const e = 1.6e-19;
+  const u_kg = 1.66e-27;
+  const midY = H / 2;
+
+  // Plates geometry
+  const plateL = W * 0.28, plateR = W * 0.72;
+  const plateHalfGap = Math.min(H * 0.32, (sepM * 1500));
+  const topPlateY = midY - plateHalfGap;
+  const botPlateY = midY + plateHalfGap;
+
+  // Draw plates
+  const topCol  = defPolarity > 0 ? '#ff6b35' : '#7eb3ff';
+  const botCol  = defPolarity > 0 ? '#7eb3ff' : '#ff6b35';
+  const topSign = defPolarity > 0 ? '+' : '−';
+  const botSign = defPolarity > 0 ? '−' : '+';
+
+  // Top plate
+  ctx.fillStyle = topCol + '33'; ctx.strokeStyle = topCol; ctx.lineWidth=2;
+  ctx.fillRect(plateL, topPlateY - 8, plateR - plateL, 8);
+  ctx.strokeRect(plateL, topPlateY - 8, plateR - plateL, 8);
+  // Bottom plate
+  ctx.fillStyle = botCol + '33'; ctx.strokeStyle = botCol;
+  ctx.fillRect(plateL, botPlateY, plateR - plateL, 8);
+  ctx.strokeRect(plateL, botPlateY, plateR - plateL, 8);
+
+  // Plate labels
+  ctx.font = '11px JetBrains Mono'; ctx.textAlign='center';
+  ctx.fillStyle = topCol; ctx.fillText(topSign, plateL - 14, topPlateY - 2);
+  ctx.fillStyle = botCol; ctx.fillText(botSign, plateL - 14, botPlateY + 12);
+
+  // Electric field arrows between plates (if V>0)
+  if (V > 0) {
+    const E = V / sepM;
+    const arrowDir = defPolarity > 0 ? 1 : -1; // top+ means E points down
+    const nArrows = 6;
+    ctx.strokeStyle = 'rgba(255,200,80,0.18)'; ctx.lineWidth=1;
+    for (let i=0;i<=nArrows;i++) {
+      const ax = plateL + (plateR-plateL) * i/nArrows;
+      const ay1 = topPlateY + 2, ay2 = botPlateY - 2;
+      ctx.beginPath(); ctx.moveTo(ax, defPolarity>0?ay1:ay2); ctx.lineTo(ax, defPolarity>0?ay2:ay1); ctx.stroke();
+      // arrowhead
+      const ey = defPolarity>0 ? ay2-6 : ay1+6;
+      ctx.beginPath(); ctx.moveTo(ax-4, ey); ctx.lineTo(ax, ey+arrowDir*6); ctx.lineTo(ax+4, ey); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,200,80,0.4)'; ctx.font='9px JetBrains Mono'; ctx.textAlign='left';
+    ctx.fillText('E = '+(E/1000).toFixed(1)+' kV/m', plateR+6, midY+4);
+  }
+
+  // Magnetic field dots/crosses
+  if (B > 0) {
+    const symbol = Bdir === 'out' ? '⊙' : '⊗';
+    const nDots = 5;
+    ctx.fillStyle = 'rgba(199,125,255,0.5)'; ctx.font = '13px serif'; ctx.textAlign='center';
+    for (let i=0;i<nDots;i++) {
+      const bx = plateL + (plateR-plateL)*(i+0.5)/nDots;
+      ctx.fillText(symbol, bx, midY + 16);
+    }
+    ctx.font='9px JetBrains Mono'; ctx.fillStyle='rgba(199,125,255,0.6)';
+    ctx.fillText('B = '+B.toFixed(2)+'T ('+symbol+')', (plateL+plateR)/2, midY + 30);
+  }
+
+  // ── Physics simulation ──
+  // For each radiation type, compute trajectory numerically
+  const types = defType === 'all' ? ['alpha','beta','gamma'] : [defType];
+
+  types.forEach(type => {
+    const p = DEF_PARTICLES[type];
+    const q = p.charge * e * defPolarity; // signed charge × polarity
+    const m = p.massU * u_kg;
+    const v0 = speedFrac * c; // initial horizontal speed
+
+    // Scale: 1 pixel ≈ 0.5 cm, plates are ~(plateR-plateL)px long
+    const scaleM = (plateR - plateL) / 0.3; // pixels per metre
+    const E = V / sepM;
+    const ay_E = m > 0 ? (q * E) / m : 0; // vertical accel from E field
+    // B force: F = qv × B, for horizontal v (right) and B out-of-page → force upward for positive charge
+    // F_y = q·v_x·B (if Bdir=out), F_y = -q·v_x·B (if Bdir=in)
+    const Bsign = Bdir === 'out' ? 1 : -1;
+
+    // Simulate trajectory as series of points
+    const path = [];
+    let px = 0, py = 0; // in metres from plate entry
+    let vx = v0, vy = 0;
+    const dt = 5e-11; // time step
+    const maxSteps = 2000;
+
+    // Entry point in canvas coords
+    const entryCanvasX = plateL;
+    const entryCanvasY = midY;
+
+    // Pre-plate: straight line from source at x=30 to plate entry
+    const srcCanvasX = 30, srcCanvasY = midY;
+    path.push({x: srcCanvasX, y: srcCanvasY, inside: false});
+
+    // Inside plates: numerical integration
+    const plateWidthM = (plateR - plateL) / scaleM;
+    let insideSteps = [];
+    for (let step=0; step < maxSteps; step++) {
+      // E force
+      const Fy_E = m > 0 ? (q * E) : 0;
+      // B force: F = q(v × B), B along z (out of page = +z)
+      // v = (vx, vy, 0), B = (0,0,Bz)
+      // v × B = (vy*Bz, -vx*Bz, 0) — so Fx=-q*vy*Bsign*B, Fy=q*vx*Bsign*B
+      const Bz = B * Bsign;
+      const Fx_B = m > 0 ? (p.charge * e * (-vy) * Bz) : 0;
+      const Fy_B = m > 0 ? (p.charge * e * vx  * Bz) : 0;
+
+      const ax = m > 0 ? (Fx_B) / m : 0;
+      const ay = m > 0 ? (Fy_E + Fy_B) / m : 0;
+
+      vx += ax * dt;
+      vy += ay * dt;
+      px += vx * dt;
+      py += vy * dt;
+
+      const cx = entryCanvasX + px * scaleM;
+      const cy = entryCanvasY - py * scaleM; // y flipped (canvas down = positive)
+      insideSteps.push({x:cx, y:cy, inside:true});
+      if (px >= plateWidthM) break;
+      // Hit plate?
+      if (Math.abs(py * scaleM) >= plateHalfGap - 4) break;
+    }
+    // Append inside steps
+    insideSteps.forEach(s => path.push(s));
+
+    // After plates: continue straight with final velocity
+    if (insideSteps.length) {
+      const last = insideSteps[insideSteps.length-1];
+      const slope = vy / Math.max(vx, 1e-10);
+      const exitX = plateR;
+      const exitY = last.y;
+      const remX = W - exitX + 60;
+      path.push({x: exitX + remX, y: exitY - slope * (remX / scaleM) * scaleM, inside: false});
+    }
+
+    // Draw path
+    ctx.beginPath();
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = type === 'alpha' ? 2.5 : type === 'beta' ? 2 : 1.5;
+    ctx.setLineDash(type === 'gamma' ? [5,4] : []);
+    ctx.shadowColor = p.color+'44'; ctx.shadowBlur = 4;
+    path.forEach((pt, i) => { i===0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y); });
+    ctx.stroke();
+    ctx.setLineDash([]); ctx.shadowBlur = 0;
+
+    // Arrow head at end
+    if (path.length >= 2) {
+      const last = path[path.length-1];
+      const prev = path[path.length-2];
+      const ang = Math.atan2(last.y - prev.y, last.x - prev.x);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(last.x - 9*Math.cos(ang-0.4), last.y - 9*Math.sin(ang-0.4));
+      ctx.lineTo(last.x - 9*Math.cos(ang+0.4), last.y - 9*Math.sin(ang+0.4));
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Label on path
+    if (path.length > 3) {
+      const mid = path[Math.floor(path.length * 0.4)];
+      ctx.font = 'bold 13px JetBrains Mono'; ctx.fillStyle = p.color;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(p.label, mid.x, mid.y - 6);
+    }
+
+    // Deflection readout
+    if (path.length >= 2) {
+      const exitPt = insideSteps.length ? insideSteps[insideSteps.length-1] : path[1];
+      const deflPx = Math.abs(exitPt.y - midY);
+      const deflMm = (deflPx / scaleM * 1000).toFixed(1);
+      const idMap = {alpha:'def-alpha-def', beta:'def-beta-def', gamma:'def-gamma-def'};
+      const el = document.getElementById(idMap[type]);
+      if (el) {
+        el.textContent = type === 'gamma' ? '0 mm' : deflMm + ' mm';
+        el.style.color = type === 'gamma' ? 'var(--text3)' : 'var(--' + (type==='alpha'?'alpha':'beta') + ')';
+      }
+    }
+  });
+
+  // ── Source symbol ──
+  ctx.save();
+  ctx.translate(24, midY);
+  ctx.fillStyle = 'rgba(77,140,255,0.15)'; ctx.strokeStyle = 'rgba(77,140,255,0.5)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.font='10px JetBrains Mono'; ctx.fillStyle='#8899cc'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('src',0,0);
+  ctx.restore();
+  ctx.fillStyle='#4a5880'; ctx.font='9px Space Grotesk'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillText('Source', 24, midY+22);
+
+  // ── Legend ──
+  const types2 = defType === 'all' ? ['alpha','beta','gamma'] : [defType];
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  let ly = H - 30;
+  types2.forEach(t => {
+    const p = DEF_PARTICLES[t];
+    const chargeStr = t==='alpha'?'+2e': t==='beta'?'−1e':'0 (no charge)';
+    ctx.fillStyle = p.color; ctx.font='11px JetBrains Mono';
+    ctx.fillText(`${p.label} ${p.name}  q=${chargeStr}`, 8, ly);
+    ly += 14;
+  });
+
+  cancelAnimationFrame(defAnimId);
+  defAnimId = requestAnimationFrame(() => defUpdate());
+}
+
 // ===================== TABS =====================
 function switchTab(id, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (id === 'graph') drawGraph();
-  if (id === 'simulation') resetSim();
+  if (id === 'graph')       { drawGraph(); }
+  if (id === 'simulation')  { resetSim(); }
+  if (id === 'penetration') { penResize(); penUpdate(); penStartInterval(); }
+  else                      { penStopInterval(); cancelAnimationFrame(penAnimId); }
+  if (id === 'deflection')  { defResize(); defUpdate(); }
 }
 
 // ===================== INIT =====================
@@ -1112,6 +1949,7 @@ renderIsoTable();
 updateSimCtrl();
 resetSim();
 drawGraph();
+draw7Seg(0);
 </script>
 </body>
 </html>
