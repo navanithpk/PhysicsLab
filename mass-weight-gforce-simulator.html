@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mass, Weight & G-Force Simulator — PhysicsLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════ */
+:root{
+  --bg:#0a0e1a;--bg2:#0f1526;--bg3:#141c32;--bg4:#1a2440;
+  --border:rgba(100,140,255,.12);--border2:rgba(100,140,255,.22);
+  --text:#e8eeff;--text2:#8899cc;--text3:#4a5880;
+  --accent:#4d8cff;--accent2:#7eb3ff;
+  --teal:#3df0c8;--orange:#ff6b35;--gold:#ffd166;
+  --purple:#c77dff;--rose:#ff6b8a;--green:#5dde8a;
+  --font:'Space Grotesk',sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:10px;
+}
+.light{
+  --bg:#f0f3ff;--bg2:#e8ecf7;--bg3:#dde3f2;--bg4:#cdd6ed;
+  --border:rgba(60,100,200,.14);--border2:rgba(60,100,200,.26);
+  --text:#1a2140;--text2:#3a4d80;--text3:#8090b8;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+canvas{display:block}
+button,select,input{font-family:var(--font);font-size:13px;cursor:pointer}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(77,140,255,.025)1px,transparent 1px),linear-gradient(90deg,rgba(77,140,255,.025)1px,transparent 1px);
+  background-size:50px 50px}
+#app{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:0 16px 60px}
+
+/* ── HEADER ── */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.hbrand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;font-family:var(--mono)}
+.bname{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.bname span{color:var(--accent2)}
+.bsub{font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase}
+.hacts{display:flex;gap:8px;align-items:center}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:500;transition:all .15s}
+.btn:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#3a7af0}
+.btn.sm{padding:4px 10px;font-size:11px}
+.btn.active{background:rgba(77,140,255,.15);border-color:var(--accent);color:var(--accent2)}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:3px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:18px;overflow-x:auto;flex-wrap:nowrap}
+.tab{flex-shrink:0;padding:8px 12px;background:transparent;border:none;border-radius:7px;color:var(--text3);font-size:12px;font-weight:500;transition:all .2s;cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--text2);background:var(--bg3)}
+.tab.active{background:var(--bg4);color:var(--text);border:1px solid var(--border2)}
+.tp{display:none}.tp.active{display:block}
+
+/* ── PANELS ── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:border-color .2s}
+.panel:hover{border-color:var(--border2)}
+.ptitle{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:12px;font-weight:500;display:flex;align-items:center;gap:6px}
+.pdot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block}
+
+/* ── GRID ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.split{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+.split3{display:grid;grid-template-columns:260px 1fr 240px;gap:14px;align-items:start}
+@media(max-width:1000px){.split3{grid-template-columns:1fr}}
+
+/* ── FORM CONTROLS ── */
+.cg{margin-bottom:12px}
+.clbl{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
+.cbadge{font-family:var(--mono);font-size:10px;color:var(--accent2);background:rgba(77,140,255,.1);padding:1px 6px;border-radius:3px;border:1px solid var(--border2)}
+input[type=number],input[type=text],select{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;width:100%;outline:none;transition:border-color .2s}
+input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--accent)}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--bg4);outline:none;accent-color:var(--accent)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg2)}
+.srow{display:flex;align-items:center;gap:8px}
+.sval{font-family:var(--mono);font-size:11px;color:var(--accent2);min-width:50px;text-align:right}
+
+/* ── STAT CARDS ── */
+.sc{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.sc .val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--text);margin-top:2px}
+.sc .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+.sc .unit{font-size:10px;color:var(--text3);margin-top:1px}
+
+/* ── EQ BOX ── */
+.eqbox{background:rgba(77,140,255,.05);border:1px solid rgba(77,140,255,.15);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;line-height:1.9;margin-top:10px}
+.eqbox .step{color:var(--text2)}
+.eqbox .hi{color:var(--teal);font-weight:500}
+.eqbox .res{color:var(--gold);font-weight:600}
+
+/* ── NOTE ── */
+.note{background:rgba(77,140,255,.05);border:1px solid rgba(77,140,255,.12);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--text2);margin-top:8px}
+.note strong{color:var(--accent2)}
+
+/* ── CANVAS AREAS ── */
+.carea{background:#060914;border:1px solid var(--border);border-radius:var(--r);position:relative;overflow:hidden}
+.light .carea{background:#dce8ff}
+
+/* ── PLANET TABLE ── */
+.ptbl{width:100%;border-collapse:collapse;font-size:12px}
+.ptbl th{background:var(--bg3);padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);position:sticky;top:0;z-index:2}
+.ptbl td{padding:7px 10px;border-top:1px solid var(--border);color:var(--text2)}
+.ptbl tr:hover td{background:var(--bg3);cursor:pointer}
+.ptbl tr.sel td{background:rgba(77,140,255,.1);color:var(--text)}
+.ptbl-wrap{max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px}
+.body-badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:600;font-family:var(--mono)}
+.bb-planet{background:rgba(77,140,255,.15);color:var(--accent2)}
+.bb-moon{background:rgba(74,88,128,.3);color:var(--text3)}
+.bb-dwarf{background:rgba(199,125,255,.15);color:var(--purple)}
+.bb-star{background:rgba(255,209,102,.15);color:var(--gold)}
+.bb-gas{background:rgba(255,107,53,.12);color:var(--orange)}
+.bb-asteroid{background:rgba(61,240,200,.1);color:var(--teal)}
+
+/* ── G-FORCE SCENARIO LIST ── */
+.sc-list{display:flex;flex-direction:column;gap:4px;max-height:480px;overflow-y:auto}
+.sc-item{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sc-item:hover{border-color:var(--border2)}
+.sc-item.active{border-color:var(--teal);background:rgba(61,240,200,.06)}
+.sc-name{font-size:12px;font-weight:500;color:var(--text2)}
+.sc-g{font-family:var(--mono);font-size:12px;font-weight:600}
+.sc-cat{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+
+/* ── GFORCE GAUGE ── */
+.gf-gauge{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px}
+.gf-num{font-size:48px;font-weight:700;font-family:var(--mono);line-height:1}
+.gf-unit{font-size:13px;color:var(--text2)}
+.gf-bar-wrap{width:100%;height:12px;background:var(--bg4);border-radius:6px;overflow:hidden}
+.gf-bar-fill{height:100%;border-radius:6px;transition:width .4s ease, background .4s}
+
+/* ── QUIZ ── */
+.quiz-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px}
+.quiz-q{font-size:15px;font-weight:500;color:var(--text);line-height:1.6;margin-bottom:16px}
+.quiz-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.quiz-opt{background:var(--bg3);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;text-align:left;color:var(--text2);transition:all .15s}
+.quiz-opt:hover{border-color:var(--border2);color:var(--text)}
+.quiz-opt.correct{border-color:var(--teal);background:rgba(61,240,200,.08);color:var(--teal)}
+.quiz-opt.wrong{border-color:var(--rose);background:rgba(255,107,138,.08);color:var(--rose)}
+.quiz-feedback{font-size:13px;padding:10px 14px;border-radius:7px;margin-top:8px;display:none}
+.quiz-feedback.show{display:block}
+.quiz-feedback.ok{background:rgba(61,240,200,.1);border:1px solid rgba(61,240,200,.3);color:var(--teal)}
+.quiz-feedback.fail{background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.3);color:var(--rose)}
+
+/* ── ACHIEVEMENT ── */
+.ach-grid{display:flex;gap:8px;flex-wrap:wrap}
+.ach{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);min-width:80px;transition:all .2s;opacity:.4}
+.ach.unlocked{opacity:1;border-color:var(--gold)}
+.ach .icon{font-size:24px}
+.ach .name{font-size:9px;text-align:center;color:var(--text3);font-weight:500}
+
+/* ── PROGRESS BAR ── */
+.prog-wrap{background:var(--bg4);border-radius:4px;height:6px;margin-top:4px}
+.prog-fill{height:100%;border-radius:4px;background:var(--accent);transition:width .4s}
+
+/* ── CHART CANVAS ── */
+.chart-box{background:#060914;border:1px solid var(--border);border-radius:8px;padding:14px;position:relative}
+.light .chart-box{background:#dce8ff}
+.chart-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:500}
+
+/* ── FORMULA CARDS ── */
+.formula-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;transition:all .2s}
+.formula-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.fc-sym{font-size:28px;font-family:var(--mono);font-weight:700;color:var(--text);margin-bottom:6px}
+.fc-name{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.fc-eq{font-family:var(--mono);font-size:13px;color:var(--accent2);margin:6px 0}
+.fc-result{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--teal);margin-top:6px}
+
+/* ── COMPARISON BAR ── */
+.cmp-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.cmp-name{font-size:11px;color:var(--text2);min-width:80px;text-align:right}
+.cmp-bar-track{flex:1;height:18px;background:var(--bg4);border-radius:4px;overflow:hidden;position:relative}
+.cmp-bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:6px;font-size:10px;font-family:var(--mono);font-weight:600;color:#000a;white-space:nowrap;overflow:hidden;transition:width .5s ease}
+.cmp-val{font-family:var(--mono);font-size:11px;color:var(--accent2);min-width:60px}
+
+/* ── BODY VISUAL ── */
+.body-vis{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px}
+.body-fig{font-size:52px;transition:transform .3s}
+.body-scale{font-size:10px;color:var(--text3)}
+.body-gbar{width:80%;height:8px;border-radius:4px;background:var(--bg4);overflow:hidden}
+.body-gfill{height:100%;border-radius:4px;background:var(--teal);transition:width .4s}
+
+/* ── ANIMATION CANVAS ── */
+#gf-anim-canvas{width:100%;display:block;border-radius:0 0 var(--r) var(--r)}
+
+/* ── MISCELLANEOUS ── */
+hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.mb{margin-bottom:14px}
+.mt{margin-top:14px}
+.funfact{background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);margin-top:8px}
+.funfact strong{color:var(--gold)}
+.misconception{background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);margin-top:8px}
+.misconception strong{color:var(--orange)}
+.tooltip-host{position:relative;cursor:help;border-bottom:1px dotted var(--text3)}
+.tooltip-host:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100%+6px);left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--text2);white-space:nowrap;z-index:100;pointer-events:none}
+.score-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:var(--mono);background:rgba(77,140,255,.12);border:1px solid var(--border2);color:var(--accent2)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══ HEADER ═══ -->
+<header class="hdr">
+  <div class="hbrand">
+    <div class="logo">g</div>
+    <div>
+      <div class="bname">Mass, Weight &amp; <span>G-Force</span></div>
+      <div class="bsub">PhysicsLab · IGCSE · IB · A-Level · AP Physics</div>
+    </div>
+  </div>
+  <div class="hacts">
+    <div class="score-badge" id="score-badge">🏆 Score: <span id="score-num">0</span></div>
+    <a href="index.html" class="btn">← PhysicsLab</a>
+    <button class="btn" id="theme-btn" onclick="toggleTheme()">☀ Light</button>
+  </div>
+</header>
+
+<!-- ═══ ACHIEVEMENT BAR ═══ -->
+<div class="panel mb" id="ach-panel" style="padding:12px 18px">
+  <div class="ptitle" style="margin-bottom:10px"><span class="pdot" style="background:var(--gold)"></span>Achievements</div>
+  <div class="ach-grid" id="ach-grid"></div>
+</div>
+
+<!-- ═══ TABS ═══ -->
+<div class="tabs">
+  <button class="tab active" onclick="showTab('t1',this)">⚖ Mass vs Weight</button>
+  <button class="tab" onclick="showTab('t2',this)">🌍 Celestial Bodies</button>
+  <button class="tab" onclick="showTab('t3',this)">🚀 G-Force Explorer</button>
+  <button class="tab" onclick="showTab('t4',this)">📊 Weight Lab</button>
+  <button class="tab" onclick="showTab('t5',this)">🧠 Problem Solver</button>
+  <button class="tab" onclick="showTab('t6',this)">📈 Graphs</button>
+</div>
+
+<!-- ════════════════════════════════════
+     TAB 1 — MASS VS WEIGHT
+════════════════════════════════════ -->
+<div id="t1" class="tp active">
+<div class="split">
+  <!-- Controls -->
+  <div>
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot"></span>Mass–Weight Calculator</div>
+      <div class="cg">
+        <div class="clbl">Mass (kg) <span class="cbadge" id="t1-mass-badge">70 kg</span></div>
+        <input type="number" id="t1-mass" value="70" min="0.001" step="any" oninput="t1Calc()">
+      </div>
+      <div class="cg">
+        <div class="clbl">Weight (N) <span class="cbadge" id="t1-wt-badge">686.7 N</span></div>
+        <input type="number" id="t1-wt" placeholder="auto" step="any" oninput="t1CalcFromW()">
+      </div>
+      <div class="cg">
+        <div class="clbl">Gravitational field strength g (m/s²) <span class="cbadge" id="t1-g-badge">9.81</span></div>
+        <div class="srow">
+          <input type="range" id="t1-g-slider" min="0" max="30" value="9.81" step="0.01" oninput="t1GSlider()">
+          <span class="sval" id="t1-g-sval">9.81</span>
+        </div>
+        <input type="number" id="t1-g" value="9.81" step="any" oninput="t1Calc()" style="margin-top:6px">
+      </div>
+      <div class="eqbox" id="t1-eq">
+        <div class="step">W = m × g</div>
+        <div class="step hi" id="t1-eq-sub">W = 70 × 9.81 = <span class="res">686.7 N</span></div>
+      </div>
+    </div>
+
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--teal)"></span>Key Distinction</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7">
+        <strong style="color:var(--accent2)">Mass</strong> is the amount of matter in an object.<br>
+        It is measured in <strong>kilograms (kg)</strong> and never changes.<br><br>
+        <strong style="color:var(--teal)">Weight</strong> is the gravitational force acting on mass.<br>
+        It is measured in <strong>Newtons (N)</strong> and changes with gravity.
+      </div>
+      <div class="misconception"><strong>Common misconception:</strong> "I weigh 70 kg." — Incorrect! Mass is 70 kg. Weight is ~686.7 N on Earth.</div>
+      <div class="funfact"><strong>Fun fact:</strong> On the Moon your mass stays 70 kg but weight drops to ~114 N — you'd feel like lifting a feather!</div>
+    </div>
+
+    <!-- Quick g presets -->
+    <div class="panel">
+      <div class="ptitle"><span class="pdot" style="background:var(--gold)"></span>Quick Body Selector</div>
+      <div class="g3" style="gap:6px">
+        <button class="btn sm" onclick="t1SetG(9.81,'Earth')">🌍 Earth</button>
+        <button class="btn sm" onclick="t1SetG(1.62,'Moon')">🌕 Moon</button>
+        <button class="btn sm" onclick="t1SetG(3.72,'Mars')">🔴 Mars</button>
+        <button class="btn sm" onclick="t1SetG(24.79,'Jupiter')">🪐 Jupiter</button>
+        <button class="btn sm" onclick="t1SetG(274.0,'Sun')">☀ Sun</button>
+        <button class="btn sm" onclick="t1SetG(0,'ISS')">🛸 ISS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visualisation -->
+  <div>
+    <div class="g3 mb">
+      <div class="sc"><div class="lbl">Mass</div><div class="val teal" id="t1-sc-mass" style="color:var(--teal)">70</div><div class="unit">kg</div></div>
+      <div class="sc"><div class="lbl">Weight</div><div class="val" id="t1-sc-wt" style="color:var(--accent2)">686.7</div><div class="unit">N</div></div>
+      <div class="sc"><div class="lbl">g</div><div class="val" id="t1-sc-g" style="color:var(--gold)">9.81</div><div class="unit">m/s²</div></div>
+    </div>
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--purple)"></span>Visual Comparison Across Bodies</div>
+      <div id="t1-compare-bars"></div>
+    </div>
+    <div class="carea" style="height:280px">
+      <canvas id="t1-canvas" style="width:100%;height:280px"></canvas>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════
+     TAB 2 — CELESTIAL BODY EXPLORER
+════════════════════════════════════ -->
+<div id="t2" class="tp">
+<div class="split3">
+  <!-- Body list -->
+  <div>
+    <div class="panel mb" style="padding:12px">
+      <div class="cg" style="margin-bottom:8px">
+        <input type="text" id="body-search" placeholder="Search bodies…" oninput="filterBodies()">
+      </div>
+      <div class="cg" style="margin-bottom:0">
+        <select id="body-filter" onchange="filterBodies()">
+          <option value="all">All types</option>
+          <option value="planet">Planets</option>
+          <option value="moon">Moons</option>
+          <option value="dwarf">Dwarf planets</option>
+          <option value="star">Stars</option>
+          <option value="asteroid">Asteroids</option>
+        </select>
+      </div>
+    </div>
+    <div class="ptbl-wrap">
+      <table class="ptbl" id="body-table">
+        <thead><tr><th>Body</th><th>g (m/s²)</th></tr></thead>
+        <tbody id="body-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Body detail -->
+  <div>
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--teal)"></span>Selected: <span id="sel-body-name" style="color:var(--accent2)">Earth</span></div>
+      <div class="g4">
+        <div class="sc"><div class="val" id="bd-g" style="color:var(--teal)">9.81</div><div class="lbl">g (m/s²)</div></div>
+        <div class="sc"><div class="val" id="bd-esc" style="color:var(--gold)">11.2</div><div class="lbl">Esc vel (km/s)</div></div>
+        <div class="sc"><div class="val" id="bd-r" style="color:var(--accent2)">6371</div><div class="lbl">Radius (km)</div></div>
+        <div class="sc"><div class="val" id="bd-g-ratio" style="color:var(--purple)">1.00</div><div class="lbl">g / g_Earth</div></div>
+      </div>
+      <div class="note mt" id="bd-note">The blue planet, third from the Sun. Our home world.</div>
+    </div>
+    <!-- Object input -->
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--gold)"></span>Object on this Body</div>
+      <div class="g2">
+        <div class="cg">
+          <div class="clbl">Object</div>
+          <select id="obj-preset" onchange="objPreset()">
+            <option value="70">🧑 Person (70 kg)</option>
+            <option value="5">🐱 Cat (5 kg)</option>
+            <option value="6000">🐘 Elephant (6000 kg)</option>
+            <option value="0.62">🏀 Basketball (0.62 kg)</option>
+            <option value="549054">🚀 Saturn V (549,054 kg)</option>
+            <option value="1500">🚗 Car (1500 kg)</option>
+            <option value="custom">✏ Custom</option>
+          </select>
+        </div>
+        <div class="cg">
+          <div class="clbl">Mass (kg)</div>
+          <input type="number" id="obj-mass" value="70" min="0" step="any" oninput="updateBodyCalc()">
+        </div>
+      </div>
+      <div class="g3 mt">
+        <div class="sc"><div class="val" id="bd-weight" style="color:var(--teal)">686.7</div><div class="lbl">Weight (N)</div></div>
+        <div class="sc"><div class="val" id="bd-weight-ratio" style="color:var(--accent2)">1.00</div><div class="lbl">×Earth weight</div></div>
+        <div class="sc"><div class="val" id="bd-jump" style="color:var(--gold)">0.40</div><div class="lbl">Jump height (m)</div></div>
+      </div>
+    </div>
+    <div class="carea" style="height:200px">
+      <canvas id="t2-canvas" style="width:100%;height:200px"></canvas>
+    </div>
+  </div>
+
+  <!-- Right info panel -->
+  <div>
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--rose)"></span>Falling Speed Comparison</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Drop from 10 m height:</div>
+      <div class="sc mb"><div class="val" id="bd-fall-time" style="color:var(--rose)">1.43 s</div><div class="lbl">Fall time (s)</div></div>
+      <div class="sc"><div class="val" id="bd-impact-v" style="color:var(--orange)">14.0 m/s</div><div class="lbl">Impact speed (m/s)</div></div>
+      <div class="note">t = √(2h/g) &nbsp; v = √(2gh)</div>
+    </div>
+    <div class="panel">
+      <div class="ptitle"><span class="pdot" style="background:var(--purple)"></span>Top 5 Comparison</div>
+      <div id="top5-compare"></div>
+    </div>
+    <div class="funfact mt" id="body-funfact">Jupiter is so massive that it bends light passing nearby.</div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════
+     TAB 3 — G-FORCE EXPLORER
+════════════════════════════════════ -->
+<div id="t3" class="tp">
+<div class="split">
+  <!-- Scenario list -->
+  <div>
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--rose)"></span>Scenarios</div>
+      <div class="cg">
+        <input type="text" id="sc-search" placeholder="Search scenarios…" oninput="filterScenarios()">
+      </div>
+      <div class="sc-list" id="sc-list"></div>
+    </div>
+    <!-- Custom G -->
+    <div class="panel">
+      <div class="ptitle"><span class="pdot" style="background:var(--gold)"></span>Custom G-Force</div>
+      <div class="cg">
+        <div class="clbl">G-force value <span class="cbadge" id="cg-badge">1.0 G</span></div>
+        <div class="srow">
+          <input type="range" id="custom-g-slider" min="0" max="20" value="1" step="0.1" oninput="setCustomG(this.value)">
+          <span class="sval" id="cg-sval">1.0</span>
+        </div>
+      </div>
+      <div class="cg">
+        <div class="clbl">Person mass (kg)</div>
+        <input type="number" id="gf-mass" value="70" step="any" oninput="updateGfDisplay()">
+      </div>
+    </div>
+  </div>
+
+  <!-- G-force display -->
+  <div>
+    <div class="g3 mb">
+      <div class="sc">
+        <div class="lbl">Scenario</div>
+        <div class="val" id="gf-sc-name" style="font-size:14px;color:var(--accent2)">Standing</div>
+      </div>
+      <div class="sc">
+        <div class="gf-gauge">
+          <div class="gf-num" id="gf-num" style="color:var(--teal)">1.0</div>
+          <div class="gf-unit">G</div>
+          <div class="gf-bar-wrap"><div class="gf-bar-fill" id="gf-bar" style="width:5%;background:var(--teal)"></div></div>
+        </div>
+      </div>
+      <div class="sc">
+        <div class="lbl">Apparent weight</div>
+        <div class="val" id="gf-app-wt" style="color:var(--gold)">686.7</div>
+        <div class="unit">N</div>
+      </div>
+    </div>
+
+    <div class="g4 mb">
+      <div class="sc"><div class="val" id="gf-accel" style="color:var(--accent2)">9.81</div><div class="lbl">Accel (m/s²)</div></div>
+      <div class="sc"><div class="val" id="gf-dur">varies</div><div class="lbl">Typical duration</div></div>
+      <div class="sc"><div class="val" id="gf-risk" style="color:var(--teal)">Safe</div><div class="lbl">Risk level</div></div>
+      <div class="sc"><div class="val" id="gf-comfort" style="color:var(--green)">Comfortable</div><div class="lbl">Comfort</div></div>
+    </div>
+
+    <!-- Body figure visual -->
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--purple)"></span>Body Load Visualization</div>
+      <div id="body-load-vis" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <canvas id="body-fig-canvas" width="120" height="220"></canvas>
+        <div style="flex:1">
+          <div id="gf-effects" style="font-size:12px;color:var(--text2);line-height:1.8"></div>
+          <div class="note mt" id="gf-note">Normal standing posture.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Animation canvas -->
+    <div class="panel">
+      <div class="ptitle"><span class="pdot" style="background:var(--teal)"></span>Animation</div>
+      <div class="carea" style="height:200px">
+        <canvas id="gf-anim-canvas" style="width:100%;height:200px"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════
+     TAB 4 — WEIGHT COMPARISON LAB
+════════════════════════════════════ -->
+<div id="t4" class="tp">
+<div class="panel mb">
+  <div class="ptitle"><span class="pdot" style="background:var(--teal)"></span>Weight Comparison Lab</div>
+  <div class="g4">
+    <div class="cg">
+      <div class="clbl">Object 1 mass (kg)</div>
+      <input type="number" id="lab-m1" value="70" step="any" oninput="updateLab()">
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">Person</div>
+    </div>
+    <div class="cg">
+      <div class="clbl">Object 2 mass (kg)</div>
+      <input type="number" id="lab-m2" value="5" step="any" oninput="updateLab()">
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">Cat</div>
+    </div>
+    <div class="cg">
+      <div class="clbl">Object 3 mass (kg)</div>
+      <input type="number" id="lab-m3" value="1500" step="any" oninput="updateLab()">
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">Car</div>
+    </div>
+    <div class="cg">
+      <div class="clbl">Object 4 mass (kg)</div>
+      <input type="number" id="lab-m4" value="0.62" step="any" oninput="updateLab()">
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">Basketball</div>
+    </div>
+  </div>
+</div>
+<div class="panel mb">
+  <div class="ptitle"><span class="pdot" style="background:var(--gold)"></span>Weight Table (N)</div>
+  <div style="overflow-x:auto">
+    <table class="ptbl" id="lab-table" style="min-width:600px">
+      <thead><tr><th>Body</th><th>g</th><th>Object 1</th><th>Object 2</th><th>Object 3</th><th>Object 4</th></tr></thead>
+      <tbody id="lab-tbody"></tbody>
+    </table>
+  </div>
+</div>
+<div class="panel">
+  <div class="ptitle"><span class="pdot" style="background:var(--accent)"></span>Visual Weight Comparison (Object 1)</div>
+  <div id="lab-bars"></div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════
+     TAB 5 — PROBLEM SOLVER
+════════════════════════════════════ -->
+<div id="t5" class="tp">
+<div class="g2">
+  <div>
+    <div class="panel mb">
+      <div class="ptitle"><span class="pdot" style="background:var(--gold)"></span>Settings</div>
+      <div class="cg">
+        <div class="clbl">Difficulty</div>
+        <select id="q-diff">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+          <option value="challenge">Challenge</option>
+        </select>
+      </div>
+      <div class="cg">
+        <div class="clbl">Question type</div>
+        <select id="q-type">
+          <option value="random">Random</option>
+          <option value="weight">Find Weight</option>
+          <option value="mass">Find Mass</option>
+          <option value="gravity">Find Gravity</option>
+          <option value="gforce">Find G-Force</option>
+          <option value="apparent">Find Apparent Weight</option>
+        </select>
+      </div>
+      <button class="btn primary" style="width:100%;margin-top:6px" onclick="newQuestion()">🎲 New Question</button>
+    </div>
+    <div class="panel">
+      <div class="ptitle"><span class="pdot" style="background:var(--teal)"></span>Score</div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="sc"><div class="val" id="q-correct" style="color:var(--teal)">0</div><div class="lbl">Correct</div></div>
+        <div class="sc"><div class="val" id="q-wrong" style="color:var(--rose)">0</div><div class="lbl">Wrong</div></div>
+      </div>
+      <div class="clbl">Progress</div>
+      <div class="prog-wrap"><div class="prog-fill" id="q-prog" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="quiz-card" id="quiz-card">
+      <div class="quiz-q" id="quiz-q">Press "New Question" to begin!</div>
+      <div class="quiz-opts" id="quiz-opts"></div>
+      <div class="quiz-feedback" id="quiz-fb"></div>
+      <div class="eqbox" id="quiz-solution" style="display:none"></div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn" id="quiz-hint-btn" onclick="showHint()" style="display:none">💡 Hint</button>
+        <button class="btn primary" id="quiz-next-btn" onclick="newQuestion()" style="display:none">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════
+     TAB 6 — GRAPHS
+════════════════════════════════════ -->
+<div id="t6" class="tp">
+<div class="panel mb">
+  <div class="ptitle"><span class="pdot"></span>Formula Explorer — Interactive</div>
+  <div class="g4 mb">
+    <div class="formula-card" id="fc-wt">
+      <div class="fc-sym">W</div>
+      <div class="fc-name">Weight</div>
+      <div class="fc-eq">W = m × g</div>
+      <div class="cg" style="margin:6px 0 4px"><input type="number" id="fc-m" value="70" step="any" oninput="fcCalc()"><div style="font-size:9px;color:var(--text3);margin-top:2px">mass (kg)</div></div>
+      <div class="cg" style="margin-bottom:4px"><input type="number" id="fc-g" value="9.81" step="any" oninput="fcCalc()"><div style="font-size:9px;color:var(--text3);margin-top:2px">g (m/s²)</div></div>
+      <div class="fc-result" id="fc-w-res">686.7 N</div>
+    </div>
+    <div class="formula-card">
+      <div class="fc-sym">N</div>
+      <div class="fc-name">Apparent Weight</div>
+      <div class="fc-eq">N = m(g ± a)</div>
+      <div class="cg" style="margin:6px 0 4px"><input type="number" id="fc-aw-m" value="70" step="any" oninput="fcCalcAW()"><div style="font-size:9px;color:var(--text3);margin-top:2px">mass (kg)</div></div>
+      <div class="cg" style="margin-bottom:4px"><input type="number" id="fc-aw-a" value="2" step="any" oninput="fcCalcAW()"><div style="font-size:9px;color:var(--text3);margin-top:2px">accel (m/s²) +↑ −↓</div></div>
+      <div class="fc-result" id="fc-aw-res">826.7 N</div>
+    </div>
+    <div class="formula-card">
+      <div class="fc-sym">G</div>
+      <div class="fc-name">G-Force</div>
+      <div class="fc-eq">G = a / 9.81</div>
+      <div class="cg" style="margin:6px 0 4px"><input type="number" id="fc-gf-a" value="9.81" step="any" oninput="fcCalcGF()"><div style="font-size:9px;color:var(--text3);margin-top:2px">acceleration (m/s²)</div></div>
+      <div class="fc-result" id="fc-gf-res">1.00 G</div>
+    </div>
+    <div class="formula-card">
+      <div class="fc-sym">F</div>
+      <div class="fc-name">Gravitation</div>
+      <div class="fc-eq">F = Gm₁m₂/r²</div>
+      <div class="cg" style="margin:6px 0 4px"><input type="number" id="fc-grav-m1" value="5.97e24" step="any" oninput="fcCalcGrav()"><div style="font-size:9px;color:var(--text3);margin-top:2px">M (kg)</div></div>
+      <div class="cg" style="margin-bottom:4px"><input type="number" id="fc-grav-m2" value="70" step="any" oninput="fcCalcGrav()"><div style="font-size:9px;color:var(--text3);margin-top:2px">m (kg)</div></div>
+      <div class="cg" style="margin-bottom:4px"><input type="number" id="fc-grav-r" value="6.371e6" step="any" oninput="fcCalcGrav()"><div style="font-size:9px;color:var(--text3);margin-top:2px">r (m)</div></div>
+      <div class="fc-result" id="fc-grav-res">686.7 N</div>
+    </div>
+  </div>
+</div>
+
+<div class="g2 mb">
+  <div class="chart-box">
+    <div class="chart-lbl">Weight vs Gravity (for current mass)</div>
+    <canvas id="chart-wg" height="200"></canvas>
+    <div class="cg mt" style="display:flex;gap:8px;align-items:center">
+      <span style="font-size:11px;color:var(--text3)">Mass:</span>
+      <input type="number" id="chart-wg-m" value="70" step="any" oninput="drawWGChart()" style="width:80px">
+      <button class="btn sm" onclick="exportChartPNG('chart-wg','weight-vs-gravity')">📷</button>
+    </div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-lbl">Apparent Weight vs Acceleration</div>
+    <canvas id="chart-aw" height="200"></canvas>
+    <div class="cg mt" style="display:flex;gap:8px;align-items:center">
+      <span style="font-size:11px;color:var(--text3)">Mass:</span>
+      <input type="number" id="chart-aw-m" value="70" step="any" oninput="drawAWChart()" style="width:80px">
+      <button class="btn sm" onclick="exportChartPNG('chart-aw','apparent-weight')">📷</button>
+    </div>
+  </div>
+</div>
+<div class="g2">
+  <div class="chart-box">
+    <div class="chart-lbl">Weight on all Celestial Bodies</div>
+    <canvas id="chart-bodies" height="260"></canvas>
+    <div class="cg mt" style="display:flex;gap:8px;align-items:center">
+      <span style="font-size:11px;color:var(--text3)">Mass:</span>
+      <input type="number" id="chart-bodies-m" value="70" step="any" oninput="drawBodiesChart()" style="width:80px">
+      <button class="btn sm" onclick="exportChartPNG('chart-bodies','weight-on-bodies')">📷</button>
+      <button class="btn sm" onclick="exportCSV()">📊 CSV</button>
+    </div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-lbl">G-Force Scenarios Comparison</div>
+    <canvas id="chart-gf" height="260"></canvas>
+    <button class="btn sm mt" onclick="exportChartPNG('chart-gf','gforce-scenarios')">📷</button>
+  </div>
+</div>
+</div>
+
+</div><!-- /#app -->
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════════════════ */
+const G_CONST = 6.674e-11;
+const g_Earth = 9.81;
+
+// 55 celestial bodies
+const BODIES = [
+  {n:'Sun',       t:'star',     g:274.0, esc:617.5, r:695700, note:'Our star — 1.4 million km across. Surface gravity is crushing!', f:'The Sun contains 99.86% of the solar system\'s mass.'},
+  {n:'Mercury',   t:'planet',   g:3.70,  esc:4.25,  r:2439,  note:'Smallest planet, no atmosphere, extreme temperature swings.', f:'Mercury has no moons and barely any atmosphere.'},
+  {n:'Venus',     t:'planet',   g:8.87,  esc:10.36, r:6051,  note:'Hottest planet (~465°C) despite not being closest to Sun.', f:'Venus rotates backwards compared to most planets.'},
+  {n:'Earth',     t:'planet',   g:9.81,  esc:11.19, r:6371,  note:'The blue planet, third from the Sun. Our home world.', f:'Earth is the densest planet in the solar system.'},
+  {n:'Moon',      t:'moon',     g:1.62,  esc:2.38,  r:1737,  note:'Earth\'s only natural satellite. 12 humans have walked here.', f:'The Moon is slowly drifting away from Earth at ~3.8 cm/year.'},
+  {n:'Mars',      t:'planet',   g:3.72,  esc:5.03,  r:3389,  note:'The Red Planet. Future human exploration target.', f:'Mars has the tallest volcano in the solar system — Olympus Mons (21 km high).'},
+  {n:'Phobos',    t:'moon',     g:0.0057,esc:0.011, r:11.3,  note:'Mars\' inner moon, likely a captured asteroid.', f:'Phobos is slowly spiralling inward and will crash or break apart in ~50 million years.'},
+  {n:'Deimos',    t:'moon',     g:0.003, esc:0.005, r:6.2,   note:'Mars\' outer moon, smallest known moon in the solar system.', f:'You could throw a ball fast enough to escape Deimos by hand.'},
+  {n:'Jupiter',   t:'planet',   g:24.79, esc:59.5,  r:71492, note:'Largest planet. Great Red Spot is a storm bigger than Earth.', f:'Jupiter\'s magnetic field is 20,000 times stronger than Earth\'s.'},
+  {n:'Io',        t:'moon',     g:1.796, esc:2.558, r:1821,  note:'Most volcanically active body in the solar system.', f:'Io has over 400 active volcanoes.'},
+  {n:'Europa',    t:'moon',     g:1.315, esc:2.025, r:1560,  note:'Smooth icy surface hiding a subsurface ocean. Potential for life!', f:'Europa\'s ocean may contain twice as much water as all Earth\'s oceans.'},
+  {n:'Ganymede',  t:'moon',     g:1.428, esc:2.741, r:2634,  note:'Largest moon in the solar system — bigger than Mercury!', f:'Ganymede has its own magnetic field — unique among moons.'},
+  {n:'Callisto',  t:'moon',     g:1.235, esc:2.440, r:2410,  note:'Most heavily cratered object in the solar system.', f:'Callisto takes 17 days to orbit Jupiter.'},
+  {n:'Saturn',    t:'planet',   g:10.44, esc:35.5,  r:60268, note:'The ringed giant. Less dense than water!', f:'Saturn\'s rings are made mostly of ice and rock, up to 1 km thick.'},
+  {n:'Titan',     t:'moon',     g:1.352, esc:2.639, r:2574,  note:'Saturn\'s largest moon, with a thick nitrogen atmosphere.', f:'Titan has lakes of liquid methane on its surface.'},
+  {n:'Enceladus', t:'moon',     g:0.113, esc:0.239, r:252,   note:'Active ice geysers shooting water into space.', f:'Enceladus shoots water vapour 500 km into space.'},
+  {n:'Rhea',      t:'moon',     g:0.264, esc:0.635, r:764,   note:'Saturn\'s second largest moon.', f:'Rhea may have a thin ring of its own.'},
+  {n:'Dione',     t:'moon',     g:0.232, esc:0.51,  r:562,   note:'Dense moon of Saturn — rocky core likely.', f:'Dione has cliff faces as tall as 5 km.'},
+  {n:'Mimas',     t:'moon',     g:0.064, esc:0.159, r:198,   note:'Looks like the Death Star due to its giant Herschel crater.', f:'Mimas\'s core may be porous, explaining its shape.'},
+  {n:'Uranus',    t:'planet',   g:8.87,  esc:21.3,  r:25559, note:'Ice giant, rotates on its side (98° tilt).', f:'Uranus was the first planet discovered with a telescope (1781).'},
+  {n:'Neptune',   t:'planet',   g:11.15, esc:23.5,  r:24764, note:'Windiest planet — gusts up to 2100 km/h.', f:'Neptune\'s moon Triton orbits backwards and is doomed to be torn apart.'},
+  {n:'Triton',    t:'moon',     g:0.779, esc:1.455, r:1353,  note:'Neptune\'s large retrograde moon — likely a captured KBO.', f:'Triton is the coldest known object with a measured surface temp: −235°C.'},
+  {n:'Pluto',     t:'dwarf',    g:0.62,  esc:1.21,  r:1188,  note:'Dwarf planet, reclassified in 2006. Has a heart-shaped plain.', f:'Pluto has a day length of 6.4 Earth days.'},
+  {n:'Charon',    t:'moon',     g:0.279, esc:0.58,  r:606,   note:'Pluto\'s largest moon — together they\'re a binary system.', f:'Charon is so large relative to Pluto they orbit a common centre outside Pluto.'},
+  {n:'Eris',      t:'dwarf',    g:0.82,  esc:1.38,  r:1163,  note:'Slightly smaller than Pluto but more massive — triggered reclassification.', f:'Eris is 3× farther from the Sun than Pluto.'},
+  {n:'Haumea',    t:'dwarf',    g:0.63,  esc:0.9,   r:816,   note:'Egg-shaped dwarf planet spinning very fast (4h day).', f:'Haumea has two moons and a ring — rare for a dwarf planet.'},
+  {n:'Makemake',  t:'dwarf',    g:0.5,   esc:0.8,   r:715,   note:'Red-tinted dwarf planet in the Kuiper Belt.', f:'Makemake was discovered shortly after Easter 2005.'},
+  {n:'Ceres',     t:'dwarf',    g:0.27,  esc:0.51,  r:473,   note:'Largest asteroid / smallest dwarf planet in the asteroid belt.', f:'Ceres contains about a third of the total mass of the asteroid belt.'},
+  {n:'Vesta',     t:'asteroid', g:0.25,  esc:0.36,  r:263,   note:'Second most massive body in the asteroid belt.', f:'Vesta\'s south pole has a crater so deep it exposes the mantle.'},
+  {n:'Pallas',    t:'asteroid', g:0.21,  esc:0.32,  r:256,   note:'Third most massive asteroid, highly inclined orbit.', f:'Pallas orbits at a steep 34.8° inclination.'},
+  {n:'Hygiea',    t:'asteroid', g:0.091, esc:0.18,  r:215,   note:'Fourth largest asteroid — nearly spherical.', f:'Hygiea may be reclassified as a dwarf planet.'},
+  {n:'White Dwarf',t:'star',    g:300000,esc:6000,  r:7000,  note:'The dense remnant of a Sun-like star. Extreme gravity.', f:'A teaspoon of white dwarf material weighs ~5 tonnes.'},
+  {n:'Neutron Star',t:'star',   g:2e11,  esc:150000,r:12,    note:'Collapsed stellar remnant. Insanely dense.', f:'A neutron star packs more mass than the Sun into a sphere ~12 km across.'},
+  {n:'ISS',       t:'asteroid', g:0.001, esc:0.0,   r:0.05,  note:'International Space Station in low Earth orbit — apparent weightlessness.', f:'The ISS travels at 7.66 km/s — it orbits Earth every 92 minutes.'},
+  {n:'Oberon',    t:'moon',     g:0.354, esc:0.727, r:761,   note:'Outermost major moon of Uranus.', f:'Oberon has a large mountain thought to be 6 km high.'},
+  {n:'Titania',   t:'moon',     g:0.379, esc:0.773, r:789,   note:'Largest moon of Uranus.', f:'Titania has deep canyons caused by tectonic activity.'},
+  {n:'Miranda',   t:'moon',     g:0.079, esc:0.193, r:236,   note:'Uranus moon with extreme cliffs — Verona Rupes is 5–10 km high.', f:'You could fall off Miranda\'s cliff for 12 minutes before hitting the bottom.'},
+  {n:'Ariel',     t:'moon',     g:0.27,  esc:0.558, r:579,   note:'One of the brightest moons of Uranus.', f:'Ariel\'s surface shows signs of recent geological activity.'},
+  {n:'Umbriel',   t:'moon',     g:0.23,  esc:0.52,  r:585,   note:'Darkest of Uranus\'s large moons.', f:'Umbriel has a mysterious bright ring called Wunda.'},
+  {n:'Eros',      t:'asteroid', g:0.0059,esc:0.011, r:8.4,   note:'First near-Earth asteroid visited by a spacecraft (NEAR Shoemaker).', f:'NEAR Shoemaker landed on Eros in 2001 — first asteroid landing.'},
+  {n:'Bennu',     t:'asteroid', g:6e-5,  esc:0.0002,r:0.245, note:'Rubble-pile asteroid visited by OSIRIS-REx.', f:'Bennu has a small chance of impacting Earth in 2182.'},
+  {n:'Ryugu',     t:'asteroid', g:0.00012,esc:0.00037,r:0.4, note:'Diamond-shaped asteroid visited by Hayabusa2.', f:'Japan\'s Hayabusa2 returned samples from Ryugu in 2020.'},
+  {n:'Itokawa',   t:'asteroid', g:9e-5,  esc:0.0002,r:0.165, note:'Peanut-shaped asteroid visited by Hayabusa.', f:'Hayabusa returned the first asteroid samples to Earth in 2010.'},
+  {n:'Psyche',    t:'asteroid', g:0.07,  esc:0.18,  r:113,   note:'Metallic asteroid — possibly a planetary core. Target of NASA Psyche mission.', f:'Psyche may be worth $10,000 quadrillion in metals.'},
+  {n:'Sedna',     t:'dwarf',    g:0.37,  esc:0.68,  r:498,   note:'Trans-Neptunian object with extremely elongated orbit.', f:'Sedna\'s orbit takes 11,400 years to complete.'},
+  {n:'Quaoar',    t:'dwarf',    g:0.28,  esc:0.58,  r:555,   note:'Kuiper belt object with a ring system.', f:'Quaoar has a ring outside what was thought possible for rings.'},
+  {n:'Gonggong',  t:'dwarf',    g:0.48,  esc:0.9,   r:615,   note:'Reddish dwarf planet in the scattered disc.', f:'Gonggong was officially named after a Chinese water god in 2020.'},
+  {n:'Orcus',     t:'dwarf',    g:0.23,  esc:0.45,  r:458,   note:'Nicknamed "anti-Pluto" due to similar orbit.', f:'Orcus has a large moon called Vanth.'},
+  {n:'Varuna',    t:'dwarf',    g:0.2,   esc:0.4,   r:354,   note:'Fast-rotating Kuiper Belt Object.', f:'Varuna rotates once every 6.3 hours.'},
+  {n:'Sirius B',  t:'star',     g:336000,esc:7000,  r:5950,  note:'The famous white dwarf companion to Sirius A.', f:'Sirius B was the first white dwarf discovered (1915).'},
+  {n:'Kepler-22b',t:'planet',   g:22.4,  esc:30,    r:12000, note:'Super-Earth in habitable zone, 620 ly away.', f:'Kepler-22b was the first confirmed planet in a habitable zone.'},
+  {n:'TRAPPIST-1e',t:'planet',  g:8.0,   esc:9.5,   r:5900,  note:'Rocky Earth-sized planet in the TRAPPIST-1 habitable zone.', f:'TRAPPIST-1e is 39 light-years away.'},
+  {n:'HD 189733b',t:'planet',   g:21.4,  esc:60,    r:80000, note:'Hot Jupiter known for glass-rain winds at 8700 km/h.', f:'It rains glass sideways on HD 189733b.'},
+  {n:'Proxima Cen b',t:'planet',g:11.0,  esc:15,    r:7000,  note:'Closest known exoplanet, orbiting in habitable zone.', f:'Proxima Centauri b is just 4.24 light-years away.'},
+  {n:'Luyten b',  t:'planet',   g:13.0,  esc:14,    r:8000,  note:'Potentially habitable super-Earth orbiting a red dwarf.', f:'Luyten b has 2.89 times Earth\'s mass.'},
+];
+
+// G-Force scenarios
+const GSCENARIOS = [
+  {n:'Lying down',     cat:'daily',     g:0.0,  peak:0.0,  dur:'always',      eff:'No load on spine. Ideal for recovery.', risk:'None', comfort:'Perfect', accel:0},
+  {n:'Standing still', cat:'daily',     g:1.0,  peak:1.0,  dur:'continuous',  eff:'Normal body load on legs and spine.', risk:'None', comfort:'Normal', accel:9.81},
+  {n:'Normal walking', cat:'daily',     g:1.0,  peak:1.3,  dur:'continuous',  eff:'Slight variation in vertical force.', risk:'None', comfort:'Comfortable', accel:9.81},
+  {n:'Running',        cat:'sport',     g:1.5,  peak:3.0,  dur:'continuous',  eff:'Increased joint loading with each stride.', risk:'Minimal', comfort:'Normal', accel:14.7},
+  {n:'Car acceleration (0-60)',cat:'transport',g:0.4,peak:0.5,dur:'5-10s',    eff:'Mild push-back sensation in seat.', risk:'None', comfort:'Comfortable', accel:4.0},
+  {n:'Sports car',     cat:'transport', g:0.8,  peak:0.9,  dur:'4-6s',        eff:'Clear push-back. Slight tension.', risk:'None', comfort:'OK', accel:7.85},
+  {n:'Formula 1 accel',cat:'motorsport',g:1.5,  peak:2.0,  dur:'2-3s',        eff:'Strong push-back. Helmet feels heavy.', risk:'Low', comfort:'Uncomfortable', accel:14.7},
+  {n:'F1 braking',     cat:'motorsport',g:4.0,  peak:5.5,  dur:'1-2s',        eff:'Chest compressed into harness. Hard to breathe momentarily.', risk:'Low', comfort:'Uncomfortable', accel:39.2},
+  {n:'F1 cornering',   cat:'motorsport',g:5.0,  peak:6.0,  dur:'2-4s',        eff:'Blood forced sideways. Tunnel vision risk.', risk:'Medium', comfort:'Painful', accel:49.1},
+  {n:'Motorcycle racing',cat:'motorsport',g:1.5,peak:2.5,  dur:'varies',      eff:'Rider lean creates lateral G-forces.', risk:'Low', comfort:'OK', accel:14.7},
+  {n:'Metro train (accel)',cat:'transport',g:0.1,peak:0.15,dur:'20-40s',      eff:'Barely noticeable lean.', risk:'None', comfort:'Comfortable', accel:0.98},
+  {n:'Shinkansen accel',cat:'transport', g:0.09,peak:0.12, dur:'2-3 min',     eff:'Very gentle acceleration over long time.', risk:'None', comfort:'Comfortable', accel:0.88},
+  {n:'Shinkansen braking',cat:'transport',g:0.3,peak:0.35, dur:'1-3 min',     eff:'Gentle forward lean sensation.', risk:'None', comfort:'Comfortable', accel:2.94},
+  {n:'Roller coaster (pull-up)',cat:'leisure',g:4.0,peak:6.5,dur:'1-3s',      eff:'Heavy sensation, face droops, tunnel vision.', risk:'Low', comfort:'Thrilling', accel:39.2},
+  {n:'Roller coaster (dip)',cat:'leisure',g:-0.5,peak:-1.0,dur:'0.5-1s',      eff:'Sensation of floating / ejection.', risk:'Low', comfort:'Exciting', accel:-4.9},
+  {n:'Elevator going up',cat:'transport',g:1.1,peak:1.2,   dur:'2-4s',        eff:'Slight heaviness as it starts.', risk:'None', comfort:'Normal', accel:10.8},
+  {n:'Elevator going down',cat:'transport',g:0.9,peak:0.8,  dur:'2-4s',       eff:'Slight lightness / stomach drop.', risk:'None', comfort:'Slight unease', accel:8.8},
+  {n:'Elevator free fall',cat:'transport',g:0.0,peak:0.0,   dur:'few seconds', eff:'Weightlessness — panic!', risk:'High (malfunction)', comfort:'Terrifying', accel:0},
+  {n:'Airliner taxi',  cat:'aviation',  g:0.05,peak:0.1,   dur:'5-15 min',    eff:'Negligible. Barely felt.', risk:'None', comfort:'Normal', accel:0.49},
+  {n:'Airliner takeoff roll',cat:'aviation',g:0.35,peak:0.45,dur:'30-40s',    eff:'Pushed into seat. Exciting for many passengers.', risk:'None', comfort:'Normal', accel:3.43},
+  {n:'Airliner rotation',cat:'aviation',g:1.2,peak:1.5,    dur:'5-10s',       eff:'Pressed into seat as nose lifts.', risk:'None', comfort:'Normal', accel:11.8},
+  {n:'Airliner climb', cat:'aviation',  g:1.05,peak:1.15,  dur:'10-20 min',   eff:'Slight heaviness.', risk:'None', comfort:'Normal', accel:10.3},
+  {n:'Air turbulence (mild)',cat:'aviation',g:1.3,peak:1.8, dur:'varies',      eff:'Jolting. Fasten seatbelts.', risk:'Low', comfort:'Unpleasant', accel:12.7},
+  {n:'Severe turbulence',cat:'aviation', g:2.0,peak:3.5,   dur:'seconds',     eff:'Items thrown around. Injury risk.', risk:'Medium', comfort:'Scary', accel:19.6},
+  {n:'Fighter jet cruise',cat:'military',g:1.0,peak:1.5,   dur:'continuous',  eff:'Normal flight load.', risk:'None', comfort:'Normal', accel:9.81},
+  {n:'Fighter jet turn (3G)',cat:'military',g:3.0,peak:3.5, dur:'10-30s',     eff:'Face sag, 3× body weight.', risk:'Low', comfort:'Tolerable', accel:29.4},
+  {n:'Fighter jet pull-up (5G)',cat:'military',g:5.0,peak:6.0,dur:'5-15s',    eff:'Grey-out begins. Anti-G suit helps.', risk:'Medium', comfort:'Uncomfortable', accel:49.1},
+  {n:'Fighter jet (7G)',cat:'military',  g:7.0,peak:7.5,   dur:'up to 10s',   eff:'Tunnel vision (black-out). Loss of consciousness risk.', risk:'High', comfort:'Dangerous', accel:68.7},
+  {n:'Fighter jet (9G)',cat:'military',  g:9.0,peak:9.5,   dur:'~5s limit',   eff:'Likely G-LOC without anti-G suit. Fatal without training.', risk:'Very high', comfort:'Extreme danger', accel:88.3},
+  {n:'Space Shuttle launch',cat:'space', g:3.0,peak:3.0,   dur:'8.5 min',     eff:'Sustained 3G throughout ascent.', risk:'Low (trained)', comfort:'Uncomfortable', accel:29.4},
+  {n:'Rocket launch (typical)',cat:'space',g:2.5,peak:4.0,  dur:'2-3 min',    eff:'2-4G sustained, increasing as fuel burns.', risk:'Low (trained)', comfort:'Tolerable', accel:24.5},
+  {n:'Rocket Max-Q',  cat:'space',      g:1.5,peak:1.5,    dur:'~30s',        eff:'Peak aerodynamic pressure. High structural stress.', risk:'Medium', comfort:'OK', accel:14.7},
+  {n:'Stage separation',cat:'space',    g:0.0,peak:0.0,    dur:'1-2s',        eff:'Momentary weightlessness. Engines stop then restart.', risk:'Low', comfort:'Unusual', accel:0},
+  {n:'ISS orbit (microgravity)',cat:'space',g:0.0,peak:0.0, dur:'continuous', eff:'Continuous weightlessness. Fluids shift to head.', risk:'Long-term health', comfort:'Strange but OK', accel:0},
+  {n:'Moon landing',  cat:'space',      g:0.17,peak:0.2,   dur:'varies',      eff:'Gentle bouncy movement. Very low weight.', risk:'None', comfort:'Fascinating', accel:1.67},
+  {n:'Mars landing',  cat:'space',      g:0.38,peak:0.5,   dur:'varies',      eff:'Weight ~38% of Earth. Need adjustment time.', risk:'None', comfort:'Manageable', accel:3.72},
+  {n:'Free fall',     cat:'daily',      g:0.0,peak:0.0,    dur:'varies',      eff:'True weightlessness — no contact forces.', risk:'Impact hazard', comfort:'Exhilarating', accel:0},
+  {n:'Parachute deploy',cat:'sport',    g:4.0,peak:7.0,    dur:'0.5s',        eff:'Sudden deceleration — harness digs in.', risk:'Medium', comfort:'Jarring', accel:39.2},
+  {n:'Skydive terminal vel',cat:'sport',g:1.0,peak:1.0,    dur:'~60s',        eff:'Wind resistance equals gravity — 1G constant.', risk:'None in freefall', comfort:'Thrilling', accel:9.81},
+  {n:'Centrifuge (astronaut training)',cat:'space',g:8.0,peak:9.0,dur:'minutes',eff:'Blood pooled in legs. Blackout risk. Anti-G suit essential.', risk:'High', comfort:'Very hard', accel:78.5},
+  {n:'Centrifuge (medical)',cat:'medical',g:3.0,peak:5.0,  dur:'minutes',     eff:'Blood separation. Used for plasma extraction.', risk:'Low (medical)', comfort:'Odd', accel:29.4},
+  {n:'Bungee jump',   cat:'sport',      g:-1.5,peak:-2.5,  dur:'1-2s',        eff:'Negative G — blood rushes to head.', risk:'Low', comfort:'Exhilarating', accel:-14.7},
+  {n:'High-dive entry',cat:'sport',     g:8.0,peak:10.0,   dur:'<0.3s',       eff:'Extreme rapid deceleration. Full-body impact.', risk:'High (untrained)', comfort:'Painful', accel:78.5},
+  {n:'Car crash (minor)',cat:'transport',g:5.0,peak:15.0,  dur:'<0.1s',       eff:'Air bag deployment. Potentially injurious.', risk:'High', comfort:'Dangerous', accel:49.1},
+  {n:'Car crash (severe)',cat:'transport',g:25.0,peak:50.0,dur:'<0.1s',       eff:'Life-threatening. Fatal above 50G without restraint.', risk:'Fatal risk', comfort:'Catastrophic', accel:245},
+  {n:'Sneeze',        cat:'daily',      g:3.0,peak:3.0,    dur:'<0.1s',       eff:'Brief head jolt. Your neck absorbs this easily.', risk:'None', comfort:'Reflex', accel:29.4},
+  {n:'Cough',         cat:'daily',      g:3.5,peak:3.5,    dur:'<0.1s',       eff:'Similar to sneeze. Brief chest and head jolt.', risk:'None', comfort:'Reflex', accel:34.3},
+  {n:'Jumping landing',cat:'sport',     g:3.0,peak:8.0,    dur:'<0.2s',       eff:'Knees absorb 3-8× body weight on landing.', risk:'Low (repetitive risk)', comfort:'Normal', accel:29.4},
+];
+
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+let selectedBody = BODIES.find(b=>b.n==='Earth');
+let selectedScenario = GSCENARIOS[1]; // standing
+let qCorrect=0, qWrong=0, totalQ=0;
+let currentQuestion=null;
+let score=0;
+const ACHIEVEMENTS = [
+  {id:'grav',name:'Gravity Explorer',icon:'🔭',cond:()=>totalQ>=1},
+  {id:'moon',name:'Moon Walker',    icon:'🌕',cond:()=>selectedBody?.n==='Moon'},
+  {id:'rocket',name:'Rocket Scientist',icon:'🚀',cond:()=>selectedScenario?.cat==='space'},
+  {id:'mass', name:'Mass Master',   icon:'⚖',cond:()=>qCorrect>=5},
+  {id:'gf',   name:'G-Force Expert',icon:'⚡',cond:()=>selectedScenario?.g>=5},
+  {id:'planet',name:'Planet Hopper',icon:'🪐',cond:()=>score>=50},
+];
+let unlockedAch = new Set();
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+window.addEventListener('load',()=>{
+  renderAchievements();
+  buildBodyTable();
+  buildScenarioList();
+  t1Calc();
+  updateBodyCalc();
+  t1DrawCanvas();
+  updateLab();
+  fcCalc(); fcCalcAW(); fcCalcGF(); fcCalcGrav();
+  drawWGChart(); drawAWChart(); drawBodiesChart(); drawGfChart();
+  newQuestion();
+  startGfAnim();
+  setInterval(()=>{ checkAchievements(); }, 2000);
+});
+
+/* ═══════════════════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════════════════ */
+function showTab(id,btn){
+  document.querySelectorAll('.tp').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  setTimeout(()=>{
+    if(id==='t2') resizeBodyCanvas();
+    if(id==='t6') { drawWGChart();drawAWChart();drawBodiesChart();drawGfChart(); }
+  },50);
+}
+
+/* ═══════════════════════════════════════════════════════
+   THEME
+═══════════════════════════════════════════════════════ */
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const d=!document.body.classList.contains('light');
+  document.getElementById('theme-btn').textContent=d?'☀ Light':'🌙 Dark';
+  t1DrawCanvas(); resizeBodyCanvas();
+  drawWGChart(); drawAWChart(); drawBodiesChart(); drawGfChart();
+  drawBodyFigCanvas(selectedScenario?.g||1);
+}
+
+/* ═══════════════════════════════════════════════════════
+   ACHIEVEMENTS
+═══════════════════════════════════════════════════════ */
+function renderAchievements(){
+  const g=document.getElementById('ach-grid');
+  g.innerHTML=ACHIEVEMENTS.map(a=>`
+    <div class="ach ${unlockedAch.has(a.id)?'unlocked':''}" id="ach-${a.id}" title="${a.name}">
+      <div class="icon">${a.icon}</div>
+      <div class="name">${a.name}</div>
+    </div>`).join('');
+}
+function checkAchievements(){
+  ACHIEVEMENTS.forEach(a=>{
+    if(!unlockedAch.has(a.id)&&a.cond()){
+      unlockedAch.add(a.id);
+      score+=10;
+      document.getElementById('score-num').textContent=score;
+      renderAchievements();
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB 1 — MASS VS WEIGHT
+═══════════════════════════════════════════════════════ */
+function t1Calc(){
+  const m=parseFloat(document.getElementById('t1-mass').value)||0;
+  const g=parseFloat(document.getElementById('t1-g').value)||9.81;
+  const w=m*g;
+  document.getElementById('t1-wt').value=w.toFixed(2);
+  document.getElementById('t1-mass-badge').textContent=m+' kg';
+  document.getElementById('t1-wt-badge').textContent=w.toFixed(2)+' N';
+  document.getElementById('t1-g-badge').textContent=g;
+  document.getElementById('t1-g').value=g;
+  document.getElementById('t1-g-slider').value=g;
+  document.getElementById('t1-g-sval').textContent=g;
+  document.getElementById('t1-sc-mass').textContent=m;
+  document.getElementById('t1-sc-wt').textContent=w.toFixed(2);
+  document.getElementById('t1-sc-g').textContent=g;
+  document.getElementById('t1-eq-sub').innerHTML=`W = ${m} × ${g} = <span class="res">${w.toFixed(2)} N</span>`;
+  renderCompareBars(m);
+  t1DrawCanvas();
+}
+function t1CalcFromW(){
+  const w=parseFloat(document.getElementById('t1-wt').value)||0;
+  const g=parseFloat(document.getElementById('t1-g').value)||9.81;
+  if(g!==0){
+    const m=w/g;
+    document.getElementById('t1-mass').value=m.toFixed(3);
+    t1Calc();
+  }
+}
+function t1GSlider(){
+  const v=document.getElementById('t1-g-slider').value;
+  document.getElementById('t1-g').value=v;
+  document.getElementById('t1-g-sval').textContent=v;
+  t1Calc();
+}
+function t1SetG(g,name){
+  document.getElementById('t1-g').value=g;
+  document.getElementById('t1-g-slider').value=g;
+  t1Calc();
+}
+function renderCompareBars(mass){
+  const toShow=[{n:'Sun',g:274},{n:'Jupiter',g:24.79},{n:'Earth',g:9.81},{n:'Mars',g:3.72},{n:'Moon',g:1.62},{n:'Pluto',g:0.62}];
+  const maxW=mass*274; if(maxW===0)return;
+  const colors=['#ffd166','#ff6b35','#4d8cff','#ff6b8a','#c8c8c8','#c77dff'];
+  document.getElementById('t1-compare-bars').innerHTML=toShow.map((b,i)=>{
+    const w=(mass*b.g).toFixed(1);
+    const pct=mass*b.g/maxW*100;
+    return `<div class="cmp-bar-row">
+      <div class="cmp-name">${b.n}</div>
+      <div class="cmp-bar-track"><div class="cmp-bar-fill" style="width:${pct}%;background:${colors[i]}">${w}N</div></div>
+      <div class="cmp-val">${w} N</div>
+    </div>`;
+  }).join('');
+}
+
+function t1DrawCanvas(){
+  const canvas=document.getElementById('t1-canvas');
+  if(!canvas)return;
+  const W=canvas.offsetWidth||600; canvas.width=W; canvas.height=280;
+  const ctx=canvas.getContext('2d');
+  const isDark=!document.body.classList.contains('light');
+  ctx.fillStyle=isDark?'#060914':'#dce8ff'; ctx.fillRect(0,0,W,280);
+  const m=parseFloat(document.getElementById('t1-mass').value)||70;
+  const g=parseFloat(document.getElementById('t1-g').value)||9.81;
+  const w=m*g;
+  // Two figures
+  const panels=[{label:'Mass',sub:`${m} kg`,color:'#4d8cff',x:W*0.25},{label:'Weight',sub:`${w.toFixed(1)} N`,color:'#3df0c8',x:W*0.75}];
+  panels.forEach(p=>{
+    ctx.font='14px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle=p.color;
+    ctx.fillText(p.label,p.x,30);
+    ctx.font='bold 20px Space Grotesk'; ctx.fillStyle='#fff';
+    ctx.fillStyle=isDark?'#e8eeff':'#1a2140'; ctx.font='bold 18px Space Grotesk';
+    ctx.fillText(p.sub,p.x,55);
+    // Figure
+    drawStickFigure(ctx,p.x,140,isDark,p.color, g/9.81);
+    // Arrow showing gravity
+    if(p.label==='Weight'&&g>0){
+      const arrowH=Math.min(60,w/20);
+      ctx.strokeStyle=p.color; ctx.lineWidth=2.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(p.x,165); ctx.lineTo(p.x,165+arrowH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x-5,165+arrowH-4); ctx.lineTo(p.x,165+arrowH+6); ctx.lineTo(p.x+5,165+arrowH-4); ctx.fillStyle=p.color; ctx.fill();
+      ctx.font='10px JetBrains Mono'; ctx.fillStyle=p.color;
+      ctx.fillText('W='+w.toFixed(1)+'N', p.x, 165+arrowH+20);
+    }
+    if(p.label==='Mass'){
+      ctx.font='10px JetBrains Mono'; ctx.fillStyle='#8899cc';
+      ctx.fillText('same everywhere',p.x,230);
+    }
+  });
+  // Constant mass label
+  ctx.fillStyle=isDark?'rgba(77,140,255,.15)':'rgba(60,100,200,.1)';
+  ctx.fillRect(20,8,W/2-30,58); ctx.fillRect(W/2+10,8,W/2-30,58);
+  ctx.strokeStyle=isDark?'rgba(77,140,255,.3)':'rgba(60,100,200,.25)'; ctx.lineWidth=1; ctx.strokeRect(20,8,W/2-30,58); ctx.strokeRect(W/2+10,8,W/2-30,58);
+}
+
+function drawStickFigure(ctx,cx,cy,isDark,color,scale){
+  const c=isDark?color:'#2040a0'; const s=Math.max(0.5,Math.min(1.5,scale));
+  const h=50*s;
+  ctx.strokeStyle=c; ctx.lineWidth=2.5; ctx.setLineDash([]);
+  // head
+  ctx.beginPath(); ctx.arc(cx,cy-h*0.55,h*0.18,0,Math.PI*2); ctx.stroke();
+  // body
+  ctx.beginPath(); ctx.moveTo(cx,cy-h*0.36); ctx.lineTo(cx,cy); ctx.stroke();
+  // arms
+  ctx.beginPath(); ctx.moveTo(cx-h*0.25,cy-h*0.2); ctx.lineTo(cx+h*0.25,cy-h*0.2); ctx.stroke();
+  // legs
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx-h*0.2,cy+h*0.4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+h*0.2,cy+h*0.4); ctx.stroke();
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB 2 — CELESTIAL BODIES
+═══════════════════════════════════════════════════════ */
+function buildBodyTable(){
+  filterBodies();
+}
+function filterBodies(){
+  const q=document.getElementById('body-search').value.toLowerCase();
+  const f=document.getElementById('body-filter').value;
+  const tbody=document.getElementById('body-tbody'); tbody.innerHTML='';
+  BODIES.filter(b=>{
+    if(f!=='all'&&b.t!==f) return false;
+    if(q&&!b.n.toLowerCase().includes(q)) return false;
+    return true;
+  }).forEach(b=>{
+    const tr=document.createElement('tr');
+    if(selectedBody?.n===b.n) tr.classList.add('sel');
+    const typeClass={planet:'bb-planet',moon:'bb-moon',dwarf:'bb-dwarf',star:'bb-star',asteroid:'bb-asteroid'}[b.t]||'bb-asteroid';
+    tr.innerHTML=`<td><span class="body-badge ${typeClass}">${b.n}</span></td><td style="font-family:var(--mono);color:var(--accent2)">${b.g}</td>`;
+    tr.onclick=()=>selectBody(b);
+    tbody.appendChild(tr);
+  });
+}
+function selectBody(b){
+  selectedBody=b;
+  document.getElementById('sel-body-name').textContent=b.n;
+  document.getElementById('bd-g').textContent=b.g;
+  document.getElementById('bd-esc').textContent=b.esc||'—';
+  document.getElementById('bd-r').textContent=b.r||'—';
+  document.getElementById('bd-g-ratio').textContent=(b.g/9.81).toFixed(3);
+  document.getElementById('bd-note').textContent=b.note;
+  document.getElementById('body-funfact').innerHTML=`<strong>Fun fact:</strong> ${b.f}`;
+  updateBodyCalc();
+  filterBodies();
+  drawBodyCanvas();
+  renderTop5();
+  checkAchievements();
+}
+function objPreset(){
+  const v=document.getElementById('obj-preset').value;
+  if(v!=='custom') document.getElementById('obj-mass').value=v;
+  updateBodyCalc();
+}
+function updateBodyCalc(){
+  const b=selectedBody||BODIES.find(b=>b.n==='Earth');
+  const m=parseFloat(document.getElementById('obj-mass').value)||70;
+  const w=(m*b.g);
+  const earthW=m*9.81;
+  const jumpH=earthW>0?0.4*(9.81/Math.max(0.001,b.g)):999;
+  const fallTime=Math.sqrt(2*10/Math.max(0.0001,b.g));
+  const impactV=Math.sqrt(2*Math.max(0.0001,b.g)*10);
+  document.getElementById('bd-weight').textContent=w.toFixed(2);
+  document.getElementById('bd-weight-ratio').textContent=(w/Math.max(0.001,earthW)).toFixed(3);
+  document.getElementById('bd-jump').textContent=Math.min(9999,jumpH).toFixed(2);
+  document.getElementById('bd-fall-time').textContent=fallTime.toFixed(2)+' s';
+  document.getElementById('bd-impact-v').textContent=impactV.toFixed(1)+' m/s';
+  drawBodyCanvas();
+}
+function drawBodyCanvas(){
+  const canvas=document.getElementById('t2-canvas'); if(!canvas)return;
+  const W=canvas.offsetWidth||600; canvas.width=W; canvas.height=200;
+  const ctx=canvas.getContext('2d');
+  const b=selectedBody||BODIES.find(b=>b.n==='Earth');
+  const isDark=!document.body.classList.contains('light');
+  // Sky
+  const sky=ctx.createLinearGradient(0,0,0,200);
+  sky.addColorStop(0,isDark?'#060914':'#c0d8ff');
+  sky.addColorStop(1,isDark?'#0a1428':'#e0eeff');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,200);
+  // Ground
+  const groundColor={planet:'#4a3a28',moon:'#888',dwarf:'#6a6a6a',star:'#ff4400',asteroid:'#555'}[b.t]||'#3a4a30';
+  ctx.fillStyle=isDark?groundColor+'cc':groundColor+'88'; ctx.fillRect(0,170,W,30);
+  // Planet body
+  const maxR=Math.min(70, Math.log10(Math.max(1,b.r||1))*12);
+  ctx.beginPath(); ctx.arc(W/2,240,maxR,0,Math.PI*2);
+  ctx.fillStyle=isDark?groundColor+'66':groundColor+'44'; ctx.fill();
+  ctx.strokeStyle=isDark?groundColor:'#6080a0'; ctx.lineWidth=1.5; ctx.stroke();
+  // Figure
+  const ratio=b.g/9.81;
+  const figH=Math.max(25,Math.min(80,55*Math.sqrt(1/Math.max(0.0001,ratio))));
+  drawStickFigure(ctx,W/2,170-figH/2,isDark,'#3df0c8',ratio);
+  // Labels
+  ctx.font='12px Space Grotesk'; ctx.textAlign='center'; ctx.fillStyle=isDark?'#7eb3ff':'#2040a0';
+  ctx.fillText(b.n,W/2,20);
+  ctx.font='10px JetBrains Mono'; ctx.fillStyle=isDark?'#4d8cff':'#3060b0';
+  ctx.fillText(`g = ${b.g} m/s²`,W/2,38);
+  const m=parseFloat(document.getElementById('obj-mass').value)||70;
+  ctx.fillStyle=isDark?'#3df0c8':'#008060';
+  ctx.fillText(`W = ${(m*b.g).toFixed(1)} N`,W/2,56);
+  // Gravity arrow
+  if(b.g>0){
+    const arL=Math.min(60,b.g*2);
+    ctx.strokeStyle='#ffd166'; ctx.lineWidth=2; ctx.setLineDash([3,2]);
+    ctx.beginPath(); ctx.moveTo(W-30,40); ctx.lineTo(W-30,40+arL); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(W-35,40+arL-4); ctx.lineTo(W-30,40+arL+6); ctx.lineTo(W-25,40+arL-4); ctx.fillStyle='#ffd166'; ctx.fill();
+    ctx.font='9px JetBrains Mono'; ctx.fillStyle='#ffd166'; ctx.fillText('g',W-30,35);
+  }
+}
+function resizeBodyCanvas(){ drawBodyCanvas(); }
+function renderTop5(){
+  const sorted=[...BODIES].sort((a,b)=>b.g-a.g).slice(0,5);
+  const b=selectedBody||BODIES.find(b=>b.n==='Earth');
+  const m=parseFloat(document.getElementById('obj-mass').value)||70;
+  const max=sorted[0].g*m;
+  document.getElementById('top5-compare').innerHTML=sorted.map((bod,i)=>{
+    const w=(bod.g*m).toFixed(1);
+    const pct=(bod.g*m/max*100);
+    const colors=['#ffd166','#ff6b35','#4d8cff','#3df0c8','#c77dff'];
+    return `<div class="cmp-bar-row">
+      <div class="cmp-name">${bod.n}</div>
+      <div class="cmp-bar-track"><div class="cmp-bar-fill" style="width:${pct}%;background:${colors[i]}">${w}N</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB 3 — G-FORCE EXPLORER
+═══════════════════════════════════════════════════════ */
+function buildScenarioList(){
+  filterScenarios();
+}
+function filterScenarios(){
+  const q=document.getElementById('sc-search').value.toLowerCase();
+  const list=document.getElementById('sc-list'); list.innerHTML='';
+  GSCENARIOS.filter(s=>s.n.toLowerCase().includes(q)||s.cat.toLowerCase().includes(q)).forEach(sc=>{
+    const div=document.createElement('div');
+    div.className='sc-item'+(sc===selectedScenario?' active':'');
+    const gCol=gfColor(sc.g);
+    div.innerHTML=`<div><div class="sc-name">${sc.n}</div><div class="sc-cat">${sc.cat}</div></div>
+      <div class="sc-g" style="color:${gCol}">${Math.abs(sc.g).toFixed(1)} G</div>`;
+    div.onclick=()=>selectScenario(sc);
+    list.appendChild(div);
+  });
+}
+function selectScenario(sc){
+  selectedScenario=sc;
+  updateGfDisplay();
+  filterScenarios();
+  checkAchievements();
+}
+function gfColor(g){
+  const ag=Math.abs(g);
+  if(ag<=1.2) return '#3df0c8';
+  if(ag<=3)   return '#5dde8a';
+  if(ag<=5)   return '#ffd166';
+  if(ag<=7)   return '#ff6b35';
+  return '#ff6b8a';
+}
+function setCustomG(v){
+  document.getElementById('cg-badge').textContent=parseFloat(v).toFixed(1)+' G';
+  document.getElementById('cg-sval').textContent=parseFloat(v).toFixed(1);
+  const sc={n:'Custom', cat:'custom', g:+v, peak:+v, dur:'user-set', eff:'Custom G-force scenario.', risk:'Depends', comfort:'Depends', accel:+v*9.81};
+  selectedScenario=sc;
+  updateGfDisplay();
+}
+function updateGfDisplay(){
+  const sc=selectedScenario||GSCENARIOS[1];
+  const mass=parseFloat(document.getElementById('gf-mass').value)||70;
+  const G=sc.g, appWt=(mass*(g_Earth+sc.accel-9.81)).toFixed(1);
+  const gAbs=Math.abs(G);
+  document.getElementById('gf-sc-name').textContent=sc.n;
+  document.getElementById('gf-num').textContent=G.toFixed(2);
+  document.getElementById('gf-num').style.color=gfColor(G);
+  document.getElementById('gf-bar').style.width=Math.min(100,gAbs/10*100)+'%';
+  document.getElementById('gf-bar').style.background=gfColor(G);
+  document.getElementById('gf-app-wt').textContent=(mass*Math.max(0,gAbs)*9.81).toFixed(1);
+  document.getElementById('gf-accel').textContent=(gAbs*9.81).toFixed(2);
+  document.getElementById('gf-dur').textContent=sc.dur||'—';
+  document.getElementById('gf-risk').textContent=sc.risk||'—';
+  document.getElementById('gf-risk').style.color=sc.risk?.includes('High')||sc.risk?.includes('Fatal')?'var(--rose)':sc.risk?.includes('Med')?'var(--gold)':'var(--teal)';
+  document.getElementById('gf-comfort').textContent=sc.comfort||'—';
+  document.getElementById('gf-effects').innerHTML=sc.eff.split('.').filter(Boolean).map(s=>`<div>• ${s.trim()}</div>`).join('');
+  document.getElementById('gf-note').textContent=`Peak G: ${sc.peak} G  |  Accel: ${(gAbs*9.81).toFixed(1)} m/s²`;
+  drawBodyFigCanvas(G);
+}
+function drawBodyFigCanvas(G){
+  const canvas=document.getElementById('body-fig-canvas'); if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=120,H=220;
+  ctx.clearRect(0,0,W,H);
+  const isDark=!document.body.classList.contains('light');
+  ctx.fillStyle=isDark?'#0a0e1a':'#e8f0ff'; ctx.fillRect(0,0,W,H);
+  const gAbs=Math.abs(G); const gColor=gfColor(G);
+  // Pressure indicator
+  const squish=1/(1+gAbs*0.06);
+  const cx=W/2, cy=H/2-10;
+  // Draw squished figure
+  ctx.save(); ctx.translate(cx,cy); ctx.scale(1,squish);
+  // body
+  ctx.strokeStyle=gColor; ctx.lineWidth=3; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(0,-50,14,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-35); ctx.lineTo(0,10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-20,-20); ctx.lineTo(20,-20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,10); ctx.lineTo(-15,40); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,10); ctx.lineTo(15,40); ctx.stroke();
+  ctx.restore();
+  // G label
+  ctx.font='bold 20px JetBrains Mono'; ctx.textAlign='center';
+  ctx.fillStyle=gColor; ctx.fillText(gAbs.toFixed(1)+'G',cx,H-25);
+  ctx.font='10px Space Grotesk'; ctx.fillStyle=isDark?'#8899cc':'#3a4d80';
+  ctx.fillText(G<0?'negative G':G===0?'weightless':'positive G',cx,H-10);
+  // Weight arrow
+  if(gAbs>0){
+    const arrowLen=Math.min(60,gAbs*8);
+    const arrowY=G<0?30:H-65;
+    const dir=G<0?-1:1;
+    ctx.strokeStyle=gColor; ctx.lineWidth=2; ctx.setLineDash([3,2]);
+    ctx.beginPath(); ctx.moveTo(cx,arrowY); ctx.lineTo(cx,arrowY+dir*arrowLen); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(cx-5,arrowY+dir*arrowLen-dir*5); ctx.lineTo(cx,arrowY+dir*arrowLen+dir*5); ctx.lineTo(cx+5,arrowY+dir*arrowLen-dir*5); ctx.fillStyle=gColor; ctx.fill();
+  }
+}
+
+// G-Force animation
+let gfAnimId=null, gfAnimT=0;
+function startGfAnim(){ if(gfAnimId) cancelAnimationFrame(gfAnimId); gfAnimLoop(); }
+function gfAnimLoop(){
+  gfAnimT+=0.02;
+  drawGfAnim();
+  gfAnimId=requestAnimationFrame(gfAnimLoop);
+}
+function drawGfAnim(){
+  const canvas=document.getElementById('gf-anim-canvas'); if(!canvas)return;
+  const W=canvas.offsetWidth||600; canvas.width=W; canvas.height=200;
+  const ctx=canvas.getContext('2d');
+  const isDark=!document.body.classList.contains('light');
+  const sc=selectedScenario||GSCENARIOS[1];
+  ctx.fillStyle=isDark?'#060914':'#dce8ff'; ctx.fillRect(0,0,W,200);
+  // Grid
+  ctx.strokeStyle=isDark?'rgba(77,140,255,0.07)':'rgba(60,100,200,0.07)'; ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,200);ctx.stroke();}
+  for(let y=0;y<200;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // Animate based on category
+  const cat=sc.cat;
+  const t=gfAnimT;
+  const G=Math.abs(sc.g);
+  if(cat==='transport'||cat==='motorsport'){
+    // Car animation
+    const carX=((t*30*(1+G*0.2))%W+W)%W;
+    const carY=170;
+    ctx.fillStyle=isDark?'#1a2440':'#c0d0ff'; ctx.fillRect(carX-30,carY-20,60,20); ctx.fillRect(carX-20,carY-32,40,14); ctx.fillStyle='#3df0c8'; ctx.beginPath();ctx.arc(carX-18,carY+2,8,0,Math.PI*2);ctx.fill(); ctx.arc(carX+18,carY+2,8,0,Math.PI*2);ctx.fill();
+    // G label on car
+    ctx.font='10px JetBrains Mono'; ctx.fillStyle=gfColor(sc.g); ctx.textAlign='center';
+    ctx.fillText(G.toFixed(1)+'G',carX,carY-35);
+    // Lean indicator
+    const lean=G*5;
+    ctx.strokeStyle='#ffd166'; ctx.lineWidth=2; ctx.save();
+    ctx.translate(carX,carY-45); ctx.rotate(Math.min(0.4,lean*0.04));
+    drawStickFigure(ctx,0,0,isDark,'#ffd166',1); ctx.restore();
+    ctx.fillStyle=isDark?'#4a5880':'#7080b0'; ctx.fillRect(0,185,W,15);
+  } else if(cat==='space'||sc.n.includes('rocket')||sc.n.toLowerCase().includes('rocket')){
+    // Rocket
+    const rocketY=180-((t*10*(1+G*0.3))%(200));
+    ctx.fillStyle='#ff6b35'; ctx.fillRect(W/2-8,rocketY,16,40);
+    ctx.beginPath(); ctx.moveTo(W/2,rocketY-20); ctx.lineTo(W/2-8,rocketY); ctx.lineTo(W/2+8,rocketY); ctx.fillStyle='#fff'; ctx.fill();
+    // Flame
+    const fl=5+G*3+Math.sin(t*20)*3;
+    ctx.beginPath(); ctx.moveTo(W/2-6,rocketY+40); ctx.quadraticCurveTo(W/2,rocketY+40+fl,W/2+6,rocketY+40); ctx.fillStyle='#ffd166'; ctx.fill();
+    ctx.font='10px JetBrains Mono'; ctx.fillStyle='#ffd166'; ctx.textAlign='center';
+    ctx.fillText(G.toFixed(1)+'G',W/2+30,rocketY+10);
+  } else if(cat==='aviation'){
+    // Plane
+    const planeX=((t*20)%W+W)%W;
+    const planeY=80+Math.sin(t)*G*5;
+    ctx.save(); ctx.translate(planeX,planeY);
+    ctx.fillStyle=isDark?'#1a3060':'#e0e8ff'; ctx.fillRect(-25,-6,50,12); ctx.fillRect(-5,-16,20,10); ctx.fillRect(-20,2,10,8);ctx.fillRect(10,2,10,8);
+    ctx.restore();
+    ctx.font='10px JetBrains Mono'; ctx.fillStyle='#7eb3ff'; ctx.textAlign='center';
+    ctx.fillText(G.toFixed(1)+'G', planeX, planeY+25);
+  } else {
+    // Default: elevator / general
+    const elevY=40+Math.abs(Math.sin(t*0.8))*(120);
+    ctx.fillStyle=isDark?'#1a2440':'#c0d0ff'; ctx.fillRect(W/2-30,elevY,60,50);
+    ctx.strokeStyle=isDark?'rgba(77,140,255,.3)':'rgba(60,100,200,.3)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(W/2-15,20); ctx.lineTo(W/2-15,elevY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2+15,20); ctx.lineTo(W/2+15,elevY); ctx.stroke();
+    drawStickFigure(ctx,W/2,elevY+30,isDark,gfColor(sc.g),G);
+    ctx.font='11px JetBrains Mono'; ctx.fillStyle=gfColor(sc.g); ctx.textAlign='center';
+    ctx.fillText(G.toFixed(1)+'G', W/2,elevY+70);
+  }
+  // G-force meter
+  ctx.fillStyle=isDark?'rgba(10,14,26,.7)':'rgba(200,210,240,.8)';
+  ctx.fillRect(10,10,90,22); ctx.fillStyle=isDark?'#4a5880':'#7080b0';
+  ctx.font='9px JetBrains Mono'; ctx.textAlign='left'; ctx.fillText('G-FORCE',14,24);
+  ctx.fillStyle=gfColor(sc.g); ctx.font='bold 12px JetBrains Mono'; ctx.fillText(G.toFixed(2)+'G',60,24);
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB 4 — WEIGHT LAB
+═══════════════════════════════════════════════════════ */
+const LAB_BODIES=['Sun','Jupiter','Neptune','Saturn','Earth','Venus','Uranus','Mars','Moon','Pluto','Ceres','ISS'];
+function updateLab(){
+  const masses=[
+    parseFloat(document.getElementById('lab-m1').value)||0,
+    parseFloat(document.getElementById('lab-m2').value)||0,
+    parseFloat(document.getElementById('lab-m3').value)||0,
+    parseFloat(document.getElementById('lab-m4').value)||0
+  ];
+  const tbody=document.getElementById('lab-tbody'); tbody.innerHTML='';
+  const barsData=[];
+  LAB_BODIES.forEach(bn=>{
+    const b=BODIES.find(x=>x.n===bn); if(!b)return;
+    const tr=document.createElement('tr');
+    const cells=[`<td style="color:var(--accent2);font-weight:500">${bn}</td>`,`<td style="font-family:var(--mono)">${b.g}</td>`];
+    masses.forEach(m=>cells.push(`<td style="font-family:var(--mono)">${(m*b.g).toFixed(2)}</td>`));
+    tr.innerHTML=cells.join(''); tbody.appendChild(tr);
+    barsData.push({n:bn, g:b.g, w:masses[0]*b.g});
+  });
+  // Comparison bars for object 1
+  const maxW=Math.max(...barsData.map(x=>x.w),1);
+  const barColors=['#4d8cff','#3df0c8','#ffd166','#ff6b35','#c77dff','#ff6b8a','#5dde8a','#7eb3ff','#c8c8c8','#ffaa44','#88aaff','#33ccaa'];
+  document.getElementById('lab-bars').innerHTML=barsData.map((d,i)=>`
+    <div class="cmp-bar-row">
+      <div class="cmp-name">${d.n}</div>
+      <div class="cmp-bar-track"><div class="cmp-bar-fill" style="width:${d.maxW===0?0:d.w/maxW*100}%;background:${barColors[i%barColors.length]}">${d.w.toFixed(1)} N</div></div>
+      <div class="cmp-val">${d.w.toFixed(1)} N</div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB 5 — PROBLEM SOLVER
+═══════════════════════════════════════════════════════ */
+const QUESTION_BODIES=['Earth','Moon','Mars','Jupiter','Saturn','Venus','Pluto','Ceres','Titan','Triton'];
+function newQuestion(){
+  const diff=document.getElementById('q-diff').value;
+  const type=document.getElementById('q-type').value==='random'?['weight','mass','gravity','gforce','apparent'][Math.floor(Math.random()*5)]:document.getElementById('q-type').value;
+  const body=BODIES.find(b=>b.n===QUESTION_BODIES[Math.floor(Math.random()*QUESTION_BODIES.length)]);
+  const mass=Math.round((diff==='easy'?10+Math.random()*60:diff==='medium'?20+Math.random()*120:diff==='hard'?10+Math.random()*200:5+Math.random()*500)*10)/10;
+  const g=Math.round(body.g*100)/100;
+  const weight=Math.round(mass*g*100)/100;
+  let q={}, answer, choices=[], hint, solution;
+  if(type==='weight'){
+    q.text=`A ${mass} kg object is on ${body.n} (g = ${g} m/s²). What is its weight?`;
+    answer=weight;
+    hint=`Use W = m × g = ${mass} × ${g}`;
+    solution=`W = m × g\nW = ${mass} × ${g}\nW = ${weight} N`;
+    choices=makeChoices(answer, diff, 'N');
+  } else if(type==='mass'){
+    q.text=`An object weighs ${weight} N on ${body.n} (g = ${g} m/s²). What is its mass?`;
+    answer=mass;
+    hint=`Use m = W / g = ${weight} / ${g}`;
+    solution=`m = W / g\nm = ${weight} / ${g}\nm = ${mass} kg`;
+    choices=makeChoices(answer, diff, 'kg');
+  } else if(type==='gravity'){
+    q.text=`An object has a mass of ${mass} kg and weighs ${weight} N. What is the gravitational field strength?`;
+    answer=g;
+    hint=`Use g = W / m = ${weight} / ${mass}`;
+    solution=`g = W / m\ng = ${weight} / ${mass}\ng = ${g} m/s²`;
+    choices=makeChoices(answer, diff, 'm/s²');
+  } else if(type==='gforce'){
+    const accel=Math.round((2+Math.random()*8)*10)/10;
+    const gf=Math.round(accel/9.81*100)/100;
+    q.text=`A pilot experiences an acceleration of ${accel} m/s². What is the G-force?`;
+    answer=gf;
+    hint=`G = a / 9.81 = ${accel} / 9.81`;
+    solution=`G = a / g₀\nG = ${accel} / 9.81\nG = ${gf} G`;
+    choices=makeChoices(answer, diff, 'G');
+  } else {
+    const accel=Math.round((1+Math.random()*4)*10)/10;
+    const dir=Math.random()>0.5?1:-1;
+    const aw=Math.round(mass*(g_Earth+dir*accel)*100)/100;
+    q.text=`A ${mass} kg person is in a lift ${dir>0?'accelerating upward':'accelerating downward'} at ${accel} m/s². What is their apparent weight?`;
+    answer=aw;
+    hint=`N = m(g ${dir>0?'+':'-'} a) = ${mass} × (9.81 ${dir>0?'+':'-'} ${accel})`;
+    solution=`N = m(g ${dir>0?'+':'-'} a)\nN = ${mass}(9.81 ${dir>0?'+':'-'} ${accel})\nN = ${aw} N`;
+    choices=makeChoices(answer, diff, 'N');
+  }
+  currentQuestion={q,answer,hint,solution,choices,answered:false};
+  renderQuestion();
+  totalQ++;
+  checkAchievements();
+}
+function makeChoices(answer, diff, unit){
+  const spread=diff==='easy'?0.3:diff==='medium'?0.15:diff==='hard'?0.08:0.04;
+  const wrong=new Set();
+  while(wrong.size<3){
+    const v=Math.round(answer*(1+(Math.random()*2-1)*spread)*100)/100;
+    if(Math.abs(v-answer)>0.01) wrong.add(v);
+  }
+  const all=[{v:answer,correct:true,unit},...[...wrong].map(v=>({v,correct:false,unit}))];
+  return all.sort(()=>Math.random()-0.5);
+}
+function renderQuestion(){
+  const {q,choices}=currentQuestion;
+  document.getElementById('quiz-q').textContent=q.text;
+  document.getElementById('quiz-fb').className='quiz-feedback';
+  document.getElementById('quiz-solution').style.display='none';
+  document.getElementById('quiz-hint-btn').style.display='';
+  document.getElementById('quiz-next-btn').style.display='none';
+  document.getElementById('quiz-opts').innerHTML=choices.map((c,i)=>`
+    <button class="quiz-opt" onclick="answerQ(${i})">${c.v} ${c.unit}</button>`).join('');
+}
+function answerQ(idx){
+  if(currentQuestion.answered)return;
+  currentQuestion.answered=true;
+  const {choices,answer,solution}=currentQuestion;
+  const chosen=choices[idx];
+  const fb=document.getElementById('quiz-fb');
+  document.querySelectorAll('.quiz-opt').forEach((b,i)=>{
+    if(choices[i].correct) b.classList.add('correct');
+    else if(i===idx) b.classList.add('wrong');
+  });
+  if(chosen.correct){
+    qCorrect++; score+=5;
+    fb.textContent='✓ Correct! Well done!';
+    fb.className='quiz-feedback show ok';
+  } else {
+    qWrong++;
+    fb.textContent=`✗ Incorrect. The answer is ${answer} ${choices[0].unit}.`;
+    fb.className='quiz-feedback show fail';
+  }
+  document.getElementById('q-correct').textContent=qCorrect;
+  document.getElementById('q-wrong').textContent=qWrong;
+  document.getElementById('score-num').textContent=score;
+  const pct=totalQ>0?qCorrect/totalQ*100:0;
+  document.getElementById('q-prog').style.width=pct+'%';
+  document.getElementById('quiz-solution').style.display='';
+  document.getElementById('quiz-solution').innerHTML=`<div class="step">Step-by-step:</div><div class="hi">${solution.replace(/\n/g,'<br>')}</div>`;
+  document.getElementById('quiz-next-btn').style.display='';
+  document.getElementById('quiz-hint-btn').style.display='none';
+  checkAchievements();
+}
+function showHint(){
+  if(!currentQuestion)return;
+  const fb=document.getElementById('quiz-fb');
+  fb.textContent='💡 Hint: '+currentQuestion.hint;
+  fb.className='quiz-feedback show ok';
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB 6 — FORMULA CARDS
+═══════════════════════════════════════════════════════ */
+function fcCalc(){
+  const m=parseFloat(document.getElementById('fc-m').value)||0;
+  const g=parseFloat(document.getElementById('fc-g').value)||9.81;
+  document.getElementById('fc-w-res').textContent=(m*g).toFixed(3)+' N';
+}
+function fcCalcAW(){
+  const m=parseFloat(document.getElementById('fc-aw-m').value)||0;
+  const a=parseFloat(document.getElementById('fc-aw-a').value)||0;
+  document.getElementById('fc-aw-res').textContent=(m*(9.81+a)).toFixed(3)+' N';
+}
+function fcCalcGF(){
+  const a=parseFloat(document.getElementById('fc-gf-a').value)||0;
+  document.getElementById('fc-gf-res').textContent=(a/9.81).toFixed(3)+' G';
+}
+function fcCalcGrav(){
+  const m1=parseFloat(document.getElementById('fc-grav-m1').value)||0;
+  const m2=parseFloat(document.getElementById('fc-grav-m2').value)||0;
+  const r=parseFloat(document.getElementById('fc-grav-r').value)||1;
+  document.getElementById('fc-grav-res').textContent=(G_CONST*m1*m2/(r*r)).toFixed(3)+' N';
+}
+
+/* ═══════════════════════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════════════════════ */
+function niceStep(rough){
+  const order=Math.pow(10,Math.floor(Math.log10(Math.max(1e-10,rough))));
+  const frac=rough/order;
+  if(frac<1.5)return order;if(frac<3.5)return 2*order;if(frac<7.5)return 5*order;return 10*order;
+}
+function drawLineChart(canvasId,data,xlabel,ylabel,color,fillColor){
+  const canvas=document.getElementById(canvasId); if(!canvas)return;
+  const W=canvas.offsetWidth||500; canvas.width=W;
+  const H=canvas.height;
+  const ctx=canvas.getContext('2d');
+  const isDark=!document.body.classList.contains('light');
+  const PAD={l:50,r:14,t:12,b:30};
+  ctx.fillStyle=isDark?'#060914':'#dce8ff'; ctx.fillRect(0,0,W,H);
+  if(!data.length)return;
+  const xs=data.map(d=>d.x), ys=data.map(d=>d.y);
+  const xMin=Math.min(...xs),xMax=Math.max(...xs),yMin=Math.min(0,...ys),yMax=Math.max(...ys);
+  const toX=x=>PAD.l+(x-xMin)/(xMax-xMin||1)*(W-PAD.l-PAD.r);
+  const toY=y=>PAD.t+(yMax-y)/(yMax-yMin||1)*(H-PAD.t-PAD.b);
+  // Grid
+  ctx.strokeStyle=isDark?'rgba(77,140,255,.07)':'rgba(60,100,200,.07)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){const gx=PAD.l+i/5*(W-PAD.l-PAD.r);ctx.beginPath();ctx.moveTo(gx,PAD.t);ctx.lineTo(gx,H-PAD.b);ctx.stroke();}
+  for(let i=0;i<=4;i++){const gy=PAD.t+i/4*(H-PAD.t-PAD.b);ctx.beginPath();ctx.moveTo(PAD.l,gy);ctx.lineTo(W-PAD.r,gy);ctx.stroke();}
+  // Fill
+  ctx.beginPath(); ctx.moveTo(toX(xs[0]),toY(0));
+  data.forEach(d=>ctx.lineTo(toX(d.x),toY(d.y)));
+  ctx.lineTo(toX(xs[xs.length-1]),toY(0)); ctx.closePath();
+  ctx.fillStyle=fillColor||color+'22'; ctx.fill();
+  // Line
+  ctx.beginPath(); data.forEach((d,i)=>{i===0?ctx.moveTo(toX(d.x),toY(d.y)):ctx.lineTo(toX(d.x),toY(d.y));});
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  // Axes labels
+  ctx.fillStyle=isDark?'#4a5880':'#6070a0'; ctx.font='9px JetBrains Mono';
+  const yStep=niceStep((yMax-yMin)/4);
+  for(let y=Math.ceil(yMin/yStep)*yStep;y<=yMax;y+=yStep){
+    const gy=toY(y); if(gy<PAD.t||gy>H-PAD.b)continue;
+    ctx.textAlign='right'; ctx.fillText(y.toFixed(0),PAD.l-3,gy+3);
+  }
+  const xStep=niceStep((xMax-xMin)/5);
+  for(let x=Math.ceil(xMin/xStep)*xStep;x<=xMax;x+=xStep){
+    ctx.textAlign='center'; ctx.fillText(x.toFixed(1),toX(x),H-5);
+  }
+  ctx.textAlign='center'; ctx.fillStyle=isDark?'#8899cc':'#4060a0';
+  ctx.font='9px Space Grotesk'; ctx.fillText(xlabel,PAD.l+(W-PAD.l-PAD.r)/2,H-2);
+  ctx.save(); ctx.translate(10,PAD.t+(H-PAD.t-PAD.b)/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText(ylabel,0,0); ctx.restore();
+}
+function drawBarChart(canvasId,labels,values,colors,ylabel){
+  const canvas=document.getElementById(canvasId); if(!canvas)return;
+  const W=canvas.offsetWidth||500; canvas.width=W;
+  const H=canvas.height;
+  const ctx=canvas.getContext('2d');
+  const isDark=!document.body.classList.contains('light');
+  const PAD={l:55,r:8,t:14,b:60};
+  ctx.fillStyle=isDark?'#060914':'#dce8ff'; ctx.fillRect(0,0,W,H);
+  if(!values.length)return;
+  const yMax=Math.max(...values)*1.1;
+  const toY=y=>PAD.t+(1-y/yMax)*(H-PAD.t-PAD.b);
+  const barW=(W-PAD.l-PAD.r)/values.length;
+  // Grid
+  ctx.strokeStyle=isDark?'rgba(77,140,255,.07)':'rgba(60,100,200,.07)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){const gy=PAD.t+i/5*(H-PAD.t-PAD.b);ctx.beginPath();ctx.moveTo(PAD.l,gy);ctx.lineTo(W-PAD.r,gy);ctx.stroke();}
+  values.forEach((v,i)=>{
+    const bx=PAD.l+i*barW+barW*0.1;
+    const bw=barW*0.8;
+    const by=toY(v);
+    const bh=H-PAD.b-by;
+    const col=colors[i%colors.length];
+    const grad=ctx.createLinearGradient(0,by,0,by+bh);
+    grad.addColorStop(0,col); grad.addColorStop(1,col+'44');
+    ctx.fillStyle=grad; ctx.fillRect(bx,by,bw,bh);
+    // value label
+    ctx.fillStyle=col; ctx.font='8px JetBrains Mono'; ctx.textAlign='center';
+    if(bh>12) ctx.fillText(v.toFixed(0),bx+bw/2,by-3);
+    // x label
+    ctx.fillStyle=isDark?'#4a5880':'#6070a0'; ctx.font='8px Space Grotesk';
+    ctx.save(); ctx.translate(bx+bw/2,H-PAD.b+5); ctx.rotate(-Math.PI/4);
+    ctx.fillText(labels[i],0,0); ctx.restore();
+  });
+  // Y axis
+  ctx.fillStyle=isDark?'#4a5880':'#6070a0'; ctx.font='9px JetBrains Mono'; ctx.textAlign='right';
+  const yStep=niceStep(yMax/5);
+  for(let y=0;y<=yMax;y+=yStep){ const gy=toY(y); if(gy<PAD.t)continue; ctx.fillText(y.toFixed(0),PAD.l-3,gy+3); }
+  ctx.save(); ctx.translate(10,PAD.t+(H-PAD.t-PAD.b)/2); ctx.rotate(-Math.PI/2);
+  ctx.fillStyle=isDark?'#8899cc':'#4060a0'; ctx.font='9px Space Grotesk';
+  ctx.textAlign='center'; ctx.fillText(ylabel,0,0); ctx.restore();
+}
+
+function drawWGChart(){
+  const m=parseFloat(document.getElementById('chart-wg-m').value)||70;
+  const data=[]; for(let g=0;g<=30;g+=0.5) data.push({x:g,y:m*g});
+  drawLineChart('chart-wg',data,'g (m/s²)','Weight (N)','#3df0c8');
+  // Mark Earth, Moon, Mars
+  const canvas=document.getElementById('chart-wg'); if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height, PAD={l:50,r:14,t:12,b:30};
+  const toX=x=>PAD.l+x/30*(W-PAD.l-PAD.r);
+  const toY=y=>PAD.t+(1-y/(m*30))*(H-PAD.t-PAD.b);
+  const isDark=!document.body.classList.contains('light');
+  [{g:9.81,n:'Earth',c:'#4d8cff'},{g:1.62,n:'Moon',c:'#c8c8c8'},{g:3.72,n:'Mars',c:'#ff6b35'}].forEach(b=>{
+    ctx.beginPath(); ctx.arc(toX(b.g),toY(m*b.g),5,0,Math.PI*2);
+    ctx.fillStyle=b.c; ctx.fill();
+    ctx.font='9px JetBrains Mono'; ctx.fillStyle=b.c; ctx.textAlign='center';
+    ctx.fillText(b.n,toX(b.g),toY(m*b.g)-9);
+  });
+}
+function drawAWChart(){
+  const m=parseFloat(document.getElementById('chart-aw-m').value)||70;
+  const data=[]; for(let a=-10;a<=10;a+=0.5) data.push({x:a,y:Math.max(0,m*(9.81+a))});
+  drawLineChart('chart-aw',data,'Acceleration (m/s²)','Apparent Weight (N)','#7eb3ff');
+}
+function drawBodiesChart(){
+  const m=parseFloat(document.getElementById('chart-bodies-m').value)||70;
+  const topBodies=['Sun','Jupiter','Neptune','Saturn','Earth','Venus','Uranus','Mars','Moon','Pluto','Ceres','ISS'];
+  const bods=topBodies.map(n=>BODIES.find(b=>b.n===n)).filter(Boolean);
+  const labels=bods.map(b=>b.n);
+  const values=bods.map(b=>b.g*m);
+  const colors=['#ffd166','#ff6b35','#4d8cff','#3df0c8','#c77dff','#ff6b8a','#5dde8a','#7eb3ff','#c8c8c8','#ffaa44','#88aaff','#33ccaa'];
+  drawBarChart('chart-bodies',labels,values,colors,'Weight (N)');
+}
+function drawGfChart(){
+  const topScen=GSCENARIOS.slice(0,15);
+  const labels=topScen.map(s=>s.n.length>12?s.n.substr(0,12)+'…':s.n);
+  const values=topScen.map(s=>Math.abs(s.g));
+  const colors=topScen.map(s=>gfColor(s.g));
+  drawBarChart('chart-gf',labels,values,colors,'G-force (G)');
+}
+
+function exportChartPNG(id,name){
+  const c=document.getElementById(id); if(!c)return;
+  const a=document.createElement('a'); a.download=name+'.png'; a.href=c.toDataURL(); a.click();
+}
+function exportCSV(){
+  const m=parseFloat(document.getElementById('chart-bodies-m').value)||70;
+  let csv='Body,g (m/s2),Weight (N),g/g_Earth\n';
+  BODIES.forEach(b=>{ csv+=`${b.n},${b.g},${(b.g*m).toFixed(3)},${(b.g/9.81).toFixed(4)}\n`; });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='weight-comparison.csv'; a.click();
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESIZE HANDLER
+═══════════════════════════════════════════════════════ */
+window.addEventListener('resize',()=>{
+  t1DrawCanvas(); drawBodyCanvas();
+  drawWGChart(); drawAWChart(); drawBodiesChart(); drawGfChart();
+});
+
+/* init body selection */
+selectBody(BODIES.find(b=>b.n==='Earth'));
+</script>
+</body>
+</html>
