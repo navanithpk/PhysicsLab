@@ -1786,77 +1786,118 @@ function defDrawScene(V, sepM, B, Bdir, speedFrac) {
   }
 
   // ── Physics simulation ──
-  // For each radiation type, compute trajectory numerically
+  // Real SI physics (Lorentz force) computed in 600 steps.
+  // Alpha's actual deflection is ~3700× smaller than beta's at the same E field —
+  // physically correct but invisible on screen. We apply a power-law visual
+  // compression: Δy_screen = |Δy_SI|^0.30 × K (same exponent for all types)
+  // so the display ratio becomes 3700^0.30 ≈ 8×. Alpha curves noticeably,
+  // beta curves sharply, gamma is perfectly straight. Relative directions are exact.
+  // A "(visual scale)" label is shown on the canvas.
+
+  const plateWidthM = 0.10;   // physical plate length used in formula (m)
+  const pixPerM_x   = (plateR - plateL) / plateWidthM;
+
+  // Normalise VSCALE so beta exits at ~55% of half-gap at reference conditions
+  const VEXP   = 0.30;
+  const _refV0 = 0.10 * c;
+  const _refBD = Math.abs((-e) * (V / Math.max(sepM,0.001)) * plateWidthM * plateWidthM /
+                 (2 * (1/1836) * u_kg * _refV0 * _refV0));
+  const VSCALE = (_refBD > 0)
+    ? (plateHalfGap * 0.55) / Math.pow(_refBD, VEXP)
+    : plateHalfGap * 0.55;
+
+  // Convert a real SI deflection (m) to screen pixels, preserving sign
+  function visualDeflPx(physMetres) {
+    return Math.sign(physMetres) * Math.pow(Math.abs(physMetres), VEXP) * VSCALE;
+  }
+
   const types = defType === 'all' ? ['alpha','beta','gamma'] : [defType];
 
   types.forEach(type => {
-    const p = DEF_PARTICLES[type];
-    const q = p.charge * e * defPolarity; // signed charge × polarity
-    const m = p.massU * u_kg;
-    const v0 = speedFrac * c; // initial horizontal speed
+    const p  = DEF_PARTICLES[type];
+    const q  = p.charge * e;                       // unsigned C (sign from charge field)
+    const m  = p.massU * u_kg;                     // kg
+    const v0 = speedFrac * c;                      // m/s
+    const Ef = (V / Math.max(sepM,0.001)) * defPolarity; // V/m, polarity sign
+    const Bz = B * (Bdir === 'out' ? 1 : -1);     // T
 
-    // Scale: 1 pixel ≈ 0.5 cm, plates are ~(plateR-plateL)px long
-    const scaleM = (plateR - plateL) / 0.3; // pixels per metre
-    const E = V / sepM;
-    const ay_E = m > 0 ? (q * E) / m : 0; // vertical accel from E field
-    // B force: F = qv × B, for horizontal v (right) and B out-of-page → force upward for positive charge
-    // F_y = q·v_x·B (if Bdir=out), F_y = -q·v_x·B (if Bdir=in)
-    const Bsign = Bdir === 'out' ? 1 : -1;
-
-    // Simulate trajectory as series of points
     const path = [];
-    let px = 0, py = 0; // in metres from plate entry
-    let vx = v0, vy = 0;
-    const dt = 5e-11; // time step
-    const maxSteps = 2000;
+    path.push({ x: 30,     y: midY });
+    path.push({ x: plateL, y: midY });
 
-    // Entry point in canvas coords
-    const entryCanvasX = plateL;
-    const entryCanvasY = midY;
+    if (p.charge === 0) {
+      // Gamma — zero charge → no Lorentz force → straight
+      path.push({ x: W + 20, y: midY });
+    } else {
+      // Integrate in real time using small fixed dt.
+      // Stop conditions (inside plates):
+      //   a) particle exits right edge (px >= plateWidthM)  → normal exit
+      //   b) particle hits a plate (|py| >= sepM/2)         → absorbed
+      //   c) vx turns negative (curling back leftward)      → show arc up to that point
+      //   d) particle exits left edge (px < 0)              → escaped back, stop
+      //
+      // dt chosen so that one full cyclotron orbit (if it happens) has ~800 steps.
+      // Larmor radius: r = mv/(|q|B).  Period T = 2πr/v = 2πm/(|q|B).
+      // Use dt = T/800 if B>0, else dt = plateWidthM/(v0*600).
 
-    // Pre-plate: straight line from source at x=30 to plate entry
-    const srcCanvasX = 30, srcCanvasY = midY;
-    path.push({x: srcCanvasX, y: srcCanvasY, inside: false});
+      const absMass = m;
+      const absQ    = Math.abs(q);
+      const T_cyc   = (Bz !== 0) ? (2 * Math.PI * absMass) / (absQ * Math.abs(Bz)) : Infinity;
+      const dt      = (T_cyc < Infinity)
+                      ? Math.min(T_cyc / 800, plateWidthM / (v0 * 600))
+                      : plateWidthM / (v0 * 600);
+      const maxSteps = 3000; // hard cap
 
-    // Inside plates: numerical integration
-    const plateWidthM = (plateR - plateL) / scaleM;
-    let insideSteps = [];
-    for (let step=0; step < maxSteps; step++) {
-      // E force
-      const Fy_E = m > 0 ? (q * E) : 0;
-      // B force: F = q(v × B), B along z (out of page = +z)
-      // v = (vx, vy, 0), B = (0,0,Bz)
-      // v × B = (vy*Bz, -vx*Bz, 0) — so Fx=-q*vy*Bsign*B, Fy=q*vx*Bsign*B
-      const Bz = B * Bsign;
-      const Fx_B = m > 0 ? (p.charge * e * (-vy) * Bz) : 0;
-      const Fy_B = m > 0 ? (p.charge * e * vx  * Bz) : 0;
+      let px = 0, py = 0, vx = v0, vy = 0;
+      const trajectory = [{ px: 0, py: 0 }];
 
-      const ax = m > 0 ? (Fx_B) / m : 0;
-      const ay = m > 0 ? (Fy_E + Fy_B) / m : 0;
+      for (let step = 0; step < maxSteps; step++) {
+        // Lorentz force: F = q·(E_field + v×B)
+        // E vertical only.  v×B with B=(0,0,Bz): result=(vy·Bz, −vx·Bz, 0)
+        const Fy_E = q * Ef;
+        const Fx_B = q * ( vy * Bz);
+        const Fy_B = q * (-vx * Bz);
 
-      vx += ax * dt;
-      vy += ay * dt;
-      px += vx * dt;
-      py += vy * dt;
+        vx += (Fx_B / m) * dt;
+        vy += ((Fy_E + Fy_B) / m) * dt;
+        px += vx * dt;
+        py += vy * dt;
 
-      const cx = entryCanvasX + px * scaleM;
-      const cy = entryCanvasY - py * scaleM; // y flipped (canvas down = positive)
-      insideSteps.push({x:cx, y:cy, inside:true});
-      if (px >= plateWidthM) break;
-      // Hit plate?
-      if (Math.abs(py * scaleM) >= plateHalfGap - 4) break;
-    }
-    // Append inside steps
-    insideSteps.forEach(s => path.push(s));
+        trajectory.push({ px, py, vx, vy });
 
-    // After plates: continue straight with final velocity
-    if (insideSteps.length) {
-      const last = insideSteps[insideSteps.length-1];
-      const slope = vy / Math.max(vx, 1e-10);
-      const exitX = plateR;
-      const exitY = last.y;
-      const remX = W - exitX + 60;
-      path.push({x: exitX + remX, y: exitY - slope * (remX / scaleM) * scaleM, inside: false});
+        // Stop: exited right
+        if (px >= plateWidthM) break;
+        // Stop: hit top or bottom plate
+        if (Math.abs(py) >= sepM / 2 * 0.97) break;
+        // Stop: turned back left — draw arc only up to this point, no straight extension
+        if (vx < 0) break;
+        // Stop: exited left boundary (rare, very strong B)
+        if (px < -plateWidthM * 0.5) break;
+      }
+
+      // Map trajectory to canvas using visual compression
+      trajectory.forEach(pt => {
+        const cx = plateL + pt.px * pixPerM_x;
+        const cy = midY   - visualDeflPx(pt.py);
+        path.push({ x: cx, y: cy });
+      });
+
+      // Post-plate straight extension — ONLY if particle exited the right edge
+      // (i.e. last trajectory point has px near plateWidthM and vx still positive)
+      const lastTraj = trajectory[trajectory.length - 1];
+      const exitedRight = lastTraj && lastTraj.px >= plateWidthM * 0.97 && lastTraj.vx > 0;
+
+      if (exitedRight && path.length >= 3) {
+        const p1 = path[path.length - 2];
+        const p2 = path[path.length - 1];
+        if (p2.x > p1.x + 0.5) {
+          const slope = (p2.y - p1.y) / (p2.x - p1.x);
+          path.push({ x: W + 40, y: p2.y + slope * (W + 40 - p2.x) });
+        } else {
+          path.push({ x: W + 40, y: p2.y });
+        }
+      }
+      // If particle turned back or hit a plate: path ends at that point, no extension.
     }
 
     // Draw path
@@ -1890,13 +1931,20 @@ function defDrawScene(V, sepM, B, Bdir, speedFrac) {
       ctx.fillText(p.label, mid.x, mid.y - 6);
     }
 
-    // Deflection readout
-    if (path.length >= 2) {
-      const exitPt = insideSteps.length ? insideSteps[insideSteps.length-1] : path[1];
-      const deflPx = Math.abs(exitPt.y - midY);
-      const deflMm = (deflPx / scaleM * 1000).toFixed(1);
-      const idMap = {alpha:'def-alpha-def', beta:'def-beta-def', gamma:'def-gamma-def'};
-      const el = document.getElementById(idMap[type]);
+    // ── Deflection readout ──
+    if (path.length >= 3) {
+      // Find last point inside or at plate exit
+      let exitPt = null;
+      for (let i = path.length - 1; i >= 0; i--) {
+        if (path[i].x <= plateR + 2) { exitPt = path[i]; break; }
+      }
+      if (!exitPt) exitPt = path[path.length - 1];
+      // Back-convert screen pixels to SI metres via inverse power law
+      const screenDeflPx = Math.abs(exitPt.y - midY);
+      const physDeflM    = VSCALE > 0 ? Math.pow(screenDeflPx / VSCALE, 1 / VEXP) : 0;
+      const deflMm       = (physDeflM * 1000).toFixed(4);
+      const idMap = { alpha:'def-alpha-def', beta:'def-beta-def', gamma:'def-gamma-def' };
+      const el    = document.getElementById(idMap[type]);
       if (el) {
         el.textContent = type === 'gamma' ? '0 mm' : deflMm + ' mm';
         el.style.color = type === 'gamma' ? 'var(--text3)' : 'var(--' + (type==='alpha'?'alpha':'beta') + ')';
@@ -1918,7 +1966,7 @@ function defDrawScene(V, sepM, B, Bdir, speedFrac) {
   // ── Legend ──
   const types2 = defType === 'all' ? ['alpha','beta','gamma'] : [defType];
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-  let ly = H - 30;
+  let ly = H - 44;
   types2.forEach(t => {
     const p = DEF_PARTICLES[t];
     const chargeStr = t==='alpha'?'+2e': t==='beta'?'−1e':'0 (no charge)';
@@ -1926,6 +1974,9 @@ function defDrawScene(V, sepM, B, Bdir, speedFrac) {
     ctx.fillText(`${p.label} ${p.name}  q=${chargeStr}`, 8, ly);
     ly += 14;
   });
+  // Visual scale disclaimer
+  ctx.fillStyle='rgba(74,88,128,0.75)'; ctx.font='9px Space Grotesk'; ctx.textAlign='left';
+  ctx.fillText('⚠ Curvature amplified for visibility (|Δy|^0.3 scale). Directions & relative ordering are exact.', 8, H - 6);
 
   cancelAnimationFrame(defAnimId);
   defAnimId = requestAnimationFrame(() => defUpdate());
