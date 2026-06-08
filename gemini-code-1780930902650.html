@@ -612,6 +612,7 @@ window.addEventListener('load',()=>{
   setTool('select',document.getElementById('tb-select'));
   rafId=requestAnimationFrame(loop);
   loadExample();
+  updateUndoRedoButtons(); // Initialize undo/redo button states
 });
 
 function resizeCv(){
@@ -640,7 +641,9 @@ function ss(ctx,col,lw=1.4){ ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.lineCap=
 function drawCell(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.15,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS,0); ctx.lineTo( GS*0.15,0); ctx.stroke();
+  // Negative terminal (shorter, on left) - thin line
   ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(-GS*0.15,-GS*0.7); ctx.lineTo(-GS*0.15,GS*0.7); ctx.stroke();
+  // Positive terminal (longer, on right) - thick line
   ctx.lineWidth=2.8; ctx.beginPath(); ctx.moveTo(GS*0.15,-GS*0.42); ctx.lineTo(GS*0.15,GS*0.42); ctx.stroke();
   ctx.lineWidth=1.4; ctx.fillStyle=col+'cc'; ctx.font='7px IBM Plex Mono'; ctx.textAlign='center';
   ctx.fillText('+',GS*0.15+8,-GS*0.3); ctx.fillText('−',-GS*0.15-8,-GS*0.3);
@@ -650,7 +653,10 @@ function drawBattery(ctx,col,cells){
   ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-totalW/2,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( totalW/2,0); ctx.stroke();
   for(let i=0;i<n;i++){
-    const x=-totalW/2+i*spacing+spacing/2; const isPos=(i%2===0);
+    const x=-totalW/2+i*spacing+spacing/2; 
+    // Even index (0,2,4...) = positive terminal (longer, thicker)
+    // Odd index (1,3,5...) = negative terminal (shorter, thinner)
+    const isPos=(i%2===0);
     ctx.lineWidth=isPos?2.6:1.2; const h=isPos?GS*0.38:GS*0.65;
     ctx.beginPath(); ctx.moveTo(x,-h); ctx.lineTo(x,h); ctx.stroke();
   }
@@ -1026,9 +1032,12 @@ function bindEvents(){
 function sw(sx,sy){ const r=canvas.getBoundingClientRect(); return{x:(sx-r.left-S.pan.x)/S.zoom, y:(sy-r.top-S.pan.y)/S.zoom}; }
 
 function compAt(wx,wy){
+  // Tighter hit detection for small components like switches
   for(let i=S.comps.length-1;i>=0;i--){
     const c=S.comps[i]; const def=DMAP[c.t]; if(!def)continue;
-    if(Math.hypot(wx-c.x,wy-c.y)<=Math.max(def.gw,def.gh)*GS) return c;
+    // Use tighter bounds: reduce the hit radius multiplier for better precision
+    const hitRadius = Math.max(def.gw, def.gh) * GS * 0.7;
+    if(Math.hypot(wx-c.x,wy-c.y) <= hitRadius) return c;
   }
   return null;
 }
@@ -1124,6 +1133,10 @@ function onKey(e){
   if(e.key==='w' || e.key==='W') setTool('wire', document.getElementById('tb-wire'));
   if(e.key==='Escape') setTool('select', document.getElementById('tb-select'));
   
+  // Undo/Redo with Ctrl+Z and Ctrl+Y
+  if(e.ctrlKey && e.key === 'z'){ e.preventDefault(); undo(); return; }
+  if(e.ctrlKey && e.key === 'y'){ e.preventDefault(); redo(); return; }
+  
   // Arrow keys for moving selected component
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
     e.preventDefault();
@@ -1186,15 +1199,97 @@ function setTool(t,btn){
   render();
 }
 function setDispMode(m,btn){ S.dispMode=m; document.querySelectorAll('.mode-pill button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
-function setRightTab(n,btn){ document.querySelectorAll('.rp-tab').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+function setRightTab(n,btn){ 
+  document.querySelectorAll('.rp-tab').forEach(b=>b.classList.remove('active')); 
+  btn.classList.add('active'); 
+  if(n === 'layers') updateLayerList();
+}
+
+function updateLayerList(){
+  const list = document.getElementById('layer-list');
+  if(!list) return;
+  
+  let html = '';
+  // List components
+  S.comps.forEach((c, idx) => {
+    const def = DMAP[c.t];
+    const isSelected = S.sel.has(c.id);
+    const label = def ? def.lbl : c.t;
+    html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-size:10px;${isSelected?'background:rgba(74,158,255,.15);border:1px solid rgba(74,158,255,.3)':'background:var(--bg3);border:1px solid var(--border)'}" onclick="layerSelect(${c.id})">
+      <span style="width:8px;height:8px;border-radius:50%;background:${def?def.col:'#888'}"></span>
+      <span style="flex:1">${label} #${c.id}</span>
+      <span style="color:var(--text3);font-size:9px">${c.t}</span>
+    </div>`;
+  });
+  
+  // List wires
+  S.wires.forEach((w, idx) => {
+    html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-size:10px;background:var(--bg3);border:1px solid var(--border)" onclick="layerSelectWire(${idx})">
+      <span style="width:8px;height:8px;border-radius:50%;background:#4a9eff"></span>
+      <span style="flex:1">Wire #${idx+1}</span>
+      <span style="color:var(--text3);font-size:9px">${w.pts.length} pts</span>
+    </div>`;
+  });
+  
+  list.innerHTML = html || '<div style="color:var(--text3);font-size:10px;padding:8px">No elements</div>';
+}
+
+function layerSelect(id){
+  selectOnly(id);
+  updateLayerList();
+}
+
+function layerSelectWire(idx){
+  // For now, just select the first component to switch to select mode
+  if(S.comps.length > 0) selectOnly(S.comps[0].id);
+  updateLayerList();
+}
+
+function layerSelectAll(){
+  S.comps.forEach(c => S.sel.add(c.id));
+  updateProps();
+  updateLayerList();
+  render();
+}
+
+function layerDeselectAll(){
+  S.sel.clear();
+  updateProps();
+  updateLayerList();
+  render();
+}
 function toggleLogPanel(){ _logPanelOpen=!_logPanelOpen; document.getElementById('log-panel').style.display=_logPanelOpen?'flex':'none'; if(_logPanelOpen) refreshLogPanel(); }
 function logSim(...a){ const m=a.join(' '); SIM_LOG.push(m); if(_logPanelOpen) refreshLogPanel(); }
 function refreshLogPanel(){ document.getElementById('log-output').innerHTML=SIM_LOG.map(l=>`<div>${l}</div>`).join(''); }
 function updateSB(){ document.getElementById('sb-c').textContent=S.comps.length; document.getElementById('sb-w').textContent=S.wires.length; }
 
-function snapshot(){ S._undoStack.push(JSON.stringify({comps:S.comps,wires:S.wires,texts:S.texts,nextId:S.nextId})); }
-function undo(){ if(S._undoStack.length){ const p=JSON.parse(S._undoStack.pop()); S.comps=p.comps; S.wires=p.wires; S.texts=p.texts; S.nextId=p.nextId; stopSimulation(); render(); } }
-function redo(){}
+function snapshot(){ 
+  S._undoStack.push(JSON.stringify({comps:S.comps,wires:S.wires,texts:S.texts,nextId:S.nextId})); 
+  S._redoStack = []; // Clear redo stack on new action
+  updateUndoRedoButtons();
+}
+function undo(){ 
+  if(S._undoStack.length){ 
+    const p=JSON.parse(S._undoStack.pop()); 
+    S._redoStack.push(JSON.stringify({comps:S.comps,wires:S.wires,texts:S.texts,nextId:S.nextId}));
+    S.comps=p.comps; S.wires=p.wires; S.texts=p.texts; S.nextId=p.nextId; 
+    stopSimulation(); render(); 
+    updateUndoRedoButtons();
+  } 
+}
+function redo(){ 
+  if(S._redoStack.length){ 
+    const p=JSON.parse(S._redoStack.pop()); 
+    S._undoStack.push(JSON.stringify({comps:S.comps,wires:S.wires,texts:S.texts,nextId:S.nextId}));
+    S.comps=p.comps; S.wires=p.wires; S.texts=p.texts; S.nextId=p.nextId; 
+    stopSimulation(); render(); 
+    updateUndoRedoButtons();
+  } 
+}
+function updateUndoRedoButtons(){
+  document.getElementById('tb-undo').style.opacity = S._undoStack.length > 0 ? '1' : '0.35';
+  document.getElementById('tb-redo').style.opacity = S._redoStack.length > 0 ? '1' : '0.35';
+}
 
 function saveCircuit(){
   const data=JSON.stringify({comps:S.comps,wires:S.wires,texts:S.texts,nextId:S.nextId});
