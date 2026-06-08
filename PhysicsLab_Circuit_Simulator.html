@@ -351,6 +351,7 @@ class CircuitTopology {
     components.forEach(c => {
       const def = DEFS.find(d => d.t === c.t);
       if (!def) return;
+      // Use termPos to get actual terminal positions (respects flip & rotation)
       const mappedIds = def.terms.map((_, ti) => {
         const pt = termPos(c, ti);
         const root = find(keyStr(pt.x, pt.y));
@@ -505,7 +506,9 @@ class PhysicsEngine {
       if (!nodes || nodes.length < 2) return;
       const v1 = nodeVoltages.get(nodes[0]) || 0;
       const v2 = nodeVoltages.get(nodes[1]) || 0;
-      const vd = v2 - v1;
+      // Calculate voltage drop as potential at terminal 0 minus potential at terminal 1
+      // This ensures consistent polarity regardless of flip state
+      const vd = v1 - v2;
       let I = 0;
 
       // Extract raw baseline values
@@ -542,13 +545,12 @@ class PhysicsEngine {
     const v0 = voltagesMap.get(ns[0]) || 0;
     const v1 = voltagesMap.get(ns[1]) || 0;
 
-    // BUG FIX: Electrons carry negative charge. They move from LOW potential to HIGH potential.
-    // If v1 > v0, conventional current flows terminal 0 -> 1. Electrons flow terminal 1 -> 0.
+    // Electrons flow from lower potential to higher potential in passive components
+    // For sources (battery/cell), electrons are pumped internally from positive to negative
     if (comp.t === 'battery' || comp.t === 'cell' || comp.t === 'ac') {
-      // Inside a chemical source cell, electrons pump against potential toward negative terminal
       return v0 <= v1 ? -1 : 1;
     } else {
-      // External components: Electrons flow toward higher positive electrical potential
+      // Passive components: electrons flow toward higher potential (opposite to conventional current)
       return v0 <= v1 ? 1 : -1;
     }
   }
