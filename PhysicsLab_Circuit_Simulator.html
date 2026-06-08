@@ -167,6 +167,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
   <button class="tb" id="tb-select" onclick="setTool('select',this)" title="Select / Move [V]">Select</button>
   <button class="tb" id="tb-wire" onclick="setTool('wire',this)" title="Draw wire [W]">Wire</button>
+  <button class="tb" id="tb-erase" onclick="setTool('erase',this)" title="Erase wire [E]">Eraser</button>
   <div class="sep"></div>
   <button class="tb" id="tb-undo" onclick="undo()" title="Undo [Ctrl+Z]" style="opacity:.35">Undo</button>
   <button class="tb" id="tb-redo" onclick="redo()" title="Redo [Ctrl+Y]" style="opacity:.35">Redo</button>
@@ -258,7 +259,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <div class="ci" onclick="ctxDup()">Duplicate</div>
   <div class="ci" onclick="ctxFlip()">Flip</div>
   <hr class="csep">
-  <div class="ci danger" onclick="ctxDel()">Delete</div>
+  <div class="ci danger" onclick="ctxDelWire()">Delete Wire</div>
+  <div class="ci danger" onclick="ctxDel()">Delete Component</div>
 </div>
 
 <div id="meter-tooltip" style="position:fixed;display:none;z-index:800;background:#0d0f14;border:1px solid rgba(140,160,220,.28);border-radius:8px;padding:10px 14px;pointer-events:none;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.6);">
@@ -733,10 +735,17 @@ function drawLamp(ctx,col,lit,intensity){
   ctx.beginPath(); ctx.moveTo( d,-d); ctx.lineTo(-d,d); ctx.stroke();
 }
 function drawLED(ctx,col,lit){
-  ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.65,0); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo( GS,0); ctx.lineTo( GS*0.45,0); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-GS*0.65,-GS*0.52); ctx.lineTo(-GS*0.65,GS*0.52); ctx.lineTo(GS*0.45,0); ctx.closePath(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(GS*0.45,-GS*0.52); ctx.lineTo(GS*0.45,GS*0.52); ctx.stroke();
+  ss(ctx,col); 
+  // Draw diode base - cathode bar
+  ctx.beginPath(); ctx.moveTo(GS*0.4,-GS*0.5); ctx.lineTo(GS*0.4,GS*0.5); ctx.stroke();
+  // Draw diode triangle (anode to cathode)
+  ctx.beginPath(); ctx.moveTo(-GS*0.65,-GS*0.52); ctx.lineTo(-GS*0.65,GS*0.52); ctx.lineTo(GS*0.4,0); ctx.closePath(); ctx.stroke();
+  // Draw leads
+  ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.65,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS,0); ctx.lineTo( GS*0.4,0); ctx.stroke();
+  // Draw light emission arrows (pointing outward)
+  ctx.beginPath(); ctx.moveTo(GS*0.2,-GS*0.9); ctx.lineTo(GS*0.5,-GS*1.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(GS*0.35,-GS*0.85); ctx.lineTo(GS*0.65,-GS*1.15); ctx.stroke();
   if(lit){
     ctx.save(); const grad=ctx.createRadialGradient(0,0,0,0,0,GS*1.5);
     grad.addColorStop(0,col+'55'); grad.addColorStop(1,'transparent');
@@ -751,16 +760,29 @@ function drawHeater(ctx,col){
   for(let i=1;i<4;i++){ const x=-w/2+i*w/4; ctx.beginPath(); ctx.moveTo(x,-h/2); ctx.lineTo(x,h/2); ctx.stroke(); }
 }
 function drawLDR(ctx,col){
-  const w=GS*1.3, h=GS*0.5; drawResistor(ctx,col);
-  for(let s=-1;s<=1;s+=2){
-    const ox=s*GS*0.3, oy=-GS*0.82, ex=s*GS*0.08, ey=-h/2-GS*0.08;
-    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ex,ey); ctx.stroke();
-  }
+  // Draw resistor base
+  const w=GS*1.3, h=GS*0.5; 
+  ss(ctx,col);
+  ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-w/2,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( w/2,0); ctx.stroke();
+  ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.stroke();
+  // Draw two inward-pointing arrows (light incident)
+  ctx.beginPath(); ctx.moveTo(-GS*0.8,-GS*1.1); ctx.lineTo(-GS*0.4,-GS*0.75); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-GS*0.65,-GS*1.05); ctx.lineTo(-GS*0.55,-GS*0.95); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*0.3,-GS*1.15); ctx.lineTo( GS*0.7,-GS*0.8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*0.45,-GS*1.1); ctx.lineTo( GS*0.55,-GS*1.0); ctx.stroke();
 }
 function drawThermistor(ctx,col){
-  const w=GS*1.3, h=GS*0.5; drawResistor(ctx,col);
-  ctx.beginPath(); ctx.moveTo(-w/2-GS*0.22,h/2+GS*0.22); ctx.lineTo(w/2+GS*0.22,-h/2-GS*0.22); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-w/2-GS*0.22,h/2+GS*0.22); ctx.lineTo(-w/2-GS*0.22+GS*0.3,h/2+GS*0.22); ctx.stroke();
+  // Draw resistor base
+  const w=GS*1.3, h=GS*0.5; 
+  ss(ctx,col);
+  ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-w/2,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( w/2,0); ctx.stroke();
+  ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.stroke();
+  // Draw diagonal line with flat tail (temperature dependence symbol)
+  ctx.beginPath(); ctx.moveTo(-w/2-GS*0.25,h/2+GS*0.25); ctx.lineTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.stroke();
+  // Small horizontal segment at the end
+  ctx.beginPath(); ctx.moveTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.lineTo(w/2+GS*0.55,-h/2-GS*0.25); ctx.stroke();
 }
 function drawDiode(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.6,0); ctx.stroke();
@@ -1132,8 +1154,41 @@ function compAt(wx,wy){
   return null;
 }
 
+function wireAt(wx, wy){
+  // Find wire near point - returns index of wire or null
+  const hitDist = GS * 2.0;
+  for(let i=S.wires.length-1; i>=0; i--){
+    const w = S.wires[i];
+    for(const pt of w.pts){
+      if(Math.hypot(pt.x - wx, pt.y - wy) < hitDist){
+        return i;
+      }
+    }
+  }
+  return null;
+}
+
 function onMD(e){
   const w=sw(e.clientX,e.clientY); hideCtx();
+  
+  // Eraser tool - delete wires near click point
+  if(S.tool === 'erase'){
+    snapshot();
+    const eraseRadius = GS * 1.5;
+    S.wires = S.wires.filter(wire => {
+      // Check if any point of the wire is within erase radius
+      for(const pt of wire.pts){
+        const dist = Math.hypot(pt.x - w.x, pt.y - w.y);
+        if(dist < eraseRadius) return false; // Delete this wire
+      }
+      return true; // Keep this wire
+    });
+    updateSB();
+    if(S.simOn) runSimulation();
+    render();
+    return;
+  }
+  
   if(S.tool==='wire'){
     // Try to snap to a terminal first, then fall back to grid
     let sx = snap(w.x), sy = snap(w.y);
@@ -1229,6 +1284,7 @@ function onKey(e){
   if(e.key==='r' || e.key==='Enter') rotateSelected(); 
   if(e.key==='v' || e.key==='V') setTool('select', document.getElementById('tb-select'));
   if(e.key==='w' || e.key==='W') setTool('wire', document.getElementById('tb-wire'));
+  if(e.key==='e' || e.key==='E') setTool('erase', document.getElementById('tb-erase'));
   if(e.key==='Escape') setTool('select', document.getElementById('tb-select'));
   
   // Undo/Redo with Ctrl+Z and Ctrl+Y
@@ -1278,10 +1334,30 @@ function updateProps(){
 }
 function sp(id,k,v){ const c=S.comps.find(x=>x.id===id); if(c){ c.props[k]=v; if(S.simOn) runSimulation(); updateProps(); render(); } }
 
-function showCtx(x,y){ const m=document.getElementById('ctxmenu'); m.style.left=x+'px'; m.style.top=y+'px'; m.classList.add('show'); }
+function showCtx(x,y){ 
+  const m=document.getElementById('ctxmenu'); 
+  m.style.left=x+'px'; 
+  m.style.top=y+'px'; 
+  m.classList.add('show'); 
+  
+  // Store the wire under cursor for deletion
+  const w = sw(x, y);
+  S._ctxWireIdx = wireAt(w.x, w.y);
+}
+
 function hideCtx(){ document.getElementById('ctxmenu').classList.remove('show'); }
 function ctxRotate(){ rotateSelected(); hideCtx(); }
 function ctxDel(){ deleteSelected(); hideCtx(); }
+function ctxDelWire(){
+  if(S._ctxWireIdx !== null && S._ctxWireIdx !== undefined){
+    snapshot();
+    S.wires.splice(S._ctxWireIdx, 1);
+    updateSB();
+    if(S.simOn) runSimulation();
+    render();
+  }
+  hideCtx();
+}
 function ctxFlip(){ flipSelected(); hideCtx(); }
 function ctxDup(){
   if(S.sel.size === 0) { hideCtx(); return; }
