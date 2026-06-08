@@ -637,6 +637,20 @@ function compColor(t){
   return C.comp;
 }
 function ss(ctx,col,lw=1.4){ ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.lineCap='round'; ctx.lineJoin='round'; }
+function roundRect(ctx,x,y,w,h,r){
+  const rr=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr,y);
+  ctx.lineTo(x+w-rr,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+rr);
+  ctx.lineTo(x+w,y+h-rr);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-rr,y+h);
+  ctx.lineTo(x+rr,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-rr);
+  ctx.lineTo(x,y+rr);
+  ctx.quadraticCurveTo(x,y,x+rr,y);
+  ctx.closePath();
+}
 
 function drawCell(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.15,0); ctx.stroke();
@@ -760,6 +774,67 @@ function drawMeter(ctx,col,letter,value,range,over,under,dispMode,animT,compId){
   ctx.beginPath(); ctx.moveTo( GS*1.2,0); ctx.lineTo( r,0); ctx.stroke();
   ctx.fillStyle=col; ctx.font=`bold ${r*0.62}px IBM Plex Mono`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(letter,0,0);
+  
+  // Draw hover overlay with 7-segment style display
+  if (S.hover === compId) {
+    ctx.save();
+    const dispX = GS * 2.2;
+    const dispY = -GS * 0.8;
+    const dispW = GS * 3.5;
+    const dispH = GS * 1.4;
+    
+    // Background
+    ctx.fillStyle = 'rgba(20, 25, 35, 0.95)';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, dispX - dispW/2, dispY - dispH/2, dispW, dispH, 4);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Label
+    ctx.fillStyle = col;
+    ctx.font = '10px IBM Plex Sans';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(letter === 'A' ? 'Current' : 'Voltage', dispX - dispW/2 + 4, dispY - dispH/2 + 3);
+    
+    // Value in 7-segment style font
+    const unit = letter === 'A' ? 'A' : 'V';
+    let displayValue, displayUnit;
+    const absVal = Math.abs(value);
+    if (absVal >= 1e6) {
+      displayValue = (value / 1e6).toFixed(2);
+      displayUnit = 'M' + unit;
+    } else if (absVal >= 1e3) {
+      displayValue = (value / 1e3).toFixed(2);
+      displayUnit = 'k' + unit;
+    } else if (absVal >= 1) {
+      displayValue = value.toFixed(2);
+      displayUnit = unit;
+    } else if (absVal >= 1e-3) {
+      displayValue = (value * 1e3).toFixed(2);
+      displayUnit = 'm' + unit;
+    } else if (absVal >= 1e-6) {
+      displayValue = (value * 1e6).toFixed(2);
+      displayUnit = 'µ' + unit;
+    } else {
+      displayValue = (value * 1e9).toFixed(2);
+      displayUnit = 'n' + unit;
+    }
+    
+    ctx.fillStyle = '#3de88e';
+    ctx.font = 'bold 16px IBM Plex Mono';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(displayValue, dispX + dispW/2 - 4, dispY + dispH/2 - 3);
+    
+    ctx.fillStyle = '#8890b0';
+    ctx.font = '10px IBM Plex Sans';
+    ctx.textAlign = 'left';
+    ctx.fillText(displayUnit, dispX - dispW/2 + 4, dispY + dispH/2 - 3);
+    
+    ctx.restore();
+  }
 }
 function drawGround(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.moveTo(0,-GS); ctx.lineTo(0,0); ctx.stroke();
