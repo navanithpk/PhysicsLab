@@ -295,7 +295,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 // ═══════════════════════════════════════════════════
 class CircuitTopology {
   static buildNodeGroups(components, wires, gridSpacing) {
-    const snapRadius = gridSpacing * 0.85;
+    const snapRadius = gridSpacing * 1.5;
     const keyStr = (x, y) => `${snap(x)},${snap(y)}`;
     const snap = (v) => Math.round(v / gridSpacing) * gridSpacing;
     const pointsNear = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by) < snapRadius;
@@ -556,7 +556,7 @@ class PhysicsEngine {
 //  GLOBAL CANVAS APPLICATION CODE
 // ═══════════════════════════════════════════════════
 const GS = 16; 
-const SNAP_R = GS * 1.2; 
+const SNAP_R = GS * 2.0; 
 const BRIDGE_R = 5;  
 
 const DEFS = [
@@ -858,6 +858,16 @@ function drawWIP(){
   ctx.strokeStyle='rgba(74,158,255,0.5)'; ctx.lineWidth=1.4; ctx.beginPath();
   S.wirePts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
   if(S._wMouse) ctx.lineTo(S._wMouse.x,S._wMouse.y); ctx.stroke();
+  // Draw start point dot
+  if(S.wirePts.length > 0){
+    ctx.fillStyle='rgba(74,158,255,0.9)';
+    ctx.beginPath(); ctx.arc(S.wirePts[0].x, S.wirePts[0].y, 2.5, 0, Math.PI*2); ctx.fill();
+  }
+  // Draw current mouse position dot
+  if(S._wMouse){
+    ctx.fillStyle='rgba(74,158,255,0.6)';
+    ctx.beginPath(); ctx.arc(S._wMouse.x, S._wMouse.y, 2.5, 0, Math.PI*2); ctx.fill();
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -1034,7 +1044,7 @@ function onMD(e){
       if(lastPt.x !== sx || lastPt.y !== sy) {
         S.wirePts.push({x:sx, y:sy}); 
       }
-      if(S.wirePts.length >= 2) finishWire(); 
+      if(S.wirePts.length >= 2) finishWire(); // Finish wire immediately after adding the second point
     }
     return;
   }
@@ -1056,12 +1066,8 @@ function onMM(e){
 }
 function onMU(){ 
   S.drag=false; 
-  // Cancel wire drawing on mouse up if in progress
-  if(S.tool==='wire' && S.wirePts.length > 0){
-    S.wirePts = [];
-    S._wMouse = null;
-    render();
-  }
+  // Don't cancel wire drawing - let users click to add points
+  // Wire is only cancelled when switching tools or completing a connection
   if(S.simOn) runSimulation(); 
 }
 function onWheel(e){ e.preventDefault(); S.zoom=Math.max(0.3,Math.min(3,S.zoom*(e.deltaY>0?0.9:1.1))); render(); }
@@ -1079,7 +1085,8 @@ function onKey(e){
 }
 
 function finishWire(){
-  snapshot(); S.wires.push({pts:[...S.wirePts],sel:false}); S.wirePts=[]; updateSB(); if(S.simOn) runSimulation(); render();
+  if(S.wirePts.length < 2) { S.wirePts = []; S._wMouse = null; render(); return; }
+  snapshot(); S.wires.push({pts:[...S.wirePts],sel:false}); S.wirePts=[]; S._wMouse=null; updateSB(); if(S.simOn) runSimulation(); render();
 }
 function fitView(){ S.pan={x:canvas.width/4,y:canvas.height/3}; S.zoom=1.0; render(); }
 
