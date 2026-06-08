@@ -295,8 +295,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 // ═══════════════════════════════════════════════════
 class CircuitTopology {
   static buildNodeGroups(components, wires, gridSpacing) {
-    const snapRadius = gridSpacing * 0.65;
-    const keyStr = (x, y) => `${Math.round(x)},${Math.round(y)}`;
+    const snapRadius = gridSpacing * 0.85;
+    const keyStr = (x, y) => `${snap(x)},${snap(y)}`;
+    const snap = (v) => Math.round(v / gridSpacing) * gridSpacing;
     const pointsNear = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by) < snapRadius;
 
     // Filter broken wires
@@ -829,7 +830,18 @@ function drawGrid(){
 function drawWires(){
   S.wires.forEach(w=>{
     ctx.strokeStyle=w.sel?'#7bb8ff':'rgba(74,158,255,0.8)'; ctx.lineWidth=w.sel?2:1.5; ctx.beginPath();
-    w.pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+    w.pts.forEach((p,i)=>{
+      if(i===0) ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    });
+    ctx.stroke();
+    // Draw connection dots at wire endpoints for visual clarity
+    ctx.fillStyle='rgba(74,158,255,0.9)';
+    w.pts.forEach((p,i)=>{
+      if(i===0 || i===w.pts.length-1){
+        ctx.beginPath(); ctx.arc(p.x,p.y,2.2,0,Math.PI*2); ctx.fill();
+      }
+    });
   });
 }
 
@@ -981,8 +993,10 @@ function addComp(type,x,y){
 function selectOnly(id){ S.sel.clear(); if(id!=null)S.sel.add(id); updateProps(); render(); }
 function termPos(c,ti){
   const def=DMAP[c.t]; if(!def||!def.terms[ti])return{x:c.x,y:c.y};
-  const t=def.terms[ti]; const r=c.rot||0; const dx=t[0]*GS, dy=t[1]*GS;
-  return { x:c.x + dx*Math.cos(r) - dy*Math.sin(r), y:c.y + dx*Math.sin(r) + dy*Math.cos(r) };
+  const t=def.terms[ti]; const r=c.rot||0; 
+  const dx=t[0]*GS, dy=t[1]*GS;
+  const cosR=Math.cos(r), sinR=Math.sin(r);
+  return { x: Math.round((c.x + dx*cosR - dy*sinR)/GS)*GS, y: Math.round((c.y + dx*sinR + dy*cosR)/GS)*GS };
 }
 function deleteSelected(){
   snapshot(); S.comps=S.comps.filter(c=>!S.sel.has(c.id)); S.wires=S.wires.filter(w=>!w.sel);
@@ -1012,8 +1026,16 @@ function compAt(wx,wy){
 function onMD(e){
   const w=sw(e.clientX,e.clientY); hideCtx();
   if(S.tool==='wire'){
-    if(!S.wirePts.length){ S.wirePts=[{x:snap(w.x),y:snap(w.y)}]; }
-    else { S.wirePts.push({x:snap(w.x),y:snap(w.y)}); if(S.wirePts.length>=2) finishWire(); }
+    const sx = snap(w.x), sy = snap(w.y);
+    if(!S.wirePts.length){ 
+      S.wirePts = [{x:sx, y:sy}]; 
+    } else {
+      const lastPt = S.wirePts[S.wirePts.length - 1];
+      if(lastPt.x !== sx || lastPt.y !== sy) {
+        S.wirePts.push({x:sx, y:sy}); 
+      }
+      if(S.wirePts.length >= 2) finishWire(); 
+    }
     return;
   }
   const c=compAt(w.x,w.y);
@@ -1024,16 +1046,37 @@ function onMM(e){
   const w=sw(e.clientX,e.clientY);
   document.getElementById('sb-xy').textContent=`x:${Math.round(w.x/GS)} y:${Math.round(w.y/GS)}`;
   if(S.drag){ S.sel.forEach(id=>{ const c=S.comps.find(x=>x.id===id); const o=S.dragOff.get(id); if(c&&o){ c.x=snap(w.x+o.ox); c.y=snap(w.y+o.oy); } }); render(); }
-  if(S.tool==='wire') S._wMouse={x:snap(w.x),y:snap(w.y)};
+  if(S.tool==='wire'){
+    const sx = snap(w.x), sy = snap(w.y);
+    // Only update mouse position if it moved to a new grid cell
+    if(!S._wMouse || S._wMouse.x !== sx || S._wMouse.y !== sy){
+      S._wMouse = {x:sx, y:sy};
+    }
+  }
 }
-function onMU(){ S.drag=false; if(S.simOn) runSimulation(); }
+function onMU(){ 
+  S.drag=false; 
+  // Cancel wire drawing on mouse up if in progress
+  if(S.tool==='wire' && S.wirePts.length > 0){
+    S.wirePts = [];
+    S._wMouse = null;
+    render();
+  }
+  if(S.simOn) runSimulation(); 
+}
 function onWheel(e){ e.preventDefault(); S.zoom=Math.max(0.3,Math.min(3,S.zoom*(e.deltaY>0?0.9:1.1))); render(); }
 function onDbl(e){
   const w=sw(e.clientX,e.clientY); const c=compAt(w.x,w.y);
   if(c&&(c.t==='switch'||c.t==='relay_switch')){ c.props.closed=!c.props.closed; if(S.simOn) runSimulation(); updateProps(); }
 }
 function onCtxMenu(e){ e.preventDefault(); showCtx(e.clientX,e.clientY); }
-function onKey(e){ if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); } if(e.key==='Delete') deleteSelected(); if(e.key==='r') rotateSelected(); }
+function onKey(e){ 
+  if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); } 
+  if(e.key==='Delete') deleteSelected(); 
+  if(e.key==='r') rotateSelected(); 
+  if(e.key==='v' || e.key==='V') setTool('select', document.getElementById('tb-select'));
+  if(e.key==='w' || e.key==='W') setTool('wire', document.getElementById('tb-wire'));
+}
 
 function finishWire(){
   snapshot(); S.wires.push({pts:[...S.wirePts],sel:false}); S.wirePts=[]; updateSB(); if(S.simOn) runSimulation(); render();
@@ -1066,7 +1109,17 @@ function ctxDel(){ deleteSelected(); hideCtx(); }
 function ctxFlip(){ hideCtx(); }
 function ctxDup(){ hideCtx(); }
 
-function setTool(t,btn){ S.tool=t; document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); }
+function setTool(t,btn){ 
+  S.tool=t; 
+  document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active')); 
+  if(btn) btn.classList.add('active');
+  // Clear wire state when switching tools
+  if(t !== 'wire'){
+    S.wirePts = [];
+    S._wMouse = null;
+  }
+  render();
+}
 function setDispMode(m,btn){ S.dispMode=m; document.querySelectorAll('.mode-pill button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
 function setRightTab(n,btn){ document.querySelectorAll('.rp-tab').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
 function toggleLogPanel(){ _logPanelOpen=!_logPanelOpen; document.getElementById('log-panel').style.display=_logPanelOpen?'flex':'none'; if(_logPanelOpen) refreshLogPanel(); }
