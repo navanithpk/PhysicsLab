@@ -1119,9 +1119,27 @@ function onCtxMenu(e){ e.preventDefault(); showCtx(e.clientX,e.clientY); }
 function onKey(e){ 
   if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); } 
   if(e.key==='Delete') deleteSelected(); 
-  if(e.key==='r') rotateSelected(); 
+  if(e.key==='r' || e.key==='Enter') rotateSelected(); 
   if(e.key==='v' || e.key==='V') setTool('select', document.getElementById('tb-select'));
   if(e.key==='w' || e.key==='W') setTool('wire', document.getElementById('tb-wire'));
+  if(e.key==='Escape') setTool('select', document.getElementById('tb-select'));
+  
+  // Arrow keys for moving selected component
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+    e.preventDefault();
+    if(S.sel.size){
+      const c=S.comps.find(x=>x.id===[...S.sel][0]);
+      if(c){
+        snapshot();
+        const step = e.shiftKey ? 10 : 1; // Hold Shift for faster movement
+        if(e.key==='ArrowUp') c.y -= step*GS;
+        if(e.key==='ArrowDown') c.y += step*GS;
+        if(e.key==='ArrowLeft') c.x -= step*GS;
+        if(e.key==='ArrowRight') c.x += step*GS;
+        render();
+      }
+    }
+  }
 }
 
 function finishWire(){
