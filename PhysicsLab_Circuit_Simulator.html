@@ -1229,6 +1229,15 @@ function onMD(e){
 function onMM(e){
   const w=sw(e.clientX,e.clientY);
   document.getElementById('sb-xy').textContent=`x:${Math.round(w.x/GS)} y:${Math.round(w.y/GS)}`;
+  
+  // Check for meter hover and show tooltip
+  const hoveredComp = compAt(w.x, w.y);
+  if(hoveredComp && (hoveredComp.t === 'ammeter' || hoveredComp.t === 'voltmeter')) {
+    showMeterTooltip(hoveredComp, e.clientX, e.clientY);
+  } else {
+    hideMeterTooltip();
+  }
+  
   if(S.drag){ S.sel.forEach(id=>{ const c=S.comps.find(x=>x.id===id); const o=S.dragOff.get(id); if(c&&o){ c.x=snap(w.x+o.ox); c.y=snap(w.y+o.oy); } }); render(); }
   if(S.tool==='wire'){
     // Try to snap to a terminal first, then fall back to grid
@@ -1358,6 +1367,119 @@ function ctxDelWire(){
   }
   hideCtx();
 }
+
+// Meter tooltip functions for hover display
+function showMeterTooltip(comp, clientX, clientY){
+  const tooltip = document.getElementById('meter-tooltip');
+  if(!tooltip) return;
+  
+  const title = document.getElementById('mtt-title');
+  const analogWrap = document.getElementById('mtt-analog-wrap');
+  const valueDiv = document.getElementById('mtt-value');
+  const rangeDiv = document.getElementById('mtt-range');
+  
+  // Set title
+  const isAmmeter = comp.t === 'ammeter';
+  title.textContent = isAmmeter ? 'AMMETER' : 'VOLTMETER';
+  title.style.color = isAmmeter ? '#ff4a6a' : '#4a9eff';
+  
+  // Get simulation value
+  const value = comp._simVal || 0;
+  const unit = isAmmeter ? 'A' : 'V';
+  
+  // Format value with appropriate prefix
+  let displayValue, displayUnit;
+  const absVal = Math.abs(value);
+  if (absVal >= 1e6) {
+    displayValue = (value / 1e6).toFixed(3);
+    displayUnit = 'M' + unit;
+  } else if (absVal >= 1e3) {
+    displayValue = (value / 1e3).toFixed(3);
+    displayUnit = 'k' + unit;
+  } else if (absVal >= 1) {
+    displayValue = value.toFixed(3);
+    displayUnit = unit;
+  } else if (absVal >= 1e-3) {
+    displayValue = (value * 1e3).toFixed(3);
+    displayUnit = 'm' + unit;
+  } else if (absVal >= 1e-6) {
+    displayValue = (value * 1e6).toFixed(3);
+    displayUnit = 'µ' + unit;
+  } else {
+    displayValue = (value * 1e9).toFixed(3);
+    displayUnit = 'n' + unit;
+  }
+  
+  // Show analog meter visualization
+  analogWrap.style.display = 'block';
+  const analogCanvas = document.getElementById('mtt-analog');
+  const actx = analogCanvas.getContext('2d');
+  actx.clearRect(0, 0, analogCanvas.width, analogCanvas.height);
+  
+  // Draw analog meter face
+  const cx = analogCanvas.width / 2;
+  const cy = analogCanvas.height - 15;
+  const radius = 50;
+  
+  // Background arc
+  actx.beginPath();
+  actx.arc(cx, cy, radius, Math.PI * 0.75, Math.PI * 2.25);
+  actx.strokeStyle = '#2a3047';
+  actx.lineWidth = 8;
+  actx.stroke();
+  
+  // Value arc based on current value
+  const maxVal = isAmmeter ? 10 : 20;
+  const normalizedVal = Math.max(-1, Math.min(1, value / maxVal));
+  const angle = Math.PI * 0.75 + (normalizedVal + 1) * Math.PI * 0.75;
+  
+  actx.beginPath();
+  actx.arc(cx, cy, radius, Math.PI * 0.75, angle);
+  actx.strokeStyle = isAmmeter ? '#ff4a6a' : '#4a9eff';
+  actx.lineWidth = 8;
+  actx.lineCap = 'round';
+  actx.stroke();
+  
+  // Needle
+  const needleAngle = Math.PI * 0.75 + (normalizedVal + 1) * Math.PI * 0.75;
+  const nx = cx + Math.cos(needleAngle) * (radius - 5);
+  const ny = cy + Math.sin(needleAngle) * (radius - 5);
+  actx.beginPath();
+  actx.moveTo(cx, cy);
+  actx.lineTo(nx, ny);
+  actx.strokeStyle = '#3de88e';
+  actx.lineWidth = 2;
+  actx.stroke();
+  
+  // Center dot
+  actx.beginPath();
+  actx.arc(cx, cy, 4, 0, Math.PI * 2);
+  actx.fillStyle = '#3de88e';
+  actx.fill();
+  
+  // Labels
+  actx.fillStyle = '#8890b0';
+  actx.font = '10px IBM Plex Sans';
+  actx.textAlign = 'center';
+  actx.fillText('-' + maxVal, cx - radius + 15, cy + 5);
+  actx.fillText('+' + maxVal, cx + radius - 15, cy + 5);
+  actx.fillText(unit, cx, cy - radius - 8);
+  
+  // Show digital value
+  valueDiv.textContent = displayValue + ' ' + displayUnit;
+  rangeDiv.textContent = `Range: ±${maxVal}${unit}`;
+  
+  // Position tooltip near cursor
+  tooltip.style.left = (clientX + 15) + 'px';
+  tooltip.style.top = (clientY + 15) + 'px';
+  tooltip.style.display = 'block';
+}
+
+function hideMeterTooltip(){
+  const tooltip = document.getElementById('meter-tooltip');
+  if(tooltip) tooltip.style.display = 'none';
+}
+
 function ctxFlip(){ flipSelected(); hideCtx(); }
 function ctxDup(){
   if(S.sel.size === 0) { hideCtx(); return; }
