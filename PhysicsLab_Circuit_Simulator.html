@@ -533,7 +533,7 @@ class PhysicsEngine {
       }
 
       c._simV = vd;
-      c._simI = I;
+      c._simI = Math.abs(I);  // Current magnitude is always positive
       c._simVal = (c.t === 'ammeter') ? Math.abs(I) : Math.abs(vd);
     });
   }
@@ -550,8 +550,26 @@ class PhysicsEngine {
     if (comp.t === 'battery' || comp.t === 'cell' || comp.t === 'ac') {
       return v0 <= v1 ? -1 : 1;
     } else {
-      // Passive components: electrons flow toward higher potential (opposite to conventional current)
+      // Passive components: electrons flow toward higher potential
       return v0 <= v1 ? 1 : -1;
+    }
+  }
+  
+  // Helper to get current direction for electron flow animation (returns +1 or -1)
+  static getCurrentDirectionForFlow(comp, voltagesMap, compNodesMap) {
+    // This determines the direction of conventional current flow for animation purposes
+    const ns = compNodesMap.get(comp.id);
+    if (!ns || ns.length < 2) return 1;
+    
+    const v0 = voltagesMap.get(ns[0]) || 0;
+    const v1 = voltagesMap.get(ns[1]) || 0;
+    
+    // Conventional current flows from higher to lower potential in passive components
+    // For sources, conventional current flows from lower to higher (inside the source)
+    if (comp.t === 'battery' || comp.t === 'cell' || comp.t === 'ac') {
+      return v0 >= v1 ? -1 : 1;
+    } else {
+      return v0 >= v1 ? 1 : -1;
     }
   }
 }
@@ -745,9 +763,11 @@ function drawLED(ctx,col,lit){
   // Draw leads
   ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.65,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS,0); ctx.lineTo( GS*0.4,0); ctx.stroke();
-  // Draw light emission arrows (pointing outward)
-  ctx.beginPath(); ctx.moveTo(GS*0.2,-GS*0.9); ctx.lineTo(GS*0.5,-GS*1.2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(GS*0.35,-GS*0.85); ctx.lineTo(GS*0.65,-GS*1.15); ctx.stroke();
+  // Draw two light emission arrows pointing to top right
+  ctx.beginPath(); ctx.moveTo(GS*0.1,-GS*0.6); ctx.lineTo(GS*0.5,-GS*0.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(GS*0.45,-GS*0.25); ctx.lineTo(GS*0.55,-GS*0.35); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(GS*0.3,-GS*0.9); ctx.lineTo(GS*0.7,-GS*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(GS*0.65,-GS*0.55); ctx.lineTo(GS*0.75,-GS*0.65); ctx.stroke();
   if(lit){
     ctx.save(); const grad=ctx.createRadialGradient(0,0,0,0,0,GS*1.5);
     grad.addColorStop(0,col+'55'); grad.addColorStop(1,'transparent');
@@ -768,11 +788,11 @@ function drawLDR(ctx,col){
   ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.stroke();
-  // Draw two inward-pointing arrows (light incident)
-  ctx.beginPath(); ctx.moveTo(-GS*0.8,-GS*1.1); ctx.lineTo(-GS*0.4,-GS*0.75); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-GS*0.65,-GS*1.05); ctx.lineTo(-GS*0.55,-GS*0.95); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo( GS*0.3,-GS*1.15); ctx.lineTo( GS*0.7,-GS*0.8); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo( GS*0.45,-GS*1.1); ctx.lineTo( GS*0.55,-GS*1.0); ctx.stroke();
+  // Draw two arrows pointing to bottom right, closer together, above the rectangle
+  ctx.beginPath(); ctx.moveTo(-GS*0.3,-GS*1.1); ctx.lineTo(GS*0.1,-GS*0.7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(GS*0.05,-GS*0.75); ctx.lineTo(GS*0.15,-GS*0.85); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*0.1,-GS*1.1); ctx.lineTo(GS*0.5,-GS*0.7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(GS*0.45,-GS*0.75); ctx.lineTo(GS*0.55,-GS*0.85); ctx.stroke();
 }
 function drawThermistor(ctx,col){
   // Draw resistor base
@@ -781,10 +801,10 @@ function drawThermistor(ctx,col){
   ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.stroke();
-  // Draw diagonal line with flat tail (temperature dependence symbol)
-  ctx.beginPath(); ctx.moveTo(-w/2-GS*0.25,h/2+GS*0.25); ctx.lineTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.stroke();
+  // Draw diagonal line with flat tail (temperature dependence symbol) - rotated 180 degrees from previous
+  ctx.beginPath(); ctx.moveTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.lineTo(-w/2-GS*0.25,h/2+GS*0.25); ctx.stroke();
   // Small horizontal segment at the end
-  ctx.beginPath(); ctx.moveTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.lineTo(w/2+GS*0.55,-h/2-GS*0.25); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-w/2-GS*0.25,h/2+GS*0.25); ctx.lineTo(-w/2-GS*0.55,h/2+GS*0.25); ctx.stroke();
 }
 function drawDiode(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.6,0); ctx.stroke();
@@ -996,8 +1016,8 @@ function drawElectronFlow(){
     const len = Math.hypot(dx, dy);
     if (len < 1) return;
 
-    // Call physics routing vector module
-    const direction = PhysicsEngine.getElectronFlowDirection(c, _nodeV, _lastCompNodes);
+    // Call physics routing vector module - use direction based on conventional current flow
+    const direction = PhysicsEngine.getCurrentDirectionForFlow(c, _nodeV, _lastCompNodes);
     
     // Compute motion parameters (electrons move faster with higher current intensity)
     const speed = Math.min(4.0, currentMag / 0.002) * 0.5;
@@ -1335,7 +1355,7 @@ function updateProps(){
   let h=`<div style="font-size:11px;font-weight:600;margin-bottom:10px">${DMAP[c.t].lbl} #${c.id}</div>`;
   if(S.simOn){
     h+=`<div class="pr"><div class="pl">Potential drop</div><div class="pval">${Math.abs(c._simV||0).toFixed(3)}V</div></div>`;
-    h+=`<div class="pr"><div class="pl">Current</div><div class="pval">${(c._simI||0).toExponential(3)}A</div></div>`;
+    h+=`<div class="pr"><div class="pl">Current</div><div class="pval">${Math.abs(c._simI||0).toExponential(3)}A</div></div>`;
   }
   Object.entries(c.props).forEach(([k,v])=>{
     if(k==='closed'){ h+=`<div class="pr"><div class="pl">State</div><button class="ptb ${v?'on':''}" onclick="sp(${c.id},'closed',${!v})">${v?'Closed':'Open'}</button></div>`; }
@@ -1430,10 +1450,10 @@ function showMeterTooltip(comp, clientX, clientY){
   actx.lineWidth = 8;
   actx.stroke();
   
-  // Value arc based on current value
+  // Value arc based on current value (always positive, starting from 0)
   const maxVal = isAmmeter ? 10 : 20;
-  const normalizedVal = Math.max(-1, Math.min(1, value / maxVal));
-  const angle = Math.PI * 0.75 + (normalizedVal + 1) * Math.PI * 0.75;
+  const normalizedVal = Math.max(0, Math.min(1, Math.abs(value) / maxVal));
+  const angle = Math.PI * 0.75 + normalizedVal * Math.PI * 0.75;
   
   actx.beginPath();
   actx.arc(cx, cy, radius, Math.PI * 0.75, angle);
@@ -1442,8 +1462,8 @@ function showMeterTooltip(comp, clientX, clientY){
   actx.lineCap = 'round';
   actx.stroke();
   
-  // Needle
-  const needleAngle = Math.PI * 0.75 + (normalizedVal + 1) * Math.PI * 0.75;
+  // Needle - angle directly proportional to reading from 0 to max
+  const needleAngle = Math.PI * 0.75 + normalizedVal * Math.PI * 0.75;
   const nx = cx + Math.cos(needleAngle) * (radius - 5);
   const ny = cy + Math.sin(needleAngle) * (radius - 5);
   actx.beginPath();
@@ -1459,12 +1479,12 @@ function showMeterTooltip(comp, clientX, clientY){
   actx.fillStyle = '#3de88e';
   actx.fill();
   
-  // Labels
+  // Labels - show 0 on left, max on right since scale now starts from 0
   actx.fillStyle = '#8890b0';
   actx.font = '10px IBM Plex Sans';
   actx.textAlign = 'center';
-  actx.fillText('-' + maxVal, cx - radius + 15, cy + 5);
-  actx.fillText('+' + maxVal, cx + radius - 15, cy + 5);
+  actx.fillText('0', cx - radius + 15, cy + 5);
+  actx.fillText(maxVal, cx + radius - 15, cy + 5);
   actx.fillText(unit, cx, cy - radius - 8);
   
   // Show digital value
