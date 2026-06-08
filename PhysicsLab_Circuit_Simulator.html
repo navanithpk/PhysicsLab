@@ -384,8 +384,14 @@ class MNASolver {
     components.forEach(c => {
       const ns = compNodesMap.get(c.id);
       if (!ns || ns.length < 2) return;
-      if (c.t === 'cell' || c.t === 'battery' || c.t === 'ac') {
+      if (c.t === 'cell' || c.t === 'battery') {
         constrainedBranches.push({ type: 'vsrc', comp: c, nodes: ns, value: +c.props.voltage });
+      } else if (c.t === 'ac') {
+        // AC source treated as DC RMS equivalent for steady-state analysis
+        // Note: Full phasor analysis requires complex matrix solver (not implemented)
+        const rmsValue = (+c.props.voltage) / Math.sqrt(2);
+        constrainedBranches.push({ type: 'vsrc_ac_rms', comp: c, nodes: ns, value: rmsValue });
+        logSim(`AC Source: ${c.props.voltage}V peak -> ${rmsValue.toFixed(2)}V RMS (DC equivalent)`);
       } else if (c.t === 'ammeter') {
         constrainedBranches.push({ type: 'ammeter', comp: c, nodes: ns, value: 0.0 }); // V_drop constraint = 0
       }
@@ -403,11 +409,15 @@ class MNASolver {
       }
     };
 
-    // Matrix stamping phase
+    // Matrix stamping phase - KCL conductance contributions
     components.forEach(c => {
       const ns = compNodesMap.get(c.id);
       if (!ns || ns.length < 2) return;
       const [n1, n2] = ns;
+      
+      // Skip ground components (they only define reference, no KCL contribution)
+      if (c.t === 'ground') return;
+      
       let g = 0, vForward = 0;
 
       switch (c.t) {
@@ -421,7 +431,7 @@ class MNASolver {
         case 'diode': g = 0.05; vForward = +c.props.vf || 0.7; break;
         case 'led': g = 0.1; vForward = +c.props.vf || 2.0; break;
         case 'relay_coil': g = 1 / (+c.props.resistance || 200); break;
-        case 'capacitor': g = 1e-12; break; 
+        case 'capacitor': g = 1e-12; break; // DC steady-state approximation
       }
 
       if (g > 0) applyConductance(n1, n2, g);
@@ -450,9 +460,16 @@ class MNASolver {
     for (let i = 0; i < matrixDim; i++) { A[groundNode-1][i] = 0; A[i][groundNode-1] = 0; }
     A[groundNode-1][groundNode-1] = 1; B[groundNode-1] = 0;
 
-    // Gauss-Jordan row operations engine
+    // Gauss-Jordan row operations engine with improved singular matrix detection
     const solution = this.gaussEliminate(A, B, matrixDim);
-    if (!solution) throw new Error("Singular matrix profile detected. Isolate loops or open wires.");
+    if (!solution) {
+      // Check for floating subcircuits (no ground connection)
+      const hasGround = components.some(c => c.t === 'ground');
+      if (!hasGround) {
+        throw new Error("Singular matrix: Circuit lacks a ground reference. Add a ground component to define 0V reference.");
+      }
+      throw new Error("Singular matrix: Check for floating subcircuits, open wires, or conflicting voltage sources.");
+    }
 
     const nodeVoltages = new Map();
     for (let i = 0; i < totalNodes; i++) {
@@ -502,6 +519,14 @@ class PhysicsEngine {
     const { nodeVoltages, internalCurrents } = solverResult;
 
     components.forEach(c => {
+      // Skip ground - no voltage drop or current to compute
+      if (c.t === 'ground') {
+        c._simV = 0;
+        c._simI = 0;
+        c._simVal = 0;
+        return;
+      }
+      
       const nodes = compNodesMap.get(c.id);
       if (!nodes || nodes.length < 2) return;
       const v1 = nodeVoltages.get(nodes[0]) || 0;
@@ -529,6 +554,12 @@ class PhysicsEngine {
             I = c.props.closed ? vd * 1e5 : 0; break;
           case 'diode':
             I = Math.max(0, (vd - (+c.props.vf || 0.7)) * 0.05); break;
+          case 'capacitor':
+            I = vd * 1e-12; break; // DC leakage approximation
+          case 'voltmeter':
+            I = vd * 1e-9; break; // High impedance
+          case 'relay_coil':
+            I = vd / (+c.props.resistance || 200); break;
         }
       }
 
@@ -599,7 +630,7 @@ const DEFS = [
   {t:'diode',lbl:'Diode',grp:'Semiconductors',col:'#b87aff',props:{vf:0.7,label:'D'},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'ammeter',lbl:'Ammeter',grp:'Meters',col:'#ff4a6a',props:{range:'auto',label:'A'},terms:[[-1,0],[1,0]],gw:2,gh:2},
   {t:'voltmeter',lbl:'Voltmeter',grp:'Meters',col:'#4a9eff',props:{range:'auto',label:'V'},terms:[[-1,0],[1,0]],gw:2,gh:2},
-  {t:'ground',lbl:'Ground',grp:'Reference',col:'#8890b0',props:{label:''},terms:[[0,-1]],gw:1,gh:1},
+  {t:'ground',lbl:'Ground',grp:'Reference',col:'#8890b0',props:{label:''},terms:[[0,0],[0,0]],gw:1,gh:1},
 ];
 const DMAP = {}; DEFS.forEach(d=>DMAP[d.t]=d);
 
@@ -881,8 +912,10 @@ function drawMeter(ctx,col,letter,value,range,over,under,dispMode,animT,compId){
   }
 }
 function drawGround(ctx,col){
-  ss(ctx,col); ctx.beginPath(); ctx.moveTo(0,-GS); ctx.lineTo(0,0); ctx.stroke();
+  ss(ctx,col); ctx.beginPath(); ctx.moveTo(0,-GS*0.8); ctx.lineTo(0,0); ctx.stroke();
   [[GS*0.7,0],[GS*0.5,GS*0.28],[GS*0.3,GS*0.56]].forEach(([hw,y])=>{ ctx.beginPath(); ctx.moveTo(-hw,y); ctx.lineTo(hw,y); ctx.stroke(); });
+  // Draw terminal connection point at origin for wire attachment
+  ctx.beginPath(); ctx.arc(0,0,2.5,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
 }
 
 function drawComp(ctx,comp,def,sel,hov,animT){
@@ -1073,6 +1106,13 @@ function runSimulation() {
   // ──────────────────────────────────────────────────────────────────────
   try {
     logSim("Validating loop topology setup...");
+    
+    // Check for at least one ground reference
+    const hasGround = S.comps.some(c => c.t === 'ground');
+    if (!hasGround) {
+      logSim("Warning: No ground reference found. Adding implicit ground at node 1.");
+    }
+    
     const topology = CircuitTopology.buildNodeGroups(S.comps, S.wires, GS);
     
     if (topology.nodeCount < 1) {
