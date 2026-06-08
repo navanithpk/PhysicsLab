@@ -1089,7 +1089,10 @@ function termPos(c,ti){
   const t=def.terms[ti]; const r=c.rot||0; 
   const dx=t[0]*GS, dy=t[1]*GS;
   const cosR=Math.cos(r), sinR=Math.sin(r);
-  return { x: Math.round((c.x + dx*cosR - dy*sinR)/GS)*GS, y: Math.round((c.y + dx*sinR + dy*cosR)/GS)*GS };
+  // Apply flip: negate the x-component in local space before rotation
+  const flipX = c._flip ? -1 : 1;
+  const fdx = dx * flipX;
+  return { x: Math.round((c.x + fdx*cosR - dy*sinR)/GS)*GS, y: Math.round((c.y + fdx*sinR + dy*cosR)/GS)*GS };
 }
 function deleteSelected(){
   snapshot(); S.comps=S.comps.filter(c=>!S.sel.has(c.id)); S.wires=S.wires.filter(w=>!w.sel);
@@ -1105,20 +1108,6 @@ function flipSelected(){
     const c=S.comps.find(x=>x.id===id);
     if(!c) return;
     // Flip horizontally in component's local space (perpendicular to current rotation)
-    const rot = c.rot || 0;
-    const cosR = Math.cos(rot), sinR = Math.sin(rot);
-    // Flip offset perpendicular to the component's main axis
-    // For a component, we flip the x-offset in its local coordinate system
-    // This means swapping terminals logically for polarized components
-    const flipX = -1;
-    // Store flip state or apply transformation
-    // We'll flip by rotating 180 around Y axis in local space
-    // Simple approach: add PI to rotation and swap terminals if needed
-    // Better: just mirror the component's position relative to its center
-    // For simplicity, we flip by negating the x-coordinate in local space
-    // This is equivalent to reflecting across the y-axis in local coords
-    // To do this properly, we need to track a 'flipped' state or transform
-    // Let's use a simple approach: flip the component's internal orientation
     c._flip = !(c._flip || false);
   });
   if(S.simOn) runSimulation(); render();
@@ -1225,7 +1214,15 @@ function onDbl(e){
   const w=sw(e.clientX,e.clientY); const c=compAt(w.x,w.y);
   if(c&&(c.t==='switch'||c.t==='relay_switch')){ c.props.closed=!c.props.closed; if(S.simOn) runSimulation(); updateProps(); }
 }
-function onCtxMenu(e){ e.preventDefault(); showCtx(e.clientX,e.clientY); }
+function onCtxMenu(e){ 
+  e.preventDefault(); 
+  const w = sw(e.clientX, e.clientY);
+  const c = compAt(w.x, w.y);
+  if(c) {
+    selectOnly(c.id);
+  }
+  showCtx(e.clientX, e.clientY); 
+}
 function onKey(e){ 
   if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); } 
   if(e.key==='Delete') deleteSelected(); 
@@ -1433,25 +1430,73 @@ function tutNav(d){ document.getElementById('tutoverlay').classList.remove('show
 // ═══════════════════════════════════════════════════
 function loadExample(){
   S.comps=[]; S.wires=[]; S.sel.clear(); S.nextId=1;
-  const x0=160, y0=120;
-
-  const bat=addComp('battery',x0+GS*6,y0); bat.props.voltage=6; bat.props.cells=4;
-  const sw=addComp('switch',x0+GS*12,y0); sw.props.closed=true;
-  const ammX=addComp('ammeter',x0,y0+GS*4);
-  const lamp=addComp('lamp',x0+GS*6,y0+GS*4); lamp.props.resistance=10;
-  const gnd=addComp('ground',x0+GS*12,y0+GS*8);
-
+  const x0=140, y0=100;
+  
+  // Battery at top
+  const bat=addComp('battery',x0+GS*8,y0); bat.props.voltage=9; bat.props.cells=6;
+  
+  // Main switch after battery
+  const mainSw=addComp('switch',x0+GS*14,y0); mainSw.props.closed=true;
+  
+  // Branch 1: Resistor + Ammeter
+  const r1=addComp('resistor',x0+GS*4,y0+GS*5); r1.props.resistance=100; r1.props.label='R1';
+  const a1=addComp('ammeter',x0+GS*4,y0+GS*9); a1.props.label='A1';
+  
+  // Branch 2: Resistor + Switch + Ammeter
+  const r2=addComp('resistor',x0+GS*10,y0+GS*5); r2.props.resistance=200; r2.props.label='R2';
+  const sw2=addComp('switch',x0+GS*10,y0+GS*9); sw2.props.closed=false; sw2.props.label='S2';
+  const a2=addComp('ammeter',x0+GS*10,y0+GS*13); a2.props.label='A2';
+  
+  // Branch 3: Voltmeter (parallel) + Resistor
+  const v1=addComp('voltmeter',x0+GS*16,y0+GS*5); v1.props.label='V1';
+  const r3=addComp('resistor',x0+GS*16,y0+GS*9); r3.props.resistance=150; r3.props.label='R3';
+  const sw3=addComp('switch',x0+GS*16,y0+GS*13); sw3.props.closed=true; sw3.props.label='S3';
+  
+  // Ground at bottom
+  const gnd=addComp('ground',x0+GS*10,y0+GS*17);
+  
   const W=(pts)=>S.wires.push({pts,sel:false});
-  W([{x:x0+GS*4,y:y0},{x:x0+GS*6,y:y0}]);
-  W([{x:x0+GS*8,y:y0},{x:x0+GS*12,y:y0}]);
-  W([{x:x0,y:y0},{x:x0+GS*4,y:y0}]);
-  W([{x:x0,y:y0},{x:x0,y:y0+GS*4}]);
-  W([{x:x0+GS*12,y:y0},{x:x0+GS*12,y:y0+GS*4}]);
-  W([{x:x0,y:y0+GS*4},{x:x0+GS*6,y:y0+GS*2}]);
-  W([{x:x0+GS*6,y:y0+GS*6},{x:x0+GS*6,y:y0+GS*8}]);
-  W([{x:x0+GS*6,y:y0+GS*8},{x:x0+GS*12,y:y0+GS*8}]);
-  W([{x:x0+GS*12,y:y0+GS*4},{x:x0+GS*12,y:y0+GS*8}]);
-
+  
+  // Top rail from battery positive to switch
+  W([{x:x0+GS*6,y:y0},{x:x0+GS*8,y:y0}]);
+  W([{x:x0+GS*10,y:y0},{x:x0+GS*14,y:y0}]);
+  W([{x:x0+GS*16,y:y0},{x:x0+GS*18,y:y0}]);
+  
+  // From switch to junction point
+  W([{x:x0+GS*18,y:y0},{x:x0+GS*18,y:y0+GS*4}]);
+  
+  // Horizontal distribution line
+  W([{x:x0+GS*4,y:y0+GS*4},{x:x0+GS*10,y:y0+GS*4}]);
+  W([{x:x0+GS*10,y:y0+GS*4},{x:x0+GS*16,y:y0+GS*4}]);
+  W([{x:x0+GS*16,y:y0+GS*4},{x:x0+GS*18,y:y0+GS*4}]);
+  
+  // Branch 1 connections
+  W([{x:x0+GS*4,y:y0+GS*4},{x:x0+GS*4,y:y0+GS*5}]);
+  W([{x:x0+GS*4,y:y0+GS*7},{x:x0+GS*4,y:y0+GS*9}]);
+  W([{x:x0+GS*4,y:y0+GS*11},{x:x0+GS*4,y:y0+GS*15}]);
+  
+  // Branch 2 connections
+  W([{x:x0+GS*10,y:y0+GS*4},{x:x0+GS*10,y:y0+GS*5}]);
+  W([{x:x0+GS*10,y:y0+GS*7},{x:x0+GS*10,y:y0+GS*9}]);
+  W([{x:x0+GS*10,y:y0+GS*11},{x:x0+GS*10,y:y0+GS*13}]);
+  W([{x:x0+GS*10,y:y0+GS*15},{x:x0+GS*10,y:y0+GS*15}]);
+  
+  // Branch 3 connections
+  W([{x:x0+GS*16,y:y0+GS*4},{x:x0+GS*16,y:y0+GS*5}]);
+  W([{x:x0+GS*16,y:y0+GS*7},{x:x0+GS*16,y:y0+GS*9}]);
+  W([{x:x0+GS*16,y:y0+GS*11},{x:x0+GS*16,y:y0+GS*13}]);
+  W([{x:x0+GS*16,y:y0+GS*15},{x:x0+GS*16,y:y0+GS*15}]);
+  
+  // Bottom return rail
+  W([{x:x0+GS*4,y:y0+GS*15},{x:x0+GS*10,y:y0+GS*15}]);
+  W([{x:x0+GS*10,y:y0+GS*15},{x:x0+GS*16,y:y0+GS*15}]);
+  W([{x:x0+GS*10,y:y0+GS*15},{x:x0+GS*10,y:y0+GS*17}]);
+  
+  // Battery negative to ground
+  W([{x:x0+GS*8,y:y0},{x:x0+GS*8,y:y0-4}]);
+  W([{x:x0+GS*8,y:y0-4},{x:x0+GS*10,y:y0-4}]);
+  W([{x:x0+GS*10,y:y0-4},{x:x0+GS*10,y:y0}]);
+  
   updateSB(); fitView();
 }
 </script>
