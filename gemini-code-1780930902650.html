@@ -1036,7 +1036,27 @@ function compAt(wx,wy){
 function onMD(e){
   const w=sw(e.clientX,e.clientY); hideCtx();
   if(S.tool==='wire'){
-    const sx = snap(w.x), sy = snap(w.y);
+    // Try to snap to a terminal first, then fall back to grid
+    let sx = snap(w.x), sy = snap(w.y);
+    let snappedToTerminal = false;
+    
+    // Check if we're near any terminal
+    for(const c of S.comps){
+      const def = DMAP[c.t];
+      if(!def || !def.terms) continue;
+      for(let ti=0; ti<def.terms.length; ti++){
+        const tp = termPos(c, ti);
+        const dist = Math.hypot(w.x - tp.x, w.y - tp.y);
+        if(dist < GS * 0.8){
+          sx = tp.x;
+          sy = tp.y;
+          snappedToTerminal = true;
+          break;
+        }
+      }
+      if(snappedToTerminal) break;
+    }
+    
     if(!S.wirePts.length){ 
       S.wirePts = [{x:sx, y:sy}]; 
     } else {
@@ -1044,7 +1064,7 @@ function onMD(e){
       if(lastPt.x !== sx || lastPt.y !== sy) {
         S.wirePts.push({x:sx, y:sy}); 
       }
-      if(S.wirePts.length >= 2) finishWire(); // Finish wire immediately after adding the second point
+      if(S.wirePts.length >= 2) finishWire();
     }
     return;
   }
@@ -1057,8 +1077,28 @@ function onMM(e){
   document.getElementById('sb-xy').textContent=`x:${Math.round(w.x/GS)} y:${Math.round(w.y/GS)}`;
   if(S.drag){ S.sel.forEach(id=>{ const c=S.comps.find(x=>x.id===id); const o=S.dragOff.get(id); if(c&&o){ c.x=snap(w.x+o.ox); c.y=snap(w.y+o.oy); } }); render(); }
   if(S.tool==='wire'){
-    const sx = snap(w.x), sy = snap(w.y);
-    // Only update mouse position if it moved to a new grid cell
+    // Try to snap to a terminal first, then fall back to grid
+    let sx = snap(w.x), sy = snap(w.y);
+    let snappedToTerminal = false;
+    
+    // Check if we're near any terminal
+    for(const c of S.comps){
+      const def = DMAP[c.t];
+      if(!def || !def.terms) continue;
+      for(let ti=0; ti<def.terms.length; ti++){
+        const tp = termPos(c, ti);
+        const dist = Math.hypot(w.x - tp.x, w.y - tp.y);
+        if(dist < GS * 0.8){
+          sx = tp.x;
+          sy = tp.y;
+          snappedToTerminal = true;
+          break;
+        }
+      }
+      if(snappedToTerminal) break;
+    }
+    
+    // Only update mouse position if it moved to a new snap location
     if(!S._wMouse || S._wMouse.x !== sx || S._wMouse.y !== sy){
       S._wMouse = {x:sx, y:sy};
     }
