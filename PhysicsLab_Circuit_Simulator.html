@@ -186,9 +186,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <div class="tb-right">
     <button class="tb" onclick="fitView()" style="color:var(--cyan)">Fit View</button>
     <div class="sep"></div>
-    <div class="mode-pill">
-      <button id="md-analog" class="on" onclick="setDispMode('analog',this)">Analog</button>
-      <button id="md-digital" onclick="setDispMode('digital',this)">Digital</button>
+    <div class="mode-pill" title="Meter display mode">
+      <button id="md-hover" class="on" onclick="setMeterMode('hover',this)">Hover</button>
+      <button id="md-pin"   onclick="setMeterMode('pin',this)">Pin</button>
     </div>
     <div class="sep"></div>
     <button class="tb" onclick="startTutorial()" style="color:var(--purple)">? Tutorial</button>
@@ -250,13 +250,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <div class="ci danger" onclick="ctxDel()">Delete Component</div>
 </div>
 
-<div id="meter-tooltip" style="position:fixed;display:none;z-index:800;background:#0d0f14;border:1px solid rgba(140,160,220,.28);border-radius:8px;padding:10px 14px;pointer-events:none;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,.6);">
-  <div id="mtt-title" style="font-size:10px;color:#454e6a;text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;font-family:'IBM Plex Mono'"></div>
-  <div id="mtt-analog-wrap" style="display:none;text-align:center;margin-bottom:6px">
-    <canvas id="mtt-analog" width="140" height="85"></canvas>
+<div id="meter-tooltip" style="position:fixed;display:none;z-index:800;background:#0d0f14;border:1px solid rgba(140,160,220,.28);border-radius:8px;min-width:158px;box-shadow:0 8px 24px rgba(0,0,0,.6);pointer-events:none;">
+  <div id="mtt-header" style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px 0;cursor:default;">
+    <div id="mtt-title" style="font-size:10px;color:#454e6a;text-transform:uppercase;letter-spacing:.7px;font-family:'IBM Plex Mono'"></div>
+    <button id="mtt-close" style="display:none;background:none;border:none;color:#454e6a;font-size:14px;cursor:pointer;padding:0 2px;line-height:1" onclick="closePinnedTooltip(this)">×</button>
   </div>
-  <div id="mtt-value" style="font-size:16px;font-weight:600;font-family:'IBM Plex Mono';color:#3de88e"></div>
-  <div id="mtt-range" style="font-size:10px;color:#454e6a;margin-top:3px;font-family:'IBM Plex Mono'"></div>
+  <div style="padding:6px 12px 10px">
+    <div id="mtt-analog-wrap" style="display:none;text-align:center;margin-bottom:6px">
+      <canvas id="mtt-analog" width="140" height="85"></canvas>
+    </div>
+    <div id="mtt-value" style="font-size:16px;font-weight:600;font-family:'IBM Plex Mono';color:#3de88e"></div>
+    <div id="mtt-range" style="font-size:10px;color:#454e6a;margin-top:3px;font-family:'IBM Plex Mono'"></div>
+  </div>
 </div>
 
 <div class="tut-overlay" id="tutoverlay">
@@ -735,6 +740,13 @@ let _toastTimer = null;
 let _lastCompNodes = null;
 let _nodeV = null;
 
+// ── Meter display mode ─────────────────────────────────────────────────────
+// 'hover': single tooltip follows mouse, disappears on leave (default)
+// 'pin'  : clicking a meter pins a persistent draggable modal for that meter
+let _meterMode = 'hover';
+// Map of compId → { el: HTMLElement, dragging: false, ox: 0, oy: 0 }
+const _pinnedMeters = new Map();
+
 // ── CRO probe placement state ──────────────────────────────────────────────
 // When user clicks a CRO probe terminal, we enter probe-placement mode.
 // _croProbeMode: null | { compId, probeIdx } — which probe is being placed
@@ -769,6 +781,7 @@ function resizeCv(){
 function loop(ts){
   S.animT+=(ts-lastT)/1000; lastT=ts;
   render();
+  updateAllPinnedMeters();
   rafId=requestAnimationFrame(loop);
 }
 
@@ -1468,7 +1481,9 @@ function termPos(c,ti){
   return { x: Math.round((c.x + fdx*cosR - dy*sinR)/GS)*GS, y: Math.round((c.y + fdx*sinR + dy*cosR)/GS)*GS };
 }
 function deleteSelected(){
-  snapshot(); S.comps=S.comps.filter(c=>!S.sel.has(c.id)); S.wires=S.wires.filter(w=>!w.sel);
+  snapshot();
+  S.sel.forEach(id=>{ if(_pinnedMeters.has(id)) removePinnedMeter(id); });
+  S.comps=S.comps.filter(c=>!S.sel.has(c.id)); S.wires=S.wires.filter(w=>!w.sel);
   S.sel.clear(); updateSB(); updateProps(); render();
 }
 function rotateSelected(){
@@ -1649,6 +1664,15 @@ function onMD(e){
   }
 
   const c=compAt(w.x,w.y);
+  // ── Pin mode: clicking meter toggles pinned modal ─────────────────────
+  if(_meterMode === 'pin' && c && (c.t==='ammeter'||c.t==='voltmeter')){
+    if(_pinnedMeters.has(c.id)){
+      removePinnedMeter(c.id);
+    } else {
+      pinMeter(c, e.clientX, e.clientY);
+    }
+    return;
+  }
   if(c){ S.sel.clear(); S.sel.add(c.id); S.drag=true; S.dragStart={x:w.x,y:w.y}; S.dragOff.set(c.id,{ox:c.x-w.x,oy:c.y-w.y}); }
   else { S.sel.clear(); } updateProps(); render();
 }
@@ -1706,8 +1730,13 @@ function onMM(e){
 
   // Check for meter hover and show tooltip
   const hoveredComp = compAt(w.x, w.y);
-  if(hoveredComp && (hoveredComp.t === 'ammeter' || hoveredComp.t === 'voltmeter')) {
-    showMeterTooltip(hoveredComp, e.clientX, e.clientY);
+  if(hoveredComp && (hoveredComp.t === 'ammeter' || hoveredComp.t === 'voltmeter')){
+    // In pin mode, only show hover tooltip if this meter isn't already pinned
+    if(_meterMode === 'hover' || !_pinnedMeters.has(hoveredComp.id)){
+      showMeterTooltip(hoveredComp, e.clientX, e.clientY, false);
+    } else {
+      hideMeterTooltip();
+    }
   } else {
     hideMeterTooltip();
   }
@@ -1885,164 +1914,284 @@ function ctxDelWire(){
   hideCtx();
 }
 
-// Meter tooltip functions for hover display
+// ─── Core meter drawing into any container ──────────────────────────────
+// Renders the meter face into the three child elements of a meter modal.
+// Elements: titleEl, analogCanvas, valueEl, rangeEl
+function renderMeterFace(comp, titleEl, analogCanvas, valueEl, rangeEl){
+  const isAmmeter = comp.t === 'ammeter';
+  const col  = isAmmeter ? '#ff4a6a' : '#4a9eff';
+  const unit = isAmmeter ? 'A' : 'V';
+
+  titleEl.textContent = isAmmeter ? 'AMMETER' : 'VOLTMETER';
+  titleEl.style.color = col;
+
+  const rangeObj     = getMeterRange(comp);
+  const maxVal       = rangeObj.max;
+  const value        = comp._simVal || 0;
+  const absVal       = Math.abs(value);
+  const overRange    = absVal > maxVal * 1.02;
+  const clampedNorm  = Math.max(0, Math.min(1, absVal / maxVal));
+
+  let displayValue, displayUnit;
+  if(overRange){
+    displayValue = 'OL'; displayUnit = '— over range';
+  } else {
+    if      (absVal >= 1)    { displayValue = value.toFixed(4);        displayUnit = unit;     }
+    else if (absVal >= 1e-3) { displayValue = (value*1e3).toFixed(3);  displayUnit = 'm'+unit; }
+    else if (absVal >= 1e-6) { displayValue = (value*1e6).toFixed(2);  displayUnit = 'µ'+unit; }
+    else                     { displayValue = (value*1e9).toFixed(2);  displayUnit = 'n'+unit; }
+  }
+
+  // Analog face
+  const actx = analogCanvas.getContext('2d');
+  const W = analogCanvas.width, H = analogCanvas.height;
+  actx.clearRect(0,0,W,H);
+  const cx = W/2, cy = H-12, radius = 46;
+  const arcStart = Math.PI*0.80, arcEnd = Math.PI*2.20, arcSpan = arcEnd-arcStart;
+
+  actx.beginPath(); actx.arc(cx,cy,radius,arcStart,arcEnd);
+  actx.strokeStyle='#1e2438'; actx.lineWidth=9; actx.lineCap='butt'; actx.stroke();
+
+  const fillEnd = arcStart + clampedNorm*arcSpan;
+  actx.beginPath(); actx.arc(cx,cy,radius,arcStart,fillEnd);
+  actx.strokeStyle = overRange?'#ff4a6a':col; actx.lineWidth=9; actx.lineCap='round'; actx.stroke();
+
+  // Major ticks
+  const majorTicks=5;
+  for(let i=0;i<=majorTicks;i++){
+    const frac=i/majorTicks, angle=arcStart+frac*arcSpan;
+    const inner=radius-12, outer=radius-5;
+    actx.beginPath(); actx.moveTo(cx+Math.cos(angle)*inner,cy+Math.sin(angle)*inner);
+    actx.lineTo(cx+Math.cos(angle)*outer,cy+Math.sin(angle)*outer);
+    actx.strokeStyle='#4a5470'; actx.lineWidth=1.2; actx.stroke();
+    if(i===0||i===majorTicks/2||i===majorTicks){
+      const tickVal=frac*maxVal;
+      let tickStr;
+      if     (maxVal>=1)    tickStr=tickVal>=1?tickVal.toFixed(tickVal>=10?0:1):(tickVal*1000).toFixed(0)+'m';
+      else if(maxVal>=1e-3) tickStr=(tickVal*1e3).toFixed(tickVal===0?0:1);
+      else                  tickStr=(tickVal*1e6).toFixed(0);
+      actx.fillStyle='#6878a0'; actx.font='8px IBM Plex Mono';
+      actx.textAlign='center'; actx.textBaseline='middle';
+      actx.fillText(tickStr,cx+Math.cos(angle)*(inner-7),cy+Math.sin(angle)*(inner-7));
+    }
+  }
+  // Minor ticks
+  for(let i=0;i<majorTicks;i++) for(let j=1;j<=3;j++){
+    const frac=(i+j/4)/majorTicks, angle=arcStart+frac*arcSpan;
+    actx.beginPath();
+    actx.moveTo(cx+Math.cos(angle)*(radius-9),cy+Math.sin(angle)*(radius-9));
+    actx.lineTo(cx+Math.cos(angle)*(radius-5),cy+Math.sin(angle)*(radius-5));
+    actx.strokeStyle='#2e3650'; actx.lineWidth=0.8; actx.stroke();
+  }
+
+  // Needle
+  const needleAngle = arcStart+clampedNorm*arcSpan;
+  const nx=cx+Math.cos(needleAngle)*(radius-6), ny=cy+Math.sin(needleAngle)*(radius-6);
+  actx.beginPath(); actx.moveTo(cx+1,cy+1); actx.lineTo(nx+1,ny+1);
+  actx.strokeStyle='rgba(0,0,0,0.4)'; actx.lineWidth=2.5; actx.lineCap='round'; actx.stroke();
+  actx.beginPath(); actx.moveTo(cx,cy); actx.lineTo(nx,ny);
+  actx.strokeStyle=overRange?'#ff4a6a':'#f0f4ff'; actx.lineWidth=2; actx.stroke();
+  actx.beginPath(); actx.arc(cx,cy,4,0,Math.PI*2);
+  actx.fillStyle='#3de88e'; actx.fill();
+  actx.fillStyle='#8890b0'; actx.font='9px IBM Plex Mono';
+  actx.textAlign='center'; actx.textBaseline='bottom';
+  actx.fillText(rangeObj.label, cx, cy-radius+2);
+
+  valueEl.style.color = overRange?'#ff4a6a':'#3de88e';
+  valueEl.textContent = overRange ? 'OL' : (displayValue+' '+displayUnit);
+  rangeEl.textContent = `Range: ${rangeObj.label}`+(overRange?'  ⚠ OVER':'');
+  rangeEl.style.color = overRange?'#ff4a6a':'#454e6a';
+}
+
+// ─── Hover tooltip (single shared element) ──────────────────────────────
 function showMeterTooltip(comp, clientX, clientY){
   const tooltip = document.getElementById('meter-tooltip');
   if(!tooltip) return;
-
-  const title      = document.getElementById('mtt-title');
-  const analogWrap = document.getElementById('mtt-analog-wrap');
-  const valueDiv   = document.getElementById('mtt-value');
-  const rangeDiv   = document.getElementById('mtt-range');
-
-  const isAmmeter  = comp.t === 'ammeter';
-  const col        = isAmmeter ? '#ff4a6a' : '#4a9eff';
-  const unit       = isAmmeter ? 'A' : 'V';
-
-  title.textContent = isAmmeter ? 'AMMETER' : 'VOLTMETER';
-  title.style.color = col;
-
-  // ── Range resolution ────────────────────────────────
-  const rangeObj  = getMeterRange(comp);
-  const maxVal    = rangeObj.max;
-  const value     = comp._simVal || 0;
-  const absVal    = Math.abs(value);
-  const overRange = absVal > maxVal * 1.02;
-  const clampedNorm = Math.max(0, Math.min(1, absVal / maxVal));
-
-  // ── Formatted digital readout ────────────────────────
-  let displayValue, displayUnit;
-  if(overRange){
-    displayValue = 'OL';
-    displayUnit  = '— over range';
-  } else {
-    if      (absVal >= 1)    { displayValue = value.toFixed(4);              displayUnit = unit;   }
-    else if (absVal >= 1e-3) { displayValue = (value*1e3).toFixed(3);        displayUnit = 'm'+unit; }
-    else if (absVal >= 1e-6) { displayValue = (value*1e6).toFixed(2);        displayUnit = 'µ'+unit; }
-    else                     { displayValue = (value*1e9).toFixed(2);        displayUnit = 'n'+unit; }
-  }
-
-  // ── Analog meter canvas ─────────────────────────────
-  analogWrap.style.display = 'block';
-  const analogCanvas = document.getElementById('mtt-analog');
-  const actx = analogCanvas.getContext('2d');
-  const W = analogCanvas.width, H = analogCanvas.height;
-  actx.clearRect(0, 0, W, H);
-
-  const cx     = W / 2;
-  const cy     = H - 12;
-  const radius = 46;
-  const arcStart = Math.PI * 0.80;          // left end of arc (≈ 144°)
-  const arcEnd   = Math.PI * 2.20;          // right end       (≈ 396° = 36° past 360°)
-  const arcSpan  = arcEnd - arcStart;
-
-  // Background track
-  actx.beginPath();
-  actx.arc(cx, cy, radius, arcStart, arcEnd);
-  actx.strokeStyle = '#1e2438';
-  actx.lineWidth = 9;
-  actx.lineCap = 'butt';
-  actx.stroke();
-
-  // Coloured fill arc
-  const fillEnd = arcStart + clampedNorm * arcSpan;
-  actx.beginPath();
-  actx.arc(cx, cy, radius, arcStart, fillEnd);
-  actx.strokeStyle = overRange ? '#ff4a6a' : col;
-  actx.lineWidth = 9;
-  actx.lineCap = 'round';
-  actx.stroke();
-
-  // ── Scale ticks + labels ─────────────────────────────
-  // 5 major divisions (0, 25%, 50%, 75%, 100%)
-  const majorTicks = 5;
-  for(let i=0; i<=majorTicks; i++){
-    const frac  = i / majorTicks;
-    const angle = arcStart + frac * arcSpan;
-    const cos_a = Math.cos(angle), sin_a = Math.sin(angle);
-    const inner = radius - 12, outer = radius - 5;
-
-    actx.beginPath();
-    actx.moveTo(cx + cos_a*inner, cy + sin_a*inner);
-    actx.lineTo(cx + cos_a*outer, cy + sin_a*outer);
-    actx.strokeStyle = '#4a5470';
-    actx.lineWidth = 1.2;
-    actx.stroke();
-
-    // Tick label (only 0, 50%, 100%)
-    if(i===0 || i===majorTicks/2 || i===majorTicks){
-      const tickVal  = frac * maxVal;
-      let tickStr;
-      if     (maxVal >= 1)    tickStr = tickVal >= 1 ? tickVal.toFixed(tickVal>=10?0:1) : (tickVal*1000).toFixed(0)+'m';
-      else if(maxVal >= 1e-3) tickStr = (tickVal*1e3).toFixed(tickVal===0?0:1);
-      else                    tickStr = (tickVal*1e6).toFixed(tickVal===0?0:0);
-
-      const labelR = inner - 7;
-      actx.fillStyle = '#6878a0';
-      actx.font = '8px IBM Plex Mono';
-      actx.textAlign = 'center';
-      actx.textBaseline = 'middle';
-      actx.fillText(tickStr, cx + Math.cos(angle)*labelR, cy + Math.sin(angle)*labelR);
-    }
-  }
-
-  // 4 minor ticks between each major pair
-  for(let i=0; i<majorTicks; i++){
-    for(let j=1; j<=3; j++){
-      const frac  = (i + j/4) / majorTicks;
-      const angle = arcStart + frac * arcSpan;
-      const inner = radius - 9, outer = radius - 5;
-      actx.beginPath();
-      actx.moveTo(cx + Math.cos(angle)*inner, cy + Math.sin(angle)*inner);
-      actx.lineTo(cx + Math.cos(angle)*outer, cy + Math.sin(angle)*outer);
-      actx.strokeStyle = '#2e3650';
-      actx.lineWidth = 0.8;
-      actx.stroke();
-    }
-  }
-
-  // ── Needle ───────────────────────────────────────────
-  const needleAngle = arcStart + clampedNorm * arcSpan;
-  const nx = cx + Math.cos(needleAngle) * (radius - 6);
-  const ny = cy + Math.sin(needleAngle) * (radius - 6);
-  // Shadow
-  actx.beginPath();
-  actx.moveTo(cx+1, cy+1); actx.lineTo(nx+1, ny+1);
-  actx.strokeStyle = 'rgba(0,0,0,0.4)'; actx.lineWidth = 2.5; actx.lineCap='round'; actx.stroke();
-  // Needle proper
-  actx.beginPath();
-  actx.moveTo(cx, cy); actx.lineTo(nx, ny);
-  actx.strokeStyle = overRange ? '#ff4a6a' : '#f0f4ff';
-  actx.lineWidth = 2; actx.stroke();
-  // Pivot
-  actx.beginPath(); actx.arc(cx, cy, 4, 0, Math.PI*2);
-  actx.fillStyle = '#3de88e'; actx.fill();
-
-  // Unit label above arc centre
-  actx.fillStyle = '#8890b0';
-  actx.font = '9px IBM Plex Mono';
-  actx.textAlign = 'center'; actx.textBaseline = 'bottom';
-  actx.fillText(rangeObj.label, cx, cy - radius + 2);
-
-  // ── Digital readout and range label ─────────────────
-  valueDiv.style.color  = overRange ? '#ff4a6a' : '#3de88e';
-  valueDiv.textContent  = overRange ? 'OL' : (displayValue + ' ' + displayUnit);
-  rangeDiv.textContent  = `Range: ${rangeObj.label}` + (overRange ? '  ⚠ OVER' : '');
-  rangeDiv.style.color  = overRange ? '#ff4a6a' : '#454e6a';
-
-  // Position tooltip
+  tooltip.style.pointerEvents = 'none';
+  document.getElementById('mtt-close').style.display = 'none';
+  document.getElementById('mtt-analog-wrap').style.display = 'block';
+  renderMeterFace(comp,
+    document.getElementById('mtt-title'),
+    document.getElementById('mtt-analog'),
+    document.getElementById('mtt-value'),
+    document.getElementById('mtt-range')
+  );
   const r = canvas.getBoundingClientRect();
-  let tx = clientX + 18, ty = clientY + 12;
-  if(tx + 160 > r.right)  tx = clientX - 175;
-  if(ty + 220 > r.bottom) ty = clientY - 225;
-  tooltip.style.left = tx + 'px';
-  tooltip.style.top  = ty + 'px';
+  let tx = clientX+18, ty = clientY+12;
+  if(tx+170 > r.right)  tx = clientX-175;
+  if(ty+230 > r.bottom) ty = clientY-230;
+  tooltip.style.left = tx+'px'; tooltip.style.top = ty+'px';
   tooltip.style.display = 'block';
 }
 
 function hideMeterTooltip(){
   const tooltip = document.getElementById('meter-tooltip');
   if(tooltip) tooltip.style.display = 'none';
+}
+
+// ─── Pinned modals ───────────────────────────────────────────────────────
+// Single shared interaction state — only one drag/resize can be active at once
+const _modalInteract = { mode:null, id:null, ox:0, oy:0, startScale:1, startMX:0, startMY:0 };
+
+(function initModalWindowHandlers(){
+  window.addEventListener('mousemove', ev=>{
+    const s = _modalInteract;
+    if(!s.mode) return;
+    const state = _pinnedMeters.get(s.id);
+    if(!state) return;
+    const el = state.el;
+
+    if(s.mode === 'drag'){
+      el.style.left = (ev.clientX - s.ox) + 'px';
+      el.style.top  = (ev.clientY - s.oy) + 'px';
+
+    } else if(s.mode === 'resize'){
+      // Distance from drag-start drives scale — move right/down = bigger
+      const dx = ev.clientX - s.startMX;
+      const dy = ev.clientY - s.startMY;
+      const delta = (dx + dy) / 180;                        // pixels → scale units
+      const newScale = Math.max(0.55, Math.min(2.5, s.startScale + delta));
+      state.scale = newScale;
+      el.style.transform = `scale(${newScale})`;
+      el.style.transformOrigin = 'top left';
+    }
+  });
+
+  window.addEventListener('mouseup', ()=>{
+    if(!_modalInteract.mode) return;
+    const state = _pinnedMeters.get(_modalInteract.id);
+    if(state){
+      if(_modalInteract.mode === 'drag'){
+        const h = state.el.querySelector('.pm-drag-handle');
+        if(h) h.style.cursor = 'grab';
+      }
+    }
+    _modalInteract.mode = null;
+    _modalInteract.id   = null;
+  });
+})();
+
+function buildMeterModal(comp, x, y){
+  const isAmmeter = comp.t === 'ammeter';
+  const accentCol = isAmmeter ? '#ff4a6a' : '#4a9eff';
+  const borderCol = isAmmeter ? 'rgba(255,74,106,.32)' : 'rgba(74,158,255,.32)';
+
+  const el = document.createElement('div');
+  el.dataset.compId = String(comp.id);
+  el.style.cssText = `
+    position:fixed; z-index:810; background:#0d0f14;
+    border:1px solid ${borderCol}; border-radius:9px;
+    box-shadow:0 10px 32px rgba(0,0,0,.7);
+    left:${x}px; top:${y}px;
+    user-select:none; min-width:166px;
+    transform-origin:top left;`;
+
+  el.innerHTML = `
+    <div class="pm-drag-handle" style="
+      display:flex; align-items:center; justify-content:space-between;
+      padding:7px 10px 5px; cursor:grab;
+      border-bottom:1px solid rgba(140,160,220,.1); gap:6px;">
+      <div style="display:flex;align-items:center;gap:6px;pointer-events:none;min-width:0">
+        <span style="width:6px;height:6px;border-radius:50%;background:${accentCol};flex-shrink:0"></span>
+        <div class="pm-title" style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;
+          color:${accentCol};font-family:'IBM Plex Mono';white-space:nowrap;overflow:hidden;
+          text-overflow:ellipsis;pointer-events:none"></div>
+      </div>
+      <button class="pm-close" style="background:none;border:none;color:#3a4460;font-size:15px;
+        cursor:pointer;padding:0;line-height:1;flex-shrink:0;transition:color .15s"
+        onmouseover="this.style.color='#ff4a6a'" onmouseout="this.style.color='#3a4460'"
+        onclick="removePinnedMeter(${comp.id})">×</button>
+    </div>
+
+    <div style="padding:6px 12px 8px">
+      <div style="text-align:center;margin-bottom:4px">
+        <canvas class="pm-canvas" width="140" height="85"
+          style="display:block;margin:0 auto;border-radius:4px"></canvas>
+      </div>
+      <div class="pm-value" style="font-size:16px;font-weight:600;
+        font-family:'IBM Plex Mono';color:#3de88e;line-height:1.2"></div>
+      <div class="pm-range" style="font-size:10px;color:#454e6a;
+        margin-top:3px;font-family:'IBM Plex Mono'"></div>
+    </div>
+
+    <div class="pm-resize-handle" title="Drag to resize" style="
+      position:absolute; bottom:0; right:0;
+      width:16px; height:16px; cursor:nwse-resize;
+      display:flex; align-items:flex-end; justify-content:flex-end;
+      padding:3px; border-radius:0 0 9px 0; opacity:.45; transition:opacity .15s"
+      onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.45'">
+      <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+        <line x1="1" y1="8" x2="8" y2="1" stroke="${accentCol}" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="4" y1="8" x2="8" y2="4" stroke="${accentCol}" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="7" y1="8" x2="8" y2="7" stroke="${accentCol}" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+
+  // ── Drag via handle ───────────────────────────────────
+  const handle = el.querySelector('.pm-drag-handle');
+  handle.addEventListener('mousedown', ev=>{
+    if(ev.button !== 0) return;
+    _modalInteract.mode = 'drag';
+    _modalInteract.id   = comp.id;
+    _modalInteract.ox   = ev.clientX - el.offsetLeft;
+    _modalInteract.oy   = ev.clientY - el.offsetTop;
+    handle.style.cursor = 'grabbing';
+    ev.preventDefault(); ev.stopPropagation();
+  });
+
+  // ── Resize via corner handle ──────────────────────────
+  const resizeHandle = el.querySelector('.pm-resize-handle');
+  resizeHandle.addEventListener('mousedown', ev=>{
+    if(ev.button !== 0) return;
+    const state = _pinnedMeters.get(comp.id);
+    _modalInteract.mode       = 'resize';
+    _modalInteract.id         = comp.id;
+    _modalInteract.startMX    = ev.clientX;
+    _modalInteract.startMY    = ev.clientY;
+    _modalInteract.startScale = state ? state.scale : 1;
+    ev.preventDefault(); ev.stopPropagation();
+  });
+
+  document.body.appendChild(el);
+  return el;
+}
+
+function pinMeter(comp, clientX, clientY){
+  if(_pinnedMeters.has(comp.id)) return;
+  const x = Math.min(clientX+24, window.innerWidth-180);
+  const y = Math.max(clientY-20, 10);
+  const el = buildMeterModal(comp, x, y);
+  _pinnedMeters.set(comp.id, { el, scale:1 });
+  updatePinnedMeter(comp.id);
+}
+
+function removePinnedMeter(id){
+  const state = _pinnedMeters.get(id);
+  if(state) state.el.remove();
+  _pinnedMeters.delete(id);
+  if(_modalInteract.id === id) _modalInteract.mode = null;
+}
+
+function updatePinnedMeter(compId){
+  const state = _pinnedMeters.get(compId);
+  if(!state) return;
+  const comp = S.comps.find(c=>c.id===compId);
+  if(!comp){ removePinnedMeter(compId); return; }
+  renderMeterFace(comp,
+    state.el.querySelector('.pm-title'),
+    state.el.querySelector('.pm-canvas'),
+    state.el.querySelector('.pm-value'),
+    state.el.querySelector('.pm-range')
+  );
+}
+
+function updateAllPinnedMeters(){
+  _pinnedMeters.forEach((state, id) => updatePinnedMeter(id));
+}
+
+function closePinnedTooltip(btn){
+  // Called by the × on the shared hover tooltip — shouldn't normally appear, but just in case
+  document.getElementById('meter-tooltip').style.display='none';
 }
 
 function ctxFlip(){ flipSelected(); hideCtx(); }
@@ -2076,7 +2225,16 @@ function setTool(t,btn){
   document.getElementById('sb-tool').textContent = t.charAt(0).toUpperCase()+t.slice(1);
   render();
 }
-function setDispMode(m,btn){ S.dispMode=m; document.querySelectorAll('.mode-pill button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+function setDispMode(m,btn){ /* legacy no-op */ }
+function setMeterMode(m, btn){
+  _meterMode = m;
+  document.querySelectorAll('.mode-pill button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if(m === 'hover'){
+    // Clear all pinned modals when switching back to hover mode
+    [..._pinnedMeters.keys()].forEach(id => removePinnedMeter(id));
+  }
+}
 // (Layers panel removed)
 function toggleLogPanel(){ _logPanelOpen=!_logPanelOpen; document.getElementById('log-panel').style.display=_logPanelOpen?'flex':'none'; if(_logPanelOpen) refreshLogPanel(); }
 function logSim(...a){ const m=a.join(' '); SIM_LOG.push(m); if(_logPanelOpen) refreshLogPanel(); }
