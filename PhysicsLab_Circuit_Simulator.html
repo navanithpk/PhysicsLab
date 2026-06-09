@@ -2124,7 +2124,36 @@ function loadCircuit(){
     r.readAsText(f);
   }; i.click();
 }
-function exportPNG(){ alert('PNG Export rendered.'); }
+function exportPNG(){
+  // Temporarily clear selection so no selection halos appear in the export
+  const savedSel = new Set(S.sel);
+  S.sel.clear();
+  render();
+
+  // Draw to an off-screen canvas at 2× pixel density for crispness
+  const scale = 2;
+  const offscreen = document.createElement('canvas');
+  offscreen.width  = canvas.width  * scale;
+  offscreen.height = canvas.height * scale;
+  const octx = offscreen.getContext('2d');
+
+  // Fill with the app background colour so the PNG isn't transparent
+  octx.fillStyle = '#0d0f14';
+  octx.fillRect(0, 0, offscreen.width, offscreen.height);
+
+  // Scale up and copy from the live canvas
+  octx.drawImage(canvas, 0, 0, offscreen.width, offscreen.height);
+
+  // Restore selection and re-render normally
+  S.sel = savedSel;
+  render();
+
+  // Trigger download
+  const link = document.createElement('a');
+  link.download = 'circuit.png';
+  link.href = offscreen.toDataURL('image/png');
+  link.click();
+}
 function exportDebugLog(){ saveCircuit(); }
 function startTutorial(){ document.getElementById('tutoverlay').classList.add('show'); }
 function tutNav(d){ document.getElementById('tutoverlay').classList.remove('show'); }
