@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Circuit Simulator — PhysicsLab Pro</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -70,7 +70,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
 /* ── CANVAS WRAP ── */
 .cwrap{flex:1;position:relative;overflow:hidden}
-#mc{display:block}
+#mc{display:block;cursor:crosshair;touch-action:none;-webkit-user-select:none;user-select:none;}
 
 /* ── RIGHT PANEL ── */
 .right-panel{width:218px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
@@ -187,6 +187,39 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 .tut-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .tut-btn.primary:hover{background:#3a8cf0}
 .tut-highlight{position:absolute;border:2px solid var(--accent);border-radius:6px;pointer-events:none;transition:all .3s;box-shadow:0 0 0 4px rgba(74,158,255,.15)}
+.tut-body b{color:var(--text);font-weight:600}
+.tut-illus{width:100%;height:86px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;display:block;margin-bottom:12px}
+.tut-box{position:absolute;background:var(--bg2);border:1px solid var(--bord2);border-radius:12px;padding:24px;width:430px;box-shadow:0 16px 48px rgba(0,0,0,.6)}
+
+/* ── LCR EXPLORER ── */
+.lcr-overlay{position:fixed;inset:0;z-index:550;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center}
+.lcr-overlay.show{display:flex}
+.lcr-box{background:var(--bg2);border:1px solid var(--bord2);border-radius:14px;width:min(760px,96vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.7);overflow:hidden}
+.lcr-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;gap:12px}
+.lcr-title{font-size:15px;font-weight:600;color:var(--text)}
+.lcr-disclaimer{font-size:10px;font-family:var(--mono);background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.25);color:var(--amber);padding:3px 10px;border-radius:4px;white-space:nowrap}
+.lcr-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 20px}
+.lcr-tab{padding:9px 16px;border:none;background:transparent;color:var(--text3);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.lcr-tab:hover{color:var(--text2)}
+.lcr-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.lcr-body{flex:1;overflow-y:auto;padding:20px;display:flex;gap:20px;min-height:0}
+.lcr-controls{width:210px;flex-shrink:0;display:flex;flex-direction:column;gap:12px}
+.lcr-display{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+.lcr-ctrl-group{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px}
+.lcr-ctrl-label{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-family:var(--mono);margin-bottom:8px}
+.lcr-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.lcr-row:last-child{margin-bottom:0}
+.lcr-row label{font-size:11px;color:var(--text2);width:28px;flex-shrink:0;font-family:var(--mono)}
+.lcr-row input[type=range]{flex:1;accent-color:var(--accent);cursor:pointer}
+.lcr-row .lcr-val{font-size:11px;font-family:var(--mono);color:var(--accent);width:60px;text-align:right;flex-shrink:0}
+.lcr-results{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px}
+.lcr-result-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.lcr-result-row:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.lcr-result-label{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.lcr-result-value{font-size:13px;font-weight:600;color:var(--green);font-family:var(--mono)}
+.lcr-canvas-wrap{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.lcr-canvas-title{font-size:10px;font-family:var(--mono);color:var(--text3);padding:5px 10px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.7px}
+.lcr-note{font-size:11px;color:var(--text3);line-height:1.6;border-left:2px solid var(--border);padding-left:10px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -200,6 +233,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <button class="tb" id="tb-select" onclick="setTool('select',this)" title="Select / Move [V]">Select</button>
   <button class="tb" id="tb-wire" onclick="setTool('wire',this)" title="Draw wire [W]">Wire</button>
   <button class="tb" id="tb-erase" onclick="setTool('erase',this)" title="Erase [E]">Eraser</button>
+  <button class="tb" id="tb-razor" onclick="setTool('razor',this)" title="Razor — cut wire at point [R]">Razor</button>
   <button class="tb" id="tb-pan" onclick="setTool('pan',this)" title="Pan canvas [P]">Pan</button>
   <div class="sep"></div>
   <button class="tb" id="tb-undo" onclick="undo()" title="Undo [Ctrl+Z]" style="opacity:.35">Undo</button>
@@ -209,7 +243,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <button class="tb" onclick="loadCircuit()" style="color:var(--cyan)">Load</button>
   <div class="sep"></div>
   <button class="tb" id="tb-text" onclick="setTool('text',this)" title="Text label [T]">Text</button>
-  <button class="tb" onclick="rotateSelected()" title="Rotate 90° [R]">Rotate</button>
+  <button class="tb" onclick="rotateSelected()" title="Rotate 90° [Enter]">Rotate</button>
   <button class="tb" onclick="deleteSelected()" title="Delete [Del]">Delete</button>
   <div class="sep"></div>
   <button class="tb green" onclick="runSimulation()" title="Simulate [Space]">Simulate</button>
@@ -227,6 +261,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     </div>
     <div class="sep"></div>
     <button class="tb" onclick="startTutorial()" style="color:var(--purple)">? Tutorial</button>
+    <button class="tb" onclick="openLCR()" style="color:var(--cyan)">⚡ LCR Explorer</button>
     <button class="tb" onclick="exportPNG()">Export</button>
     <button class="tb" onclick="exportDebugLog()" style="color:var(--purple)">⬇ Debug JSON</button>
     <button class="tb" id="tb-log" onclick="toggleLogPanel()" style="color:var(--purple)">☰ Logs</button>
@@ -365,6 +400,26 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
       <button class="export-btn cancel" onclick="closeExportModal()">Cancel</button>
       <button class="export-btn go" onclick="doExport()">Download PNG</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══ LCR EXPLORER ═══ -->
+<div class="lcr-overlay" id="lcr-overlay" onclick="if(event.target===this)closeLCR()">
+  <div class="lcr-box">
+    <div class="lcr-header">
+      <div class="lcr-title">⚡ LCR Circuit Explorer</div>
+      <div class="lcr-disclaimer">📐 Transient solver — separate from MNA</div>
+      <button onclick="closeLCR()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0;line-height:1;transition:color .15s" onmouseover="this.style.color='#ff4a6a'" onmouseout="this.style.color='var(--text3)'">×</button>
+    </div>
+    <div class="lcr-tabs">
+      <button class="lcr-tab active" onclick="setLCRTab('rc',this)">RC</button>
+      <button class="lcr-tab" onclick="setLCRTab('rl',this)">RL</button>
+      <button class="lcr-tab" onclick="setLCRTab('lc',this)">LC</button>
+      <button class="lcr-tab" onclick="setLCRTab('lcr',this)">LCR Series</button>
+      <button class="lcr-tab" onclick="setLCRTab('phasor',this)">Phasor</button>
+    </div>
+    <div class="lcr-body" id="lcr-body"></div>
+    <div id="lcr-src-note" style="padding:6px 20px 10px;font-size:10px;font-family:'IBM Plex Mono';color:#454e6a;border-top:1px solid var(--border);flex-shrink:0"></div>
   </div>
 </div>
 
@@ -581,6 +636,9 @@ class MNASolver {
         case 'lamp':      g = 1 / (+c.props.resistance || 60); break;
         case 'ldr':       g = 1 / (+c.props.resistance || 1000); break;
         case 'thermistor':g = 1 / (+c.props.resistance || 1000); break;
+        case 'fuse':
+          // Blown = open circuit (g=0). Intact = its small wire resistance.
+          g = c._blown ? 0 : 1 / Math.max(1e-4, +c.props.resistance || 0.1); break;
         case 'switch': case 'relay_switch':
           g = c.props.closed ? 1e5 : 0; break;
         case 'voltmeter': g = 1e-9; break;
@@ -599,6 +657,7 @@ class MNASolver {
           break;
         case 'relay_coil': g = 1 / (+c.props.resistance || 200); break;
         case 'capacitor':  g = 1e-12; break;
+        case 'inductor':   g = 1e6;   break; // DC steady-state: inductor = short circuit
       }
 
       if (g > 0) applyConductance(n1, n2, g);
@@ -709,10 +768,20 @@ class PhysicsEngine {
         switch (c.t) {
           case 'resistor': case 'varresistor': case 'heater': case 'ldr': case 'thermistor':
             I = vd / (+c.props.resistance || 1000); break;
+          case 'fuse':
+            I = c._blown ? 0 : vd / Math.max(1e-4, +c.props.resistance || 0.1);
+            break;
           case 'lamp':
             I = vd / (+c.props.resistance || 60);
-            c._lit = Math.abs(I) > 0.01;
-            c._intensity = Math.min(1, Math.abs(I * vd) / (c.props.rating || 12)); break;
+            c._lit = Math.abs(I) > 0.005;
+            // _intensity = perceptual brightness 0→1
+            // P_actual = |I·V|, P_rated from props
+            // Use sqrt for perceptual scaling (eye response is nonlinear)
+            { const P_actual = Math.abs(I * vd);
+              const P_rated  = +(c.props.rating || 12);
+              const ratio    = P_actual / P_rated;
+              c._intensity   = Math.min(1.0, Math.sqrt(ratio)); }
+            break;
           case 'led':{
             // If forward biased: I = (vd - vf) * g (same model as MNA stamp)
             // If reverse biased: I = 0 — diode is blocking
@@ -729,6 +798,8 @@ class PhysicsEngine {
           }
           case 'capacitor':
             I = vd * 1e-12; break; // DC leakage approximation
+          case 'inductor':
+            I = vd * 1e6;   break; // DC short: I = V/very_small_R
           case 'voltmeter':
             I = vd * 1e-9; break; // High impedance
           case 'cro':
@@ -793,7 +864,9 @@ const DEFS = [
   {t:'ac',lbl:'AC Source',grp:'Sources',col:'#ffb830',props:{voltage:12,freq:50,label:''},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'resistor',lbl:'Resistor',grp:'Passive',col:'#c8d4f0',props:{resistance:1000,label:'R'},terms:[[-2,0],[2,0]],gw:4,gh:1},
   {t:'varresistor',lbl:'Variable Resistor',grp:'Passive',col:'#c8d4f0',props:{resistance:500,min:0,max:1000,label:''},terms:[[-2,0],[2,0]],gw:4,gh:1},
+  {t:'fuse',lbl:'Fuse',grp:'Passive',col:'#ffd166',props:{resistance:0.1,rating:5,label:''},terms:[[-2,0],[2,0]],gw:4,gh:1},
   {t:'capacitor',lbl:'Capacitor',grp:'Passive',col:'#7bb8ff',props:{capacitance:100e-6,label:'C'},terms:[[-1,0],[1,0]],gw:2,gh:1},
+  {t:'inductor',lbl:'Inductor',grp:'Passive',col:'#b87aff',props:{inductance:100e-3,label:'L'},terms:[[-2,0],[2,0]],gw:4,gh:1},
   {t:'switch',lbl:'Switch',grp:'Switches',col:'#3de88e',props:{closed:false,label:'S'},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'relay_coil',lbl:'Relay Coil',grp:'Switches',col:'#3de88e',props:{resistance:200,label:''},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'relay_switch',lbl:'Relay Switch',grp:'Switches',col:'#3de88e',props:{closed:false,label:''},terms:[[-1,0],[1,0]],gw:2,gh:1},
@@ -854,6 +927,7 @@ const S = {
   spaceDown:false,_transformMode:null,_transformComp:null,_rotStart:0,_rotOrig:0,
   _scaleStart:null,_scaleHandleDx:0,_scaleHandleDy:0,_scaleOrigX:1,_scaleOrigY:1,
   panning:false,_panStart:null,_panOrig:null,
+  _palDragType:null, _palDragPos:null,   // palette drag ghost
 };
 
 let canvas, ctx, wrap, rafId, lastT=0;
@@ -883,6 +957,7 @@ let _croProbeMode = null;  // { compId, probeIdx:0|1 }
 // component is under the cursor is highlighted, and a click deletes just that
 // one item (not a radius sweep).
 let _eraseHover = null;  // { type:'wire'|'comp', idx, segIdx } — what's highlighted
+let _razorHover = null;  // { wireIdx, segIdx, t, px, py, ax, ay, bx, by } — razor cut point
 
 window.addEventListener('load',()=>{
   canvas=document.getElementById('mc');
@@ -900,13 +975,57 @@ window.addEventListener('load',()=>{
 });
 
 function resizeCv(){
-  canvas.width=wrap.clientWidth; canvas.height=wrap.clientHeight; render();
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  // Physical pixels
+  canvas.width  = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  // CSS size stays unchanged
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  // Scale all draw operations up by DPR so 1 logical unit = 1 CSS pixel
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  render();
 }
 
 function loop(ts){
-  S.animT+=(ts-lastT)/1000; lastT=ts;
+  const dt = Math.min((ts - lastT) / 1000, 0.05); // cap Δt to avoid spike on tab-return
+  S.animT += dt; lastT = ts;
   render();
   updateAllPinnedMeters();
+
+  // ── Fuse thermal accumulation: H = I²·R·t ────────────────────────────
+  if(S.simOn){
+    let anyBlown = false;
+    S.comps.forEach(c => {
+      if(c.t !== 'fuse' || c._blown) return;
+      const I = c._simI || 0;
+      const R = +c.props.resistance || 0.1;
+      if(!c._heatJ) c._heatJ = 0;
+      c._heatJ += I * I * R * dt;           // Joule heating this frame
+      const rating = +c.props.rating || 5;  // thermal rating in joules
+      if(c._heatJ >= rating){
+        c._blown = true;
+        c._heatJ = rating;                   // cap so bar shows 100%
+        anyBlown = true;
+        _flashPts.push({x:c.x, y:c.y, t:1}); // spark flash
+        logSim(`Fuse #${c.id} blown — I=${I.toFixed(3)}A, H=${c._heatJ.toFixed(3)}J ≥ rating ${rating}J`);
+      }
+    });
+    if(anyBlown){
+      // Re-solve with blown fuse(s) as open circuits
+      runSimulation();
+    }
+  }
+  // Cool down intact fuses slowly when sim is off or current is low
+  if(!S.simOn){
+    S.comps.forEach(c => {
+      if(c.t === 'fuse' && !c._blown && c._heatJ){
+        c._heatJ = Math.max(0, (c._heatJ || 0) * 0.96); // dissipate ~4% per frame at rest
+      }
+    });
+  }
+
   // Refresh inline meter face in properties panel if a meter is selected
   if(S.sel.size){
     const selId = [...S.sel][0];
@@ -915,6 +1034,9 @@ function loop(ts){
       const propCanvas = document.getElementById(`prop-meter-canvas-${c.id}`);
       if(propCanvas) renderMeterFaceOnCanvas(c, propCanvas);
     }
+    if(c && c.t==='capacitor' && S.simOn) updateProps();
+    if(c && c.t==='lamp'      && S.simOn) updateProps();
+    if(c && c.t==='fuse') updateProps();
   }
   rafId=requestAnimationFrame(loop);
 }
@@ -926,12 +1048,18 @@ const C={wire:'#4a9eff',comp:'#c8d4f0',src:'#ffb830',meter_a:'#ff9a7a',meter_v:'
 function compColor(t){
   if(t==='ammeter') return C.meter_a; if(t==='voltmeter') return C.meter_v;
   if(t==='cro') return '#30e8d8';
+  if(t==='inductor') return '#b87aff';
   if(t==='cell'||t==='battery'||t==='ac'||t==='lamp'||t==='ldr') return C.src;
   if(t==='led'||t==='switch'||t==='relay_coil'||t==='relay_switch') return C.green;
   if(t==='heater'||t==='thermistor') return C.red; if(t==='diode') return C.purple;
   return C.comp;
 }
-function ss(ctx,col,lw=1.4){ ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.lineCap='round'; ctx.lineJoin='round'; }
+function ss(ctx, col, lw=1.4){
+  ctx.strokeStyle = _exportBW ? '#000000' : col;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+}
 function roundRect(ctx,x,y,w,h,r){
   const rr=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);
   ctx.beginPath();
@@ -948,28 +1076,48 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 function drawCell(ctx,col){
-  ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.15,0); ctx.stroke();
+  ss(ctx,col);
+  // Left lead → negative terminal (-GS to thin bar)
+  ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.15,0); ctx.stroke();
+  // Right lead → positive terminal (+GS to thick bar)
   ctx.beginPath(); ctx.moveTo( GS,0); ctx.lineTo( GS*0.15,0); ctx.stroke();
-  // Negative terminal (shorter, on left) - thin line
-  ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(-GS*0.15,-GS*0.7); ctx.lineTo(-GS*0.15,GS*0.7); ctx.stroke();
-  // Positive terminal (longer, on right) - thick line
-  ctx.lineWidth=2.8; ctx.beginPath(); ctx.moveTo(GS*0.15,-GS*0.42); ctx.lineTo(GS*0.15,GS*0.42); ctx.stroke();
-  ctx.lineWidth=1.4; ctx.fillStyle=col+'cc'; ctx.font='7px IBM Plex Mono'; ctx.textAlign='center';
-  ctx.fillText('+',GS*0.15+8,-GS*0.3); ctx.fillText('−',-GS*0.15-8,-GS*0.3);
+  // Negative terminal — SHORT thin bar on LEFT
+  ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(-GS*0.15,-GS*0.38); ctx.lineTo(-GS*0.15,GS*0.38); ctx.stroke();
+  // Positive terminal — LONG thick bar on RIGHT
+  ctx.lineWidth=2.8; ctx.beginPath(); ctx.moveTo( GS*0.15,-GS*0.65); ctx.lineTo( GS*0.15,GS*0.65); ctx.stroke();
+  // Labels
+  ctx.lineWidth=1.4;
+  ctx.fillStyle = _exportBW ? '#000' : col+'cc';
+  ctx.font='7px IBM Plex Mono'; ctx.textAlign='center';
+  ctx.fillText('+', GS*0.15+8, -GS*0.45);
+  ctx.fillText('−', -GS*0.15-8, -GS*0.28);
 }
 function drawBattery(ctx,col,cells){
-  ss(ctx,col); const n=Math.max(2,Math.min(cells,6)); const totalW=GS*3; const spacing=totalW/n;
+  ss(ctx,col);
+  const n = Math.max(2, Math.min(cells, 6));
+  const totalW = GS*3, spacing = totalW/n;
   ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-totalW/2,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( totalW/2,0); ctx.stroke();
-  for(let i=0;i<n;i++){
-    const x=-totalW/2+i*spacing+spacing/2; 
-    // Even index (0,2,4...) = positive terminal (longer, thicker)
-    // Odd index (1,3,5...) = negative terminal (shorter, thinner)
-    const isPos=(i%2===0);
-    ctx.lineWidth=isPos?2.6:1.2; const h=isPos?GS*0.38:GS*0.65;
+  for(let i=0; i<n; i++){
+    const x = -totalW/2 + i*spacing + spacing/2;
+    // In a battery stack the plates alternate +/−.
+    // Terminal[1] (right, +GS*2) is the positive terminal → last bar should be positive.
+    // Alternate: last bar (i=n-1) = positive, working left alternates.
+    const isPos = ((n-1-i) % 2 === 0);
+    // Long tall bar = positive; short thin bar = negative
+    ctx.lineWidth = isPos ? 2.6 : 1.2;
+    const h = isPos ? GS*0.62 : GS*0.36;
     ctx.beginPath(); ctx.moveTo(x,-h); ctx.lineTo(x,h); ctx.stroke();
   }
-  ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(-GS*0.3,0); ctx.lineTo(GS*0.3,0); ctx.stroke();
+  // + label near right terminal, − near left
+  ctx.lineWidth=1.4;
+  ctx.fillStyle = _exportBW ? '#000' : col+'cc';
+  ctx.font='7px IBM Plex Mono'; ctx.textAlign='center';
+  ctx.fillText('+', totalW/2+8, -GS*0.45);
+  ctx.fillText('−', -totalW/2-8, -GS*0.28);
+  // Centre dashed divider line
+  ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(-GS*0.3,0); ctx.lineTo(GS*0.3,0); ctx.stroke();
   ctx.setLineDash([]); ctx.lineWidth=1.4;
 }
 function drawAC(ctx,col){
@@ -984,6 +1132,35 @@ function drawResistor(ctx,col){
   ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.stroke();
 }
+function drawFuse(ctx, col, blown){
+  const w = GS*1.5, h = GS*0.5;
+  ss(ctx, blown ? (_exportBW?'#000':'#ff4a6a') : col);
+
+  // Leads
+  ctx.beginPath(); ctx.moveTo(-GS*2, 0); ctx.lineTo(-w/2, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*2, 0); ctx.lineTo( w/2, 0); ctx.stroke();
+  // Outer rectangle (same as resistor)
+  ctx.beginPath(); ctx.rect(-w/2, -h/2, w, h); ctx.stroke();
+
+  if(!blown){
+    // Intact: horizontal fuse-wire line through the box
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-w/2+3, 0); ctx.lineTo(w/2-3, 0); ctx.stroke();
+    ctx.lineWidth = 1.4;
+  } else {
+    // Blown: diagonal X through box + red exclamation above
+    const bCol = _exportBW ? '#000' : '#ff4a6a';
+    ctx.strokeStyle = bCol; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-w/2+3, -h/2+2); ctx.lineTo(w/2-3, h/2-2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo( w/2-3, -h/2+2); ctx.lineTo(-w/2+3, h/2-2); ctx.stroke();
+    ctx.fillStyle = _exportBW ? '#000' : '#ff4a6a';
+    ctx.font = `bold ${GS*0.9}px IBM Plex Mono`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('!', 0, -h/2 - 2);
+    ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+  }
+}
+
 function drawVarRes(ctx,col){
   drawResistor(ctx,col); const w=GS*1.5,h=GS*0.5;
   const ax1=-w/2-GS*0.25, ay1=h/2+GS*0.3, ax2=w/2+GS*0.25, ay2=-h/2-GS*0.3;
@@ -1000,6 +1177,20 @@ function drawCapacitor(ctx,col){
   ctx.beginPath(); ctx.moveTo(-g,-h); ctx.lineTo(-g,h); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( g,-h); ctx.lineTo( g,h); ctx.stroke(); ctx.lineWidth=1.4;
 }
+function drawInductor(ctx,col){
+  // Standard IEC inductor: series of 4 humps between leads
+  ss(ctx,col,1.5);
+  ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-GS*1.5,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( GS*1.5,0); ctx.stroke();
+  // 4 semicircle bumps from -GS*1.5 to +GS*1.5
+  const bumpW = GS*0.75, r = bumpW/2;
+  ctx.beginPath();
+  for(let i=0;i<4;i++){
+    const cx=-GS*1.5+bumpW*i+r;
+    ctx.arc(cx, 0, r, Math.PI, 0, false); // top bumps
+  }
+  ctx.stroke();
+}
 function drawSwitchOpen(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.62,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS,0); ctx.lineTo( GS*0.62,0); ctx.stroke();
@@ -1012,20 +1203,65 @@ function drawSwitchClosed(ctx,col){
   ctx.beginPath(); ctx.arc(-GS*0.62,0,2.8,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
   ctx.beginPath(); ctx.arc( GS*0.62,0,2.8,0,Math.PI*2); ctx.fill();
 }
-function drawLamp(ctx,col,lit,intensity){
-  ss(ctx,col); const r=GS*0.82;
-  if(lit && intensity>0){
-    ctx.save(); const bri=Math.min(1,intensity)*(0.7+Math.sin(S.animT*7)*0.06);
-    const grad=ctx.createRadialGradient(0,0,0,0,0,r*3.5);
-    grad.addColorStop(0,`rgba(255,220,80,${bri*0.55})`); grad.addColorStop(0.5,`rgba(255,200,60,${bri*0.18})`); grad.addColorStop(1,'transparent');
-    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(0,0,r*3.5,0,Math.PI*2); ctx.fill();
+function drawLamp(ctx, col, lit, intensity){
+  ss(ctx, col); const r = GS * 0.82;
+
+  // ── Glow layers — drawn BEHIND the circle ─────────────────────────────
+  // intensity is P_actual / P_rated (0→1), clamped then slightly pulsed
+  if(intensity > 0.005 && !_exportBW){
+    ctx.save();
+    const bri = Math.min(1, intensity);
+    // Subtle breathing flicker — amplitude proportional to brightness
+    const flicker = 1 + Math.sin(S.animT * 6.8 + 0.7) * 0.04 * bri;
+    const eff = bri * flicker;
+
+    // Layer 1 — wide soft outer halo (visible even at 10% brightness)
+    const haloR = r * (3.0 + eff * 2.5);
+    const g1 = ctx.createRadialGradient(0, 0, 0, 0, 0, haloR);
+    g1.addColorStop(0,   `rgba(255,220,80,${eff * 0.30})`);
+    g1.addColorStop(0.3, `rgba(255,200,60,${eff * 0.14})`);
+    g1.addColorStop(0.7, `rgba(255,180,40,${eff * 0.05})`);
+    g1.addColorStop(1,   'transparent');
+    ctx.fillStyle = g1;
+    ctx.beginPath(); ctx.arc(0, 0, haloR, 0, Math.PI*2); ctx.fill();
+
+    // Layer 2 — mid bloom (visible from ~30% brightness)
+    if(bri > 0.08){
+      const midR = r * (1.6 + eff * 1.4);
+      const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, midR);
+      g2.addColorStop(0,   `rgba(255,240,120,${eff * 0.55})`);
+      g2.addColorStop(0.4, `rgba(255,210,70,${eff * 0.22})`);
+      g2.addColorStop(1,   'transparent');
+      ctx.fillStyle = g2;
+      ctx.beginPath(); ctx.arc(0, 0, midR, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Layer 3 — tight inner core glow (only when >50% — lamp is clearly on)
+    if(bri > 0.30){
+      const coreR = r * (1.1 + eff * 0.5);
+      const g3 = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
+      g3.addColorStop(0,   `rgba(255,255,200,${eff * 0.75})`);
+      g3.addColorStop(0.5, `rgba(255,230,100,${eff * 0.35})`);
+      g3.addColorStop(1,   'transparent');
+      ctx.fillStyle = g3;
+      ctx.beginPath(); ctx.arc(0, 0, coreR, 0, Math.PI*2); ctx.fill();
+    }
     ctx.restore();
   }
-  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0,-GS*2); ctx.lineTo(0,-r); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, GS*2); ctx.lineTo(0, r); ctx.stroke();
-  const d=r*0.58; ctx.beginPath(); ctx.moveTo(-d,-d); ctx.lineTo(d,d); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo( d,-d); ctx.lineTo(-d,d); ctx.stroke();
+
+  // ── Lamp body ────────────────────────────────────────────────────────
+  // Tint the circle fill warmly when lit (suppress in BW export)
+  if(intensity > 0.005 && !_exportBW){
+    const tint = Math.min(1, intensity) * 0.35;
+    ctx.fillStyle = `rgba(255,210,80,${tint})`;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -GS*2); ctx.lineTo(0, -r); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,  GS*2); ctx.lineTo(0,  r); ctx.stroke();
+  const d = r * 0.58;
+  ctx.beginPath(); ctx.moveTo(-d, -d); ctx.lineTo(d, d); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( d, -d); ctx.lineTo(-d, d); ctx.stroke();
 }
 // Draw a single arrow: shaft from (x1,y1) to tip (x2,y2), filled triangular arrowhead
 function drawArrow(ctx, x1, y1, x2, y2, headLen, col){
@@ -1064,7 +1300,7 @@ function drawLED(ctx,col,lit){
   drawArrow(ctx, GS*0.50, -GS*0.28, GS*0.82, -GS*0.60, 5, col);
   // Arrow 2 (upper-left of the pair, shifted by -sep in (1,1)/√2 direction)
   drawArrow(ctx, GS*0.50-sep, -GS*0.28-sep, GS*0.82-sep, -GS*0.60-sep, 5, col);
-  if(lit){
+  if(lit && !_exportBW){
     ctx.save(); const grad=ctx.createRadialGradient(0,0,0,0,0,GS*1.5);
     grad.addColorStop(0,col+'55'); grad.addColorStop(1,'transparent');
     ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(0,0,GS*1.5,0,Math.PI*2); ctx.fill(); ctx.restore();
@@ -1113,8 +1349,8 @@ function drawMeter(ctx,col,letter,value,range,over,under,dispMode,animT,compId){
   ctx.fillStyle=col; ctx.font=`bold ${r*0.62}px IBM Plex Mono`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(letter,0,0);
   
-  // Draw hover overlay with 7-segment style display
-  if (S.hover === compId) {
+  // Draw hover overlay with 7-segment style display (not in BW export)
+  if (S.hover === compId && !_exportBW) {
     ctx.save();
     const dispX = GS * 2.2;
     const dispY = -GS * 0.8;
@@ -1188,125 +1424,227 @@ function drawCRO(ctx, col, comp, animT, simOn, nodeVoltages, compNodesMap){
   roundRect(ctx, -W, -H, W*2, H*2, 5); ctx.stroke();
 
   // ── Screen ───────────────────────────────────────
-  const scrW = W*0.74, scrH = H*0.68;
+  const scrW = W*0.76, scrH = H*0.70;
   ctx.strokeStyle = col; ctx.lineWidth = 1;
   roundRect(ctx, -scrW, -scrH, scrW*2, scrH*2, 3); ctx.stroke();
 
+  // Screen background
+  ctx.fillStyle = '#050810';
+  roundRect(ctx, -scrW, -scrH, scrW*2, scrH*2, 3); ctx.fill();
+
   // ── Graticule ────────────────────────────────────
-  ctx.strokeStyle = col+'33'; ctx.lineWidth = 0.5;
-  for(let gx=-1;gx<=1;gx++){
+  ctx.strokeStyle = col+'22'; ctx.lineWidth = 0.4;
+  for(let gx=-2;gx<=2;gx++){
     ctx.beginPath(); ctx.moveTo(gx*scrW*0.5,-scrH); ctx.lineTo(gx*scrW*0.5,scrH); ctx.stroke();
   }
-  for(let gy=-1;gy<=1;gy++){
+  for(let gy=-2;gy<=2;gy++){
     ctx.beginPath(); ctx.moveTo(-scrW,gy*scrH*0.5); ctx.lineTo(scrW,gy*scrH*0.5); ctx.stroke();
   }
+  // Zero line brighter
+  ctx.strokeStyle = col+'44'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(-scrW,0); ctx.lineTo(scrW,0); ctx.stroke();
 
-  // ── Waveform trace ───────────────────────────────
-  const vd = comp._simV || 0;
-  const wave = comp.props.wave || 'sine';
-  const amp = simOn ? Math.min(scrH*0.82, Math.abs(vd)*(scrH*0.82)/10) : scrH*0.42;
-  const sign = vd < 0 ? -1 : 1;
-  ctx.strokeStyle = '#3de88e'; ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  for(let i=0; i<=72; i++){
-    const t=i/72, x=-scrW+t*scrW*2;
-    const phase=t*Math.PI*4+animT*(wave==='sine'?1.8:2.4);
-    let y=0;
-    if(wave==='sine')        y=-sign*amp*Math.sin(phase);
-    else if(wave==='square') y=-sign*amp*(Math.sin(phase)>=0?1:-1);
-    else                     y=-sign*amp*(((t*2+animT*0.4)%1)*2-1);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  // ── Determine what to draw ────────────────────────
+  // CH1 = probe 0 (yellow/orange), CH2 = probe 1 (cyan) if data available
+  // Priority: transient data from LCR placement > DC voltage cosmetic
+
+  const pk = comp._probeKeys || [null, null];
+
+  // Resolve transient traces for each probe
+  function resolveTrace(probeKey, manualName){
+    if(!_lastTransientData) return null;
+    const td = _lastTransientData;
+    // Manual override takes priority
+    if(manualName && td.traces[manualName])
+      return { data: td.traces[manualName], t: td.t, role: manualName };
+    // Auto from probe key
+    if(!probeKey) return null;
+    const role = td.nodeRoles.get(probeKey);
+    if(role && td.traces[role]) return { data: td.traces[role], t: td.t, role };
+    // Any top-rail node → vs fallback
+    return { data: td.traces.vs, t: td.t, role: 'vs' };
   }
-  ctx.stroke();
 
-  // ── Screen labels ────────────────────────────────
-  ctx.fillStyle='#30e8d855'; ctx.font='6px IBM Plex Mono';
-  ctx.textAlign='right'; ctx.textBaseline='bottom';
-  ctx.fillText((comp.props.wave||'SINE').toUpperCase(), scrW-3, scrH-2);
+  const manual = comp._manualTraces || [null, null];
+  const ch1trace = resolveTrace(pk[0], manual[0]);
+  const ch2trace = resolveTrace(pk[1], manual[1]);
+  const hasTransient = ch1trace !== null || ch2trace !== null;
+
+  if(hasTransient){
+    // ── Transient replay mode ──────────────────────
+    // Show actual solver data. Scroll through time with animT.
+    // One full sweep = 4 seconds of animT time.
+    const SWEEP_PERIOD = 4.0;
+    const td = _lastTransientData;
+    const n = td.t.length;
+
+    // Find y range across all active traces for autoscale
+    const allVals = [];
+    if(ch1trace) allVals.push(...ch1trace.data);
+    if(ch2trace) allVals.push(...ch2trace.data);
+    let yMin = Math.min(...allVals), yMax = Math.max(...allVals);
+    if(Math.abs(yMax-yMin) < 1e-9){ yMin -= 1; yMax += 1; }
+    const yPad = (yMax-yMin)*0.1;
+    yMin -= yPad; yMax += yPad;
+
+    // Scrolling window: show a 20%-width window that advances with animT
+    const winFrac = simOn ? ((animT % SWEEP_PERIOD) / SWEEP_PERIOD) : 0.5;
+    const winW = 0.4; // show 40% of total time span in window
+    let winStart = winFrac - winW/2;
+    let winEnd   = winFrac + winW/2;
+    if(winStart < 0){ winStart=0; winEnd=winW; }
+    if(winEnd > 1)  { winEnd=1; winStart=1-winW; }
+
+    function drawTrace(data, traceCol){
+      ctx.strokeStyle = traceCol; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let started = false;
+      for(let i=0; i<n; i++){
+        const tf = i/(n-1);
+        if(tf < winStart || tf > winEnd) continue;
+        const px = -scrW + (tf-winStart)/winW * scrW*2;
+        const py = -( (data[i]-yMin)/(yMax-yMin)*2 - 1 ) * scrH;
+        if(!started){ ctx.moveTo(px,py); started=true; }
+        else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+
+    if(ch2trace) drawTrace(ch2trace.data, '#30e8d8');
+    if(ch1trace) drawTrace(ch1trace.data, '#ffd166');
+
+    // Voltage scale label
+    const vSpan = yMax - yMin;
+    const vPerDiv = vSpan / 4;
+    ctx.fillStyle = '#ffd16699'; ctx.font = '5px IBM Plex Mono';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillText(`${vPerDiv.toFixed(2)}V/div`, scrW-2, -scrH+2);
+
+    // Time scale label
+    const tSpan = td.tMax * winW;
+    ctx.fillStyle = '#30e8d899';
+    ctx.textAlign = 'left';
+    ctx.fillText(_si(tSpan/4,'s')+'/div', -scrW+2, -scrH+2);
+
+    // CH labels
+    if(ch1trace){
+      ctx.fillStyle='#ffd166'; ctx.textAlign='left'; ctx.textBaseline='bottom';
+      const roleLabel = {vs:'Vs', vR:'V_R', vL:'V_L', vC:'V_C', iL:'i(t)', gnd:'GND'}[ch1trace.role]||ch1trace.role;
+      ctx.fillText('CH1: '+roleLabel, -scrW+2, scrH-2);
+    }
+    if(ch2trace){
+      ctx.fillStyle='#30e8d8'; ctx.textAlign='right'; ctx.textBaseline='bottom';
+      const roleLabel = {vs:'Vs', vR:'V_R', vL:'V_L', vC:'V_C', iL:'i(t)', gnd:'GND'}[ch2trace.role]||ch2trace.role;
+      ctx.fillText('CH2: '+roleLabel, scrW-2, scrH-2);
+    }
+
+    // Scanning line (animated cursor)
+    if(simOn){
+      const cursorX = -scrW + ((winFrac-winStart)/winW) * scrW*2;
+      if(cursorX >= -scrW && cursorX <= scrW){
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cursorX,-scrH); ctx.lineTo(cursorX,scrH); ctx.stroke();
+      }
+    }
+
+  } else {
+    // ── Cosmetic mode: no transient data / probes unset ───────────────────
+    const vd   = comp._simV || 0;
+    const wave = comp.props.wave || 'sine';
+    const amp  = simOn ? Math.min(scrH*0.80, Math.abs(vd)*(scrH*0.80)/10) : scrH*0.40;
+    const sign = vd < 0 ? -1 : 1;
+    ctx.strokeStyle = '#3de88e'; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for(let i=0; i<=72; i++){
+      const t=i/72, x=-scrW+t*scrW*2;
+      const phase=t*Math.PI*4+animT*(wave==='sine'?1.8:2.4);
+      let y=0;
+      if(wave==='sine')        y=-sign*amp*Math.sin(phase);
+      else if(wave==='square') y=-sign*amp*(Math.sin(phase)>=0?1:-1);
+      else                     y=-sign*amp*(((t*2+animT*0.4)%1)*2-1);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.fillStyle='#30e8d855'; ctx.font='6px IBM Plex Mono';
+    ctx.textAlign='right'; ctx.textBaseline='bottom';
+    ctx.fillText((comp.props.wave||'SINE').toUpperCase(), scrW-3, scrH-3);
+    // Hint text when no probes attached
+    if(!pk[0] && !pk[1]){
+      ctx.fillStyle='#454e6a'; ctx.font='5px IBM Plex Mono';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('attach probes', 0, 0);
+    }
+  }
 
   // ── CRO label ────────────────────────────────────
-  ctx.fillStyle=col+'99'; ctx.font='7px IBM Plex Mono';
+  ctx.fillStyle=col+'88'; ctx.font='7px IBM Plex Mono';
   ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('CRO', 0, H+2);
 
+  // ── CH1/CH2 indicator lights ──────────────────────
+  const chCols = ['#ffd166','#30e8d8'];
+  const chKeys = [pk[0], pk[1]];
+  chCols.forEach((cc,ci)=>{
+    const active = chKeys[ci] !== null;
+    ctx.fillStyle = active ? cc : cc+'30';
+    ctx.beginPath(); ctx.arc(-W+8+ci*12, H-8, 3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = active ? cc : '#454e6a';
+    ctx.font = '5px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('CH'+(ci+1), -W+8+ci*12, H-4);
+  });
+
   // ── Probe cables ─────────────────────────────────
-  // Each probe has:
-  //   1. A socket hole on the bottom face of the casing
-  //   2. A thick coloured cable running down to the terminal point
-  //   3. A visible probe tip (pointed triangle) at the terminal end
-  //   4. A label
-  //
-  // DEFS terms [[-1,3],[1,3]] → electrical terminal at (±GS, 3*GS) in local space
-  // That is 3*GS=48px below centre, or (48 - H) = 12.8px below casing bottom.
-  // We draw the cable visually from the socket (at casing bottom) down to the tip.
-
-  const probeCol  = ['#ff9a7a', '#30e8d8'];
+  const probeCol  = ['#ffd166', '#30e8d8'];
   const probeLbl  = ['Y', '⏚'];
-  // Socket x positions — spaced out a bit on the bottom face
-  const sockXArr  = [-GS*1.1,  GS*1.1];
-  const sockY     = H;                   // bottom of casing
-  // Terminal y (matches DEFS)
+  const sockXArr  = [-GS*1.1, GS*1.1];
+  const sockY     = H;
   const termYArr  = [GS*3, GS*3];
-  const termXArr  = [-GS,   GS];
-
+  const termXArr  = [-GS, GS];
   const hasProbe  = comp._probeKeys && comp._probeKeys.length===2;
 
   probeCol.forEach((pc, pi)=>{
     const sx  = sockXArr[pi];
     const tx  = termXArr[pi];
-    const ty  = termYArr[pi];          // electrical terminal
+    const ty  = termYArr[pi];
     const attached = hasProbe && comp._probeKeys[pi] !== null;
 
-    // 1. Socket on casing bottom face — small filled rectangle slot
     ctx.fillStyle = pc+'99';
     ctx.fillRect(sx-3, sockY-2, 6, 5);
     ctx.strokeStyle = pc; ctx.lineWidth = 1.2;
     ctx.strokeRect(sx-3, sockY-2, 6, 5);
 
-    // 2. Thick cable from socket down to just above probe tip
-    //    Cable runs straight down then slightly angled to terminal x
     const cableEndY = ty - 6;
-    ctx.strokeStyle = pc; ctx.lineWidth = 3;
+    ctx.strokeStyle = attached ? pc : pc+'55'; ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(sx, sockY+3);
-    // Gentle bend: go straight down most of the way, then curve to terminal x
-    ctx.bezierCurveTo(
-      sx,  sockY + (cableEndY-sockY)*0.6,
-      tx,  sockY + (cableEndY-sockY)*0.7,
-      tx,  cableEndY
-    );
+    ctx.bezierCurveTo(sx, sockY+(cableEndY-sockY)*0.6, tx, sockY+(cableEndY-sockY)*0.7, tx, cableEndY);
     ctx.stroke();
     ctx.lineWidth = 1.4; ctx.lineCap = 'round';
 
-    // 3. Probe tip — a small solid diamond/triangle at the terminal point
-    //    The tip sits right at the electrical terminal (tx, ty)
     const tipH = 7, tipW = 3.5;
-    ctx.fillStyle = attached ? pc : pc+'77';
-    ctx.strokeStyle = attached ? pc : pc+'55';
+    ctx.fillStyle = attached ? pc : pc+'55';
+    ctx.strokeStyle = attached ? pc : pc+'33';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(tx,        ty + tipH);   // bottom point
-    ctx.lineTo(tx - tipW, ty - 2);      // upper-left
-    ctx.lineTo(tx,        ty - 5);      // top notch
-    ctx.lineTo(tx + tipW, ty - 2);      // upper-right
+    ctx.moveTo(tx, ty+tipH);
+    ctx.lineTo(tx-tipW, ty-2);
+    ctx.lineTo(tx, ty-5);
+    ctx.lineTo(tx+tipW, ty-2);
     ctx.closePath();
     ctx.fill(); ctx.stroke();
 
-    // Small collar ring above the tip
     ctx.strokeStyle = pc; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(tx, ty-4, 2.8, 0, Math.PI*2); ctx.stroke();
 
-    // 4. Label beside the socket
-    ctx.fillStyle = pc; ctx.font = 'bold 7px IBM Plex Mono';
+    ctx.fillStyle = attached ? pc : pc+'66'; ctx.font = 'bold 7px IBM Plex Mono';
     ctx.textAlign  = pi===0 ? 'right' : 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(probeLbl[pi], sx+(pi===0?-6:6), sockY+1);
 
-    // Glow when attached
     if(attached){
       ctx.save();
-      ctx.fillStyle = pc+'30';
+      ctx.fillStyle = pc+'28';
       ctx.beginPath(); ctx.arc(tx, ty, 8, 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
@@ -1314,29 +1652,35 @@ function drawCRO(ctx, col, comp, animT, simOn, nodeVoltages, compNodesMap){
 }
 
 function drawComp(ctx,comp,def,sel,hov,animT){
-  const col=compColor(comp.t); ctx.save(); ctx.strokeStyle=hov?'#ffffff':col; ctx.lineWidth=sel?1.8:1.4;
+  const rawCol = compColor(comp.t);
+  const col = _exportBW ? '#000000' : rawCol;
+  const hcol = _exportBW ? '#000000' : (hov ? '#ffffff' : rawCol);
+  ctx.save(); ctx.strokeStyle = hcol; ctx.lineWidth = sel ? 1.8 : 1.4;
   switch(comp.t){
-    case 'cell': drawCell(ctx,hov?'#fff':col); break;
-    case 'battery': drawBattery(ctx,hov?'#fff':col,comp.props.cells||4); break;
-    case 'ac': drawAC(ctx,hov?'#fff':col); break;
-    case 'resistor': drawResistor(ctx,hov?'#fff':col); break;
-    case 'varresistor': drawVarRes(ctx,hov?'#fff':col); break;
-    case 'capacitor': drawCapacitor(ctx,hov?'#fff':col); break;
-    case 'switch': comp.props.closed ? drawSwitchClosed(ctx,hov?'#fff':col) : drawSwitchOpen(ctx,hov?'#fff':col); break;
-    case 'relay_coil': ss(ctx,hov?'#fff':col); ctx.rect(-GS*0.7,-GS*0.28,GS*1.4,GS*0.55); ctx.stroke(); break;
-    case 'relay_switch': comp.props.closed ? drawSwitchClosed(ctx,hov?'#fff':col) : drawSwitchOpen(ctx,hov?'#fff':col); break;
-    case 'lamp': drawLamp(ctx,hov?'#fff':col, comp._lit||false, comp._intensity||0); break;
-    case 'led': drawLED(ctx,hov?'#fff':col, comp._lit||false); break;
-    case 'heater': drawHeater(ctx,hov?'#fff':col); break;
-    case 'ldr': drawLDR(ctx,hov?'#fff':col); break;
-    case 'thermistor': drawThermistor(ctx,hov?'#fff':col); break;
-    case 'diode': drawDiode(ctx,hov?'#fff':col); break;
-    case 'ammeter': drawMeter(ctx,hov?'#fff':col,'A',comp._simVal||0,{max:10},false,false,S.dispMode,animT,comp.id); break;
-    case 'voltmeter': drawMeter(ctx,hov?'#fff':col,'V',comp._simVal||0,{max:20},false,false,S.dispMode,animT,comp.id); break;
-    case 'ground': drawGround(ctx,hov?'#fff':col); break;
-    case 'cro': drawCRO(ctx,hov?'#fff':col,comp,animT,S.simOn,_nodeV,_lastCompNodes); break;
+    case 'cell': drawCell(ctx,hcol); break;
+    case 'battery': drawBattery(ctx,hcol,comp.props.cells||4); break;
+    case 'ac': drawAC(ctx,hcol); break;
+    case 'resistor': drawResistor(ctx,hcol); break;
+    case 'fuse': drawFuse(ctx,hcol, comp._blown||false); break;
+    case 'varresistor': drawVarRes(ctx,hcol); break;
+    case 'capacitor': drawCapacitor(ctx,hcol); break;
+    case 'inductor':  drawInductor(ctx,hcol); break;
+    case 'switch': comp.props.closed ? drawSwitchClosed(ctx,hcol) : drawSwitchOpen(ctx,hcol); break;
+    case 'relay_coil': ss(ctx,hcol); ctx.rect(-GS*0.7,-GS*0.28,GS*1.4,GS*0.55); ctx.stroke(); break;
+    case 'relay_switch': comp.props.closed ? drawSwitchClosed(ctx,hcol) : drawSwitchOpen(ctx,hcol); break;
+    case 'lamp': drawLamp(ctx,hcol, comp._lit||false, comp._intensity||0); break;
+    case 'led': drawLED(ctx,hcol, comp._lit||false); break;
+    case 'heater': drawHeater(ctx,hcol); break;
+    case 'ldr': drawLDR(ctx,hcol); break;
+    case 'thermistor': drawThermistor(ctx,hcol); break;
+    case 'diode': drawDiode(ctx,hcol); break;
+    case 'ammeter': drawMeter(ctx,hcol,'A',comp._simVal||0,{max:10},false,false,S.dispMode,animT,comp.id); break;
+    case 'voltmeter': drawMeter(ctx,hcol,'V',comp._simVal||0,{max:20},false,false,S.dispMode,animT,comp.id); break;
+    case 'ground': drawGround(ctx,hcol); break;
+    case 'cro': drawCRO(ctx,hcol,comp,animT,S.simOn,_nodeV,_lastCompNodes); break;
   }
-  if(sel){ ctx.strokeStyle='rgba(74,158,255,0.55)'; ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.strokeRect(-def.gw*GS*0.5-9,-def.gh*GS*0.5-9,def.gw*GS+18,def.gh*GS+18); }
+  if(sel && !_exportBW){ ctx.strokeStyle='rgba(74,158,255,0.55)'; ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.strokeRect(-def.gw*GS*0.5-9,-def.gh*GS*0.5-9,def.gw*GS+18,def.gh*GS+18); }
+  ctx.setLineDash([]);
   ctx.restore();
 }
 
@@ -1353,7 +1697,15 @@ function buildPalette(){
       drawComp(ic_ctx,dummy,def,false,false,0); ic_ctx.restore();
       el.appendChild(iw(ic)); el.appendChild(lbl(def.lbl));
       el.addEventListener('click',()=>placePal(def.t));
-      el.addEventListener('dragstart',e=>e.dataTransfer.setData('text/plain',def.t));
+      el.addEventListener('dragstart', e=>{
+        e.dataTransfer.setData('text/plain', def.t);
+        S._palDragType = def.t;
+      });
+      el.addEventListener('dragend', ()=>{
+        S._palDragType = null;
+        S._palDragPos  = null;
+        render();
+      });
       gd.appendChild(el);
     });
     scroll.appendChild(gd);
@@ -1365,12 +1717,38 @@ function buildPalette(){
 function filterPal(q){
   q=q.toLowerCase(); document.querySelectorAll('.pi').forEach(el=>{ el.style.display=(!q||el.querySelector('.pi-label').textContent.toLowerCase().includes(q))?'':'none'; });
 }
-function placePal(type){ const cx=(canvas.width/2-S.pan.x)/S.zoom; const cy=(canvas.height/2-S.pan.y)/S.zoom; addComp(type,snap(cx),snap(cy)); }
+function placePal(type){
+  const dpr = window.devicePixelRatio || 1;
+  const cx = (canvas.width/dpr/2 - S.pan.x) / S.zoom;
+  const cy = (canvas.height/dpr/2 - S.pan.y) / S.zoom;
+  addComp(type, snap(cx), snap(cy));
+}
 
 function render(){
-  if(!ctx)return; ctx.fillStyle='#0d0f14'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(!ctx)return;
+  const dpr = window.devicePixelRatio || 1;
+  const cw = canvas.width / dpr, ch = canvas.height / dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle='#0d0f14'; ctx.fillRect(0,0,cw,ch);
   ctx.save(); ctx.translate(S.pan.x,S.pan.y); ctx.scale(S.zoom,S.zoom);
-  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawCROProbeMode();
+  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawCROProbeMode();
+  // Palette drag ghost
+  if(S._palDragType && S._palDragPos){
+    const def = DMAP[S._palDragType];
+    if(def){
+      ctx.save();
+      ctx.translate(S._palDragPos.x, S._palDragPos.y);
+      ctx.globalAlpha = 0.55;
+      const dummy = {t:def.t, props:{...def.props,cells:4,closed:true}, _lit:false, _simVal:0, rot:0};
+      drawComp(ctx, dummy, def, false, false, S.animT);
+      ctx.globalAlpha = 1;
+      // Snap indicator ring
+      ctx.strokeStyle = 'rgba(74,158,255,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.arc(0, 0, def.gw*GS*0.5+6, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
   ctx.restore();
 }
 
@@ -1383,14 +1761,16 @@ function drawGrid(){
 
 function drawWires(){
   S.wires.forEach(w=>{
-    ctx.strokeStyle=w.sel?'#7bb8ff':'rgba(74,158,255,0.8)'; ctx.lineWidth=w.sel?2:1.5; ctx.beginPath();
+    ctx.strokeStyle = _exportBW ? '#000000' : (w.sel?'#7bb8ff':'rgba(74,158,255,0.8)');
+    ctx.lineWidth = w.sel ? 2 : 1.5;
+    ctx.beginPath();
     w.pts.forEach((p,i)=>{
       if(i===0) ctx.moveTo(p.x,p.y);
       else ctx.lineTo(p.x,p.y);
     });
     ctx.stroke();
-    // Draw connection dots at wire endpoints for visual clarity
-    ctx.fillStyle='rgba(74,158,255,0.9)';
+    // Junction dots
+    ctx.fillStyle = _exportBW ? '#000000' : 'rgba(74,158,255,0.9)';
     w.pts.forEach((p,i)=>{
       if(i===0 || i===w.pts.length-1){
         ctx.beginPath(); ctx.arc(p.x,p.y,2.2,0,Math.PI*2); ctx.fill();
@@ -1432,7 +1812,12 @@ function drawWIP(){
 function drawElectronFlow(){
   if(!S.simOn || !_nodeV || !_lastCompNodes) return;
 
+  // Components where showing dots INSIDE the body is misleading or cluttering
+  const NO_DOTS = new Set(['ammeter','battery','cell','ground','voltmeter','cro']);
+
   S.comps.forEach(c => {
+    if(NO_DOTS.has(c.t)) return;  // skip — dots on wires handle these branches
+
     const currentMag = Math.abs(c._simI || 0);
     if (currentMag < 1e-5) return; 
 
@@ -1445,10 +1830,7 @@ function drawElectronFlow(){
     const len = Math.hypot(dx, dy);
     if (len < 1) return;
 
-    // Call physics routing vector module - use direction based on conventional current flow
     const direction = PhysicsEngine.getCurrentDirectionForFlow(c, _nodeV, _lastCompNodes);
-    
-    // Compute motion parameters (electrons move faster with higher current intensity)
     const speed = Math.min(4.0, currentMag / 0.002) * 0.5;
     const dotsCount = Math.max(1, Math.round(len / (GS * 1.5)));
 
@@ -1459,18 +1841,19 @@ function drawElectronFlow(){
 
       ctx.beginPath();
       ctx.arc(px, py, 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = '#4a9eff'; // Clean physical electron visualization blue
+      ctx.fillStyle = '#4a9eff';
       ctx.shadowColor = '#4a9eff';
       ctx.shadowBlur = 2;
       ctx.fill();
-      ctx.shadowBlur = 0; // Reset canvas layout trace context
+      ctx.shadowBlur = 0;
     }
   });
 }
 
 function drawTexts(){
   S.texts.forEach(t=>{
-    ctx.save(); ctx.font='13px IBM Plex Mono'; ctx.fillStyle=t.col||'#d8dff0';
+    ctx.save(); ctx.font='13px IBM Plex Mono';
+    ctx.fillStyle = _exportBW ? '#000000' : (t.col||'#d8dff0');
     ctx.fillText(t.text,t.x,t.y); ctx.restore();
   });
 }
@@ -1512,6 +1895,46 @@ function drawEraseHover(){
   ctx.restore();
 }
 
+function drawRazorHover(){
+  if(S.tool !== 'razor' || !_razorHover) return;
+  const rh = _razorHover;
+  ctx.save();
+
+  // Draw cut indicator: a short perpendicular line through the wire at cut point
+  const dx = rh.bx - rh.ax, dy = rh.by - rh.ay;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx/len, uy = dy/len;   // unit along wire
+  const px2 = -uy, py2 = ux;        // unit perpendicular
+
+  const cx = rh.px, cy = rh.py;
+  const cutLen = GS * 0.9;
+
+  // Highlight the wire segment being cut — amber glow
+  ctx.strokeStyle = 'rgba(255,209,102,0.55)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(rh.ax, rh.ay); ctx.lineTo(rh.bx, rh.by); ctx.stroke();
+
+  // Cut line — perpendicular slash in amber
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - px2*cutLen, cy - py2*cutLen);
+  ctx.lineTo(cx + px2*cutLen, cy + py2*cutLen);
+  ctx.stroke();
+
+  // Two small gap dots showing where the wire will split
+  const gap = GS * 0.5;
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath(); ctx.arc(cx - ux*gap, cy - uy*gap, 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + ux*gap, cy + uy*gap, 2.5, 0, Math.PI*2); ctx.fill();
+
+  // Small X at the exact cut point
+  const xs = GS * 0.22;
+  ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx-xs, cy-xs); ctx.lineTo(cx+xs, cy+xs); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+xs, cy-xs); ctx.lineTo(cx-xs, cy+xs); ctx.stroke();
+
+  ctx.restore();
+}
+
 function drawCROProbeMode(){
   if(_croProbeMode === null) return;
   // Draw a pulsing ring around the probe being placed
@@ -1538,6 +1961,7 @@ function runSimulation() {
     c._simI = 0;
     c._simVal = 0;
     if (c.t === 'lamp' || c.t === 'led') c._lit = false;
+    // Fuse: _blown and _heatJ persist across re-solves (intentional)
   });
   // ──────────────────────────────────────────────────────────────────────
   try {
@@ -1587,7 +2011,12 @@ function runSimulation() {
 
 function stopSimulation(){
   _openCircuitPt=null; S.simOn=false;
-  S.comps.forEach(c=>{c._simV=0;c._simI=0;c._simVal=0;c._lit=false;});
+  S.comps.forEach(c=>{
+    c._simV=0; c._simI=0; c._simVal=0; c._lit=false;
+    // Don't reset _blown — fuse stays blown until manually replaced
+    // But cool down heat accumulation
+    if(c.t==='fuse' && !c._blown) c._heatJ = 0;
+  });
   document.getElementById('simstatus').style.display='none';
   document.getElementById('sb-sim').textContent='Idle'; render();
 }
@@ -1640,15 +2069,52 @@ function bindEvents(){
   canvas.addEventListener('mousedown',onMD); 
   canvas.addEventListener('mousemove',onMM); 
   canvas.addEventListener('mouseup',onMU);
-  // Release pan even if mouse leaves canvas
   window.addEventListener('mouseup', e=>{ if(S.panning){ S.panning=false; canvas.style.cursor=S.tool==='pan'?'grab':''; } });
   canvas.addEventListener('wheel',onWheel,{passive:false}); 
   canvas.addEventListener('contextmenu',onCtxMenu);
   canvas.addEventListener('dblclick',onDbl);
-  // Prevent middle-mouse scroll/autoscroll
   canvas.addEventListener('mousedown', e=>{ if(e.button===1) e.preventDefault(); });
   canvas.addEventListener('auxclick',  e=>{ e.preventDefault(); });
+
+  // ── Palette drag-to-canvas ─────────────────────────────────────────────
+  canvas.addEventListener('dragenter', e=>{ e.preventDefault(); });
+  canvas.addEventListener('dragover',  e=>{
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    // Track ghost position in world coords
+    const w = sw(e.clientX, e.clientY);
+    S._palDragGhost = { x: snap(w.x), y: snap(w.y), type: e.dataTransfer.types[0] === 'text/plain' ? null : null };
+    // We can't read dataTransfer.getData in dragover (security), so just track position
+    S._palDragPos = { x: snap(w.x), y: snap(w.y) };
+    render();
+  });
+  canvas.addEventListener('dragleave', e=>{
+    S._palDragPos = null;
+    render();
+  });
+  canvas.addEventListener('drop', e=>{
+    e.preventDefault();
+    const type = e.dataTransfer.getData('text/plain');
+    if(!type) return;
+    const w = sw(e.clientX, e.clientY);
+    const c = addComp(type, snap(w.x), snap(w.y));
+    S._palDragPos = null;
+    S._palDragType = null;
+    render();
+  });
+
+  // (palette drag type tracking is handled inside buildPalette)
+
+  // ── Touch events (iPad / mobile) ──────────────────────────────────────
+  canvas.addEventListener('touchstart',  onTouchStart,  { passive: false });
+  canvas.addEventListener('touchmove',   onTouchMove,   { passive: false });
+  canvas.addEventListener('touchend',    onTouchEnd,    { passive: false });
+  canvas.addEventListener('touchcancel', onTouchEnd,    { passive: false });
+  canvas.addEventListener('gesturestart',  e=>e.preventDefault(), { passive: false });
+  canvas.addEventListener('gesturechange', e=>e.preventDefault(), { passive: false });
+  canvas.addEventListener('gestureend',    e=>e.preventDefault(), { passive: false });
 }
+// screen → world: clientX/Y are CSS pixels, matching our logical canvas coordinate system
 function sw(sx,sy){ const r=canvas.getBoundingClientRect(); return{x:(sx-r.left-S.pan.x)/S.zoom, y:(sy-r.top-S.pan.y)/S.zoom}; }
 
 function compAt(wx,wy){
@@ -1761,6 +2227,42 @@ function onMD(e){
     render(); return;
   }
 
+  // ── Razor tool: cut wire at hover point ───────────────────────────────
+  if(S.tool === 'razor'){
+    if(_razorHover){
+      const rh = _razorHover;
+      const wire = S.wires[rh.wireIdx];
+      if(wire){
+        snapshot();
+        // Snap cut point to grid
+        const cx = snap(rh.px), cy = snap(rh.py);
+        // Build two new wires: [start…segIdx, cutPt] and [cutPt, segIdx+1…end]
+        // Add a half-grid gap on each side so the ends are clearly separate
+        const dx = rh.bx - rh.ax, dy = rh.by - rh.ay;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx/len, uy = dy/len;
+        const gap = GS * 0.5;  // half-grid gap on each side of the cut
+        const cutA = { x: cx - ux*gap, y: cy - uy*gap }; // end of left wire
+        const cutB = { x: cx + ux*gap, y: cy + uy*gap }; // start of right wire
+
+        const ptsA = [...wire.pts.slice(0, rh.segIdx+1), cutA];
+        const ptsB = [cutB, ...wire.pts.slice(rh.segIdx+1)];
+
+        S.wires.splice(rh.wireIdx, 1);
+        if(ptsA.length >= 2) S.wires.push({pts: ptsA, sel:false});
+        if(ptsB.length >= 2) S.wires.push({pts: ptsB, sel:false});
+
+        // Flash at cut point
+        _flashPts.push({x: cx, y: cy, t: 1});
+
+        _razorHover = null;
+        updateSB();
+        if(S.simOn) runSimulation();
+      }
+    }
+    render(); return;
+  }
+
   if(S.tool==='wire'){
     let sx = snap(w.x), sy = snap(w.y);
     let snappedToTerminal = false;
@@ -1860,6 +2362,30 @@ function onMM(e){
     canvas.style.cursor = _eraseHover ? 'not-allowed' : 'crosshair';
     render(); return;
   }
+
+  // ── Razor tool: find closest point on any wire segment ─────────────────
+  if(S.tool === 'razor'){
+    _razorHover = null;
+    let bestDist = GS * 1.5;
+    outer2: for(let i=S.wires.length-1; i>=0; i--){
+      const wire = S.wires[i];
+      for(let si=0; si<wire.pts.length-1; si++){
+        const ax=wire.pts[si].x, ay=wire.pts[si].y;
+        const bx=wire.pts[si+1].x, by=wire.pts[si+1].y;
+        const dx=bx-ax, dy=by-ay, lenSq=dx*dx+dy*dy;
+        if(lenSq < 1) continue;
+        const t = Math.max(0.01, Math.min(0.99, ((w.x-ax)*dx+(w.y-ay)*dy)/lenSq));
+        const px = ax+t*dx, py = ay+t*dy;
+        const dist = Math.hypot(w.x-px, w.y-py);
+        if(dist < bestDist){
+          bestDist = dist;
+          _razorHover = { wireIdx:i, segIdx:si, t, px, py, ax, ay, bx, by };
+        }
+      }
+    }
+    canvas.style.cursor = _razorHover ? 'crosshair' : 'default';
+    render(); return;
+  }
   canvas.style.cursor='';
 
   // Check for meter hover and show tooltip
@@ -1900,6 +2426,82 @@ function onMU(e){
   if(S.simOn) runSimulation(); 
 }
 function onWheel(e){ e.preventDefault(); S.zoom=Math.max(0.3,Math.min(3,S.zoom*(e.deltaY>0?0.9:1.1))); render(); }
+
+// ── Touch state ───────────────────────────────────────────────────────────
+const _touch = { pointers: new Map(), lastDist: 0, lastMid: null, panStart: null, panPanOrig: null };
+
+function _touchPos(touch){
+  const r = canvas.getBoundingClientRect();
+  return { x: touch.clientX - r.left, y: touch.clientY - r.top };
+}
+
+function onTouchStart(e){
+  e.preventDefault();
+  for(const t of e.changedTouches) _touch.pointers.set(t.identifier, _touchPos(t));
+
+  if(_touch.pointers.size === 1){
+    // Single finger — treat like mouse for select/wire/pan
+    const pts = [..._touch.pointers.values()];
+    const fake = { clientX: pts[0].x + canvas.getBoundingClientRect().left,
+                   clientY: pts[0].y + canvas.getBoundingClientRect().top,
+                   button: 0, preventDefault(){ } };
+    onMD(fake);
+  } else if(_touch.pointers.size === 2){
+    // Two fingers — prepare for pinch-zoom; cancel any drag
+    S.drag = false; S.panning = false;
+    const pts = [..._touch.pointers.values()];
+    _touch.lastDist = Math.hypot(pts[1].x-pts[0].x, pts[1].y-pts[0].y);
+    _touch.lastMid  = { x:(pts[0].x+pts[1].x)/2, y:(pts[0].y+pts[1].y)/2 };
+  }
+}
+
+function onTouchMove(e){
+  e.preventDefault();
+  for(const t of e.changedTouches) _touch.pointers.set(t.identifier, _touchPos(t));
+
+  if(_touch.pointers.size === 1){
+    const pts = [..._touch.pointers.values()];
+    const r = canvas.getBoundingClientRect();
+    const fake = { clientX: pts[0].x + r.left, clientY: pts[0].y + r.top };
+    onMM(fake);
+  } else if(_touch.pointers.size === 2){
+    const pts = [..._touch.pointers.values()];
+    const newDist = Math.hypot(pts[1].x-pts[0].x, pts[1].y-pts[0].y);
+    const newMid  = { x:(pts[0].x+pts[1].x)/2, y:(pts[0].y+pts[1].y)/2 };
+
+    // Pinch zoom — pivot around midpoint
+    if(_touch.lastDist > 0){
+      const scale = newDist / _touch.lastDist;
+      const prevZoom = S.zoom;
+      S.zoom = Math.max(0.3, Math.min(3, S.zoom * scale));
+      // Adjust pan so the midpoint stays fixed on screen
+      S.pan.x = newMid.x - (newMid.x - S.pan.x) * (S.zoom / prevZoom);
+      S.pan.y = newMid.y - (newMid.y - S.pan.y) * (S.zoom / prevZoom);
+    }
+    // Two-finger pan
+    if(_touch.lastMid){
+      S.pan.x += newMid.x - _touch.lastMid.x;
+      S.pan.y += newMid.y - _touch.lastMid.y;
+    }
+
+    _touch.lastDist = newDist;
+    _touch.lastMid  = newMid;
+    render();
+  }
+}
+
+function onTouchEnd(e){
+  e.preventDefault();
+  for(const t of e.changedTouches) _touch.pointers.delete(t.identifier);
+  if(_touch.pointers.size < 2){ _touch.lastDist = 0; _touch.lastMid = null; }
+  if(_touch.pointers.size === 0){
+    const r = canvas.getBoundingClientRect();
+    // Use last known touch position for mouseup
+    const lastT = e.changedTouches[0];
+    const fake = { clientX: lastT.clientX, clientY: lastT.clientY, button: 0 };
+    onMU(fake);
+  }
+}
 function onDbl(e){
   const w=sw(e.clientX,e.clientY); const c=compAt(w.x,w.y);
   if(c&&(c.t==='switch'||c.t==='relay_switch')){ c.props.closed=!c.props.closed; if(S.simOn) runSimulation(); updateProps(); }
@@ -1913,39 +2515,123 @@ function onCtxMenu(e){
   }
   showCtx(e.clientX, e.clientY); 
 }
-function onKey(e){ 
-  if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); } 
-  if(e.key==='Delete') deleteSelected(); 
-  if(e.key==='r' || e.key==='Enter') rotateSelected(); 
-  if(e.key==='v' || e.key==='V') setTool('select', document.getElementById('tb-select'));
-  if(e.key==='w' || e.key==='W') setTool('wire', document.getElementById('tb-wire'));
-  if(e.key==='e' || e.key==='E') setTool('erase', document.getElementById('tb-erase'));
-  if(e.key==='p' || e.key==='P') setTool('pan', document.getElementById('tb-pan'));
+// ── Clipboard ──────────────────────────────────────────────────────────────
+let _clipboard = null; // { comps: [...], wires: [...] }
+
+function copySelected(){
+  if(!S.sel.size) return;
+  const selIds = new Set(S.sel);
+  // Deep-clone selected components
+  const comps = S.comps
+    .filter(c => selIds.has(c.id))
+    .map(c => JSON.parse(JSON.stringify(c)));
+  // Copy wires whose BOTH endpoints are inside selected components' terminal positions
+  // (simpler: copy wires that connect only within the selection bounding box)
+  const termPts = new Set();
+  comps.forEach(c=>{
+    const def = DMAP[c.t]; if(!def) return;
+    def.terms.forEach((_,ti)=>{
+      const tp = termPos(c,ti);
+      termPts.add(`${Math.round(tp.x/GS)*GS},${Math.round(tp.y/GS)*GS}`);
+    });
+  });
+  const wires = S.wires
+    .filter(w => w.pts.every(p => {
+      const key = `${Math.round(p.x/GS)*GS},${Math.round(p.y/GS)*GS}`;
+      return termPts.has(key);
+    }))
+    .map(w => JSON.parse(JSON.stringify(w)));
+  _clipboard = { comps, wires };
+  // Flash status bar
+  document.getElementById('sb-tool').textContent = `Copied ${comps.length} comp${comps.length!==1?'s':''}`;
+  setTimeout(()=> document.getElementById('sb-tool').textContent = S.tool.charAt(0).toUpperCase()+S.tool.slice(1), 1500);
+}
+
+function pasteClipboard(){
+  if(!_clipboard || !_clipboard.comps.length) return;
+  snapshot();
+  const offset = 2 * GS; // paste offset in pixels
+  const idMap = new Map(); // old id → new id
+  S.sel.clear();
+  _clipboard.comps.forEach(c => {
+    const newId = S.nextId++;
+    idMap.set(c.id, newId);
+    const nc = JSON.parse(JSON.stringify(c));
+    nc.id = newId;
+    nc.x += offset;
+    nc.y += offset;
+    S.comps.push(nc);
+    S.sel.add(newId);
+  });
+  _clipboard.wires.forEach(w => {
+    const nw = JSON.parse(JSON.stringify(w));
+    nw.pts = nw.pts.map(p => ({ x: p.x + offset, y: p.y + offset }));
+    nw.sel = false;
+    S.wires.push(nw);
+  });
+  // Shift clipboard so repeated pastes cascade
+  _clipboard = {
+    comps: _clipboard.comps.map(c => ({ ...c, x: c.x + offset, y: c.y + offset })),
+    wires: _clipboard.wires.map(w => ({ ...w, pts: w.pts.map(p => ({ x: p.x + offset, y: p.y + offset })) }))
+  };
+  updateSB(); updateProps(); if(S.simOn) runSimulation(); render();
+}
+
+function onKey(e){
+  const mod = e.ctrlKey || e.metaKey;
+
+  // ── Escape ─────────────────────────────────────────────────────────────
   if(e.key==='Escape'){
     if(document.getElementById('export-overlay').classList.contains('show')){ closeExportModal(); return; }
+    if(document.getElementById('lcr-overlay').classList.contains('show')){ closeLCR(); return; }
+    if(document.getElementById('tutoverlay').classList.contains('show')){ tutNav(999); return; }
     if(_croProbeMode !== null){ _croProbeMode=null; canvas.style.cursor=''; render(); return; }
-    _eraseHover=null;
-    setTool('select', document.getElementById('tb-select'));
+    _eraseHover=null; _razorHover=null;
+    setTool('select', document.getElementById('tb-select')); return;
   }
-  
-  // Undo/Redo with Ctrl+Z and Ctrl+Y
-  if(e.ctrlKey && e.key === 'z'){ e.preventDefault(); undo(); return; }
-  if(e.ctrlKey && e.key === 'y'){ e.preventDefault(); redo(); return; }
-  
-  // Arrow keys for moving selected component
+
+  // ── Ctrl / Cmd shortcuts ───────────────────────────────────────────────
+  if(mod){
+    switch(e.key.toLowerCase()){
+      case 'z': e.preventDefault(); undo(); return;
+      case 'y': e.preventDefault(); redo(); return;
+      case 'c': e.preventDefault(); copySelected(); return;
+      case 'v': e.preventDefault(); pasteClipboard(); return;
+      case 'a': e.preventDefault();
+        S.sel.clear(); S.comps.forEach(c=>S.sel.add(c.id));
+        updateProps(); render(); return;
+      case 'd': e.preventDefault(); copySelected(); pasteClipboard(); return;
+    }
+    return; // don't fall through to single-key shortcuts
+  }
+
+  // ── Single-key shortcuts — skip when typing in an input ───────────────
+  const tag = document.activeElement && document.activeElement.tagName;
+  if(tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA') return;
+
+  if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); return; }
+  if(e.key==='Delete'||e.key==='Backspace') deleteSelected();
+  if(e.key==='Enter') rotateSelected();
+  if(e.key==='v'||e.key==='V') setTool('select', document.getElementById('tb-select'));
+  if(e.key==='w'||e.key==='W') setTool('wire',   document.getElementById('tb-wire'));
+  if(e.key==='e'||e.key==='E') setTool('erase',  document.getElementById('tb-erase'));
+  if(e.key==='r'||e.key==='R') setTool('razor',  document.getElementById('tb-razor'));
+  if(e.key==='p'||e.key==='P') setTool('pan',    document.getElementById('tb-pan'));
+
+  // Arrow nudge — moves ALL selected, shift = 4× grid
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
     e.preventDefault();
     if(S.sel.size){
-      const c=S.comps.find(x=>x.id===[...S.sel][0]);
-      if(c){
-        snapshot();
-        const step = e.shiftKey ? 10 : 1; // Hold Shift for faster movement
-        if(e.key==='ArrowUp') c.y -= step*GS;
-        if(e.key==='ArrowDown') c.y += step*GS;
-        if(e.key==='ArrowLeft') c.x -= step*GS;
+      snapshot();
+      const step = e.shiftKey ? 4 : 1;
+      S.sel.forEach(id=>{
+        const c = S.comps.find(x=>x.id===id); if(!c) return;
+        if(e.key==='ArrowUp')    c.y -= step*GS;
+        if(e.key==='ArrowDown')  c.y += step*GS;
+        if(e.key==='ArrowLeft')  c.x -= step*GS;
         if(e.key==='ArrowRight') c.x += step*GS;
-        render();
-      }
+      });
+      if(S.simOn) runSimulation(); render();
     }
   }
 }
@@ -1971,10 +2657,12 @@ function recenterView(){
     minX=Math.min(minX,p.x-GS); maxX=Math.max(maxX,p.x+GS);
     minY=Math.min(minY,p.y-GS); maxY=Math.max(maxY,p.y+GS);
   }));
+  const dpr = window.devicePixelRatio || 1;
+  const cw = canvas.width / dpr, ch = canvas.height / dpr;
   const contentW = maxX-minX, contentH = maxY-minY;
   const pad = 48;
-  const availW = canvas.width  - pad*2;
-  const availH = canvas.height - pad*2;
+  const availW = cw - pad*2;
+  const availH = ch - pad*2;
   const zoom = Math.max(0.3, Math.min(2.5, Math.min(availW/contentW, availH/contentH)));
   S.zoom = zoom;
   S.pan.x = pad + (availW - contentW*zoom)/2 - minX*zoom;
@@ -1996,16 +2684,60 @@ function updateProps(){
   }
   // CRO-specific props panel
   if(c.t === 'cro'){
-    const wv = c.props.wave||'sine';
-    h+=`<div class="pr"><div class="pl">Waveform</div><div class="ptog">
-      <button class="ptb ${wv==='sine'?'on':''}" onclick="sp(${c.id},'wave','sine')">~</button>
-      <button class="ptb ${wv==='square'?'on':''}" onclick="sp(${c.id},'wave','square')">▢</button>
-      <button class="ptb ${wv==='sawtooth'?'on':''}" onclick="sp(${c.id},'wave','sawtooth')">/|</button>
-    </div></div>`;
-    const pk0 = (c._probeKeys&&c._probeKeys[0]) ? c._probeKeys[0] : '—';
-    const pk1 = (c._probeKeys&&c._probeKeys[1]) ? c._probeKeys[1] : '—';
-    h+=`<div class="pr"><div class="pl">CH1 probe</div><div style="font-family:var(--mono);font-size:10px;color:var(--accent)">${pk0}</div></div>`;
-    h+=`<div class="pr"><div class="pl">GND probe</div><div style="font-family:var(--mono);font-size:10px;color:var(--cyan)">${pk1}</div></div>`;
+    const pk0 = (c._probeKeys&&c._probeKeys[0]) ? c._probeKeys[0] : null;
+    const pk1 = (c._probeKeys&&c._probeKeys[1]) ? c._probeKeys[1] : null;
+
+    // Resolve trace names from last transient data
+    function probeLabel(key){
+      if(!key) return '—';
+      if(_lastTransientData){
+        const role = _lastTransientData.nodeRoles.get(key);
+        const names = {vs:'Vs (source)', vR:'V_R (resistor)', vL:'V_L (inductor)', vC:'V_C (capacitor)', iL:'i(t) (current)', gnd:'GND (reference)'};
+        if(role && names[role]) return names[role];
+      }
+      return 'node '+key;
+    }
+
+    const hasData = _lastTransientData !== null;
+    h += `<div style="margin-bottom:8px">`;
+    // CH1
+    h += `<div class="pr" style="border-left:2px solid #ffd166;padding-left:8px;margin-bottom:6px">
+      <div style="font-size:10px;font-weight:600;color:#ffd166;margin-bottom:4px">CH1 — Yellow</div>
+      <div class="pr"><div class="pl">Node</div><div style="font-family:var(--mono);font-size:9px;color:var(--accent)">${probeLabel(pk0)}</div></div>
+    </div>`;
+    // CH2
+    h += `<div class="pr" style="border-left:2px solid #30e8d8;padding-left:8px;margin-bottom:6px">
+      <div style="font-size:10px;font-weight:600;color:#30e8d8;margin-bottom:4px">CH2 — Cyan</div>
+      <div class="pr"><div class="pl">Node</div><div style="font-family:var(--mono);font-size:9px;color:var(--cyan)">${probeLabel(pk1)}</div></div>
+    </div>`;
+    h += `</div>`;
+
+    if(hasData){
+      // Manual trace selector — override which trace goes to CH1
+      const traceOpts = ['vs','vC','vL','vR','iL'].map(k=>{
+        const names = {vs:'Vs',vC:'V_C',vL:'V_L',vR:'V_R',iL:'i(t)'};
+        const available = _lastTransientData.hasC&&k==='vC' || _lastTransientData.hasL&&k==='vL' || _lastTransientData.hasR&&k==='vR' || k==='vs' || _lastTransientData.hasL&&k==='iL' || _lastTransientData.hasC&&k==='iL';
+        return available ? `<option value="${k}">${names[k]||k}</option>` : '';
+      }).join('');
+      h += `<div class="pr"><div class="pl">CH1 trace</div>
+        <select class="psel" onchange="setCROTrace(${c.id},0,this.value)">
+          <option value="">auto (from probe)</option>${traceOpts}
+        </select></div>`;
+      h += `<div class="pr"><div class="pl">CH2 trace</div>
+        <select class="psel" onchange="setCROTrace(${c.id},1,this.value)">
+          <option value="">none</option>${traceOpts}
+        </select></div>`;
+      h += `<div class="pr" style="color:var(--text3);font-size:10px;line-height:1.5">
+        Transient data loaded. Attach probe to any node to auto-detect trace, or select manually above.</div>`;
+    } else {
+      const wv = c.props.wave||'sine';
+      h+=`<div class="pr"><div class="pl">Cosmetic wave</div><div class="ptog">
+        <button class="ptb ${wv==='sine'?'on':''}" onclick="sp(${c.id},'wave','sine')">~</button>
+        <button class="ptb ${wv==='square'?'on':''}" onclick="sp(${c.id},'wave','square')">▢</button>
+        <button class="ptb ${wv==='sawtooth'?'on':''}" onclick="sp(${c.id},'wave','sawtooth')">/|</button>
+      </div></div>`;
+      h+=`<div class="pr" style="color:var(--text3);font-size:10px">Place an LCR circuit via ⚡ LCR Explorer to feed real transient data into this CRO.</div>`;
+    }
     h+=`<div class="pr"><button class="ptb" style="font-size:10px;width:100%" onclick="croResetProbes(${c.id})">Reset Probes</button></div>`;
     body.innerHTML=h; return;
   }
@@ -2054,6 +2786,118 @@ function updateProps(){
     return;
   }
 
+  // ── Lamp — resistance + power rating + live power readout ────────────
+  if(c.t === 'lamp'){
+    const R_lamp  = +(c.props.resistance || 60);
+    const P_rated = +(c.props.rating    || 12);
+    h += `<div class="pr"><div class="pl">Resistance</div>
+      <input class="pin" type="number" min="1" value="${R_lamp}"
+        onchange="sp(${c.id},'resistance',+this.value)"> <span style="color:var(--text3);font-size:10px">&#x3A9;</span></div>`;
+    h += `<div class="pr"><div class="pl">Rated power</div>
+      <input class="pin" type="number" min="0.1" step="0.5" value="${P_rated}"
+        onchange="sp(${c.id},'rating',+this.value)"> <span style="color:var(--text3);font-size:10px">W</span></div>`;
+    h += `<div class="pr" style="color:var(--text3);font-size:10px;line-height:1.5">At rated: I = ${Math.sqrt(P_rated/R_lamp).toFixed(3)} A, V = ${Math.sqrt(P_rated*R_lamp).toFixed(2)} V</div>`;
+    if(S.simOn){
+      const P_actual = Math.abs((c._simI||0) * (c._simV||0));
+      const intensity = Math.min(1, P_actual / P_rated);
+      const pct = (intensity * 100).toFixed(1);
+      h += `<div class="pr"><div class="pl">Actual power</div>
+        <div class="pval" style="color:${intensity>0.8?"#ffb830":intensity>0.3?"#ffd166":"#7bb8ff"}">${_si(P_actual,"W")}</div></div>`;
+      h += `<div class="pr"><div class="pl">Brightness</div>
+        <div class="pval" style="color:${intensity>0.8?"#ffb830":intensity>0.3?"#ffd166":"#454e6a"}">${pct}%</div></div>`;
+      h += `<div class="pr"><div style="width:100%;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;border-radius:3px;background:linear-gradient(90deg,#7bb8ff,#ffd166 50%,#ffb830);transition:width .3s"></div></div></div>`;
+    }
+    h += `<div class="pr"><div class="pl">Label</div><input class="pin" type="text" value="${c.props.label||''}" onchange="sp(${c.id},'label',this.value)"></div>`;
+    body.innerHTML = h; return;
+  }
+
+  // ── Fuse — rating, heat accumulation bar, replace button ──────────────
+  if(c.t === 'fuse'){
+    const R_fuse  = +(c.props.resistance || 0.1);
+    const rating  = +(c.props.rating    || 5);
+    const heat    = +(c._heatJ          || 0);
+    const blown   = !!c._blown;
+    const pct     = Math.min(100, (heat / rating) * 100).toFixed(1);
+    const heatCol = heat/rating > 0.85 ? '#ff4a6a' : heat/rating > 0.5 ? '#ffd166' : '#3de88e';
+
+    h += `<div class="pr"><div class="pl" style="color:${blown?'#ff4a6a':'var(--text2)'}">${blown?'⚠ BLOWN':'Status'}</div>
+      <div class="pval" style="color:${blown?'#ff4a6a':'#3de88e'}">${blown?'Open circuit':'Intact'}</div></div>`;
+    h += `<div class="pr"><div class="pl">Resistance</div>
+      <input class="pin" type="number" min="0.001" step="0.01" value="${R_fuse}"
+        onchange="sp(${c.id},'resistance',+this.value)"> <span style="color:var(--text3);font-size:10px">Ω</span></div>`;
+    h += `<div class="pr"><div class="pl">Thermal rating</div>
+      <input class="pin" type="number" min="0.1" step="0.1" value="${rating}"
+        onchange="sp(${c.id},'rating',+this.value)"> <span style="color:var(--text3);font-size:10px">J</span></div>`;
+    h += `<div class="pr" style="color:var(--text3);font-size:10px;line-height:1.5">
+      H = I²·R·t — heat accumulates while overcurrent flows. Blows when H ≥ rating.</div>`;
+    if(S.simOn || heat > 0){
+      h += `<div class="pr"><div class="pl">Heat H</div>
+        <div class="pval" style="color:${heatCol}">${heat.toFixed(3)} J / ${rating} J</div></div>`;
+      h += `<div class="pr">
+        <div style="width:100%;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;border:1px solid var(--border)">
+          <div style="width:${pct}%;height:100%;border-radius:4px;
+            background:linear-gradient(90deg,#3de88e,#ffd166 60%,#ff4a6a);
+            transition:width .15s"></div>
+        </div>
+        <div style="font-size:9px;font-family:var(--mono);color:var(--text3);margin-top:2px;text-align:right">${pct}%</div>
+      </div>`;
+    }
+    if(blown){
+      h += `<div class="pr"><button class="ptb" style="width:100%;font-size:11px;padding:7px;
+        background:rgba(255,74,106,.12);border-color:#ff4a6a;color:#ff4a6a"
+        onclick="replaceFuse(${c.id})">🔧 Replace Fuse</button></div>`;
+    }
+    h += `<div class="pr"><div class="pl">Label</div>
+      <input class="pin" type="text" value="${c.props.label||''}"
+        onchange="sp(${c.id},'label',this.value)"></div>`;
+    body.innerHTML = h; return;
+  }
+
+  // ── Capacitor — unit selector + real-time charge ─────────────────────
+  if(c.t === 'capacitor'){
+    const rawF = +(c.props.capacitance) || 100e-6;  // stored in Farads
+    // Determine best display unit
+    const capUnits = [
+      { key:'pF', mult:1e12, label:'pF' },
+      { key:'nF', mult:1e9,  label:'nF' },
+      { key:'µF', mult:1e6,  label:'µF' },
+      { key:'mF', mult:1e3,  label:'mF' },
+    ];
+    const displayUnit = c._capUnit || 'µF';
+    const mult = capUnits.find(u=>u.key===displayUnit)?.mult || 1e6;
+    const displayVal = +(rawF * mult).toPrecision(4);
+
+    h += `<div class="pr"><div class="pl">Capacitance</div>
+      <input class="pin" type="number" value="${displayVal}" style="width:72px"
+        onchange="setCapacitance(${c.id},+this.value,'${displayUnit}')">
+      <select class="psel" style="width:52px;margin-left:4px" onchange="setCapUnit(${c.id},this.value)">
+        ${capUnits.map(u=>`<option value="${u.key}" ${u.key===displayUnit?'selected':''}>${u.label}</option>`).join('')}
+      </select></div>`;
+
+    // Equivalent capacitance in SI
+    h += `<div class="pr"><div class="pl">= Farads</div>
+      <div class="pval">${_si(rawF,'F')}</div></div>`;
+
+    // Real-time charge: Q = C × V
+    if(S.simOn){
+      const vC = Math.abs(c._simV || 0);
+      const Q  = rawF * vC;
+      h += `<div class="pr"><div class="pl">Voltage V_C</div>
+        <div class="pval">${vC.toFixed(4)} V</div></div>`;
+      h += `<div class="pr"><div class="pl">Charge Q = CV</div>
+        <div class="pval" style="color:#7bb8ff">${_si(Q,'C')}</div></div>`;
+      // Charge as energy: E = ½CV²
+      const E = 0.5 * rawF * vC * vC;
+      h += `<div class="pr"><div class="pl">Energy ½CV²</div>
+        <div class="pval" style="color:#b87aff">${_si(E,'J')}</div></div>`;
+    }
+
+    h += `<div class="pr"><div class="pl">Label</div>
+      <input class="pin" type="text" value="${c.props.label||''}"
+        onchange="sp(${c.id},'label',this.value)"></div>`;
+    body.innerHTML = h; return;
+  }
+
   // ── All other components ──────────────────────────────────────────────
   Object.entries(c.props).forEach(([k,v])=>{
     if(k==='closed'){ h+=`<div class="pr"><div class="pl">State</div><button class="ptb ${v?'on':''}" onclick="sp(${c.id},'closed',${!v})">${v?'Closed':'Open'}</button></div>`; }
@@ -2070,6 +2914,31 @@ function sp(id,k,v){
     updateProps();
     render();
   }
+}
+
+function setCapacitance(id, displayVal, unit){
+  const c=S.comps.find(x=>x.id===id); if(!c) return;
+  const mults = { pF:1e-12, nF:1e-9, µF:1e-6, mF:1e-3 };
+  const farad = displayVal * (mults[unit]||1e-6);
+  c.props.capacitance = farad;
+  c._capUnit = unit;
+  if(S.simOn) runSimulation();
+  updateProps(); render();
+}
+
+function setCapUnit(id, unit){
+  const c=S.comps.find(x=>x.id===id); if(!c) return;
+  c._capUnit = unit;
+  updateProps();
+}
+
+function replaceFuse(id){
+  const c = S.comps.find(x=>x.id===id); if(!c) return;
+  snapshot();
+  c._blown = false;
+  c._heatJ = 0;
+  if(S.simOn) runSimulation();
+  updateProps(); render();
 }
 
 // Render the meter face into an arbitrary canvas element (used by props panel)
@@ -2171,7 +3040,13 @@ function togglePinFromProps(compId){
   }
   updateProps();  // refresh the pin button label
 }
-function croResetProbes(id){ const c=S.comps.find(x=>x.id===id); if(c){ c._probeKeys=[null,null]; updateProps(); render(); } }
+function croResetProbes(id){ const c=S.comps.find(x=>x.id===id); if(c){ c._probeKeys=[null,null]; c._manualTraces=[null,null]; updateProps(); render(); } }
+function setCROTrace(id, ch, traceName){
+  const c=S.comps.find(x=>x.id===id); if(!c) return;
+  if(!c._manualTraces) c._manualTraces=[null,null];
+  c._manualTraces[ch] = traceName || null;
+  render();
+}
 
 function showCtx(x,y){ 
   const m=document.getElementById('ctxmenu'); 
@@ -2505,6 +3380,7 @@ function setTool(t,btn){
   if(btn) btn.classList.add('active');
   if(t !== 'wire'){ S.wirePts=[]; S._wMouse=null; }
   if(t !== 'erase'){ _eraseHover=null; }
+  if(t !== 'razor'){ _razorHover=null; }
   canvas.style.cursor = t==='pan' ? 'grab' : '';
   document.getElementById('sb-tool').textContent = t.charAt(0).toUpperCase()+t.slice(1);
   render();
@@ -2605,7 +3481,11 @@ function toggleExportOpt(key){
 }
 
 // Render export scene into any target canvas, respecting opts
+// Global flag read by draw functions to override colours for BW export
+let _exportBW = false;
+
 function renderExportScene(targetCanvas, opts){
+  const dpr = window.devicePixelRatio || 1;
   const tw = targetCanvas.width, th = targetCanvas.height;
   const tctx = targetCanvas.getContext('2d');
 
@@ -2613,28 +3493,28 @@ function renderExportScene(targetCanvas, opts){
   tctx.fillStyle = opts.bw ? '#ffffff' : '#0d0f14';
   tctx.fillRect(0, 0, tw, th);
 
-  // ── Draw circuit via a temporary saved-state render ─────────────────
-  // We temporarily redirect the global ctx to target and draw
+  // ── Swap global context + state ─────────────────
   const savedCtx   = ctx;
   const savedSel   = new Set(S.sel);
   const savedHover = S.hover;
-
-  // Suppress selection halos and hover highlights
   S.sel   = new Set();
   S.hover = null;
-
-  // Swap global ctx for our target
+  _exportBW = opts.bw;
   ctx = tctx;
 
-  // Scale/pan: we want to fill the target canvas the same way the live canvas is filled
-  const scaleRatio = tw / canvas.width;
+  // Scale: target canvas is sized at CSS pixels × opts.scale.
+  // Live canvas.width is physical pixels (CSS × DPR).
+  // So scaleRatio = tw / (canvas.width/dpr) = tw * dpr / canvas.width
+  const cssW = canvas.width / dpr;
+  const cssH = canvas.height / dpr;
+  const scaleRatio = tw / cssW;
+
   ctx.save();
   ctx.scale(scaleRatio, scaleRatio);
   ctx.translate(S.pan.x, S.pan.y);
   ctx.scale(S.zoom, S.zoom);
 
-  // Draw layers — colour or greyscale handled after via pixel manipulation
-  drawGrid();
+  if(!opts.bw) drawGrid();   // grid is decorative — omit in BW print
   drawWires();
   drawComps();
   drawTexts();
@@ -2642,49 +3522,31 @@ function renderExportScene(targetCanvas, opts){
 
   ctx.restore();
 
-  // Restore globals immediately
+  // Restore globals
+  _exportBW = false;
   ctx   = savedCtx;
   S.sel = savedSel;
   S.hover = savedHover;
-
-  // ── Greyscale pass ──────────────────────────────────────────────────
-  if(opts.bw){
-    const imageData = tctx.getImageData(0, 0, tw, th);
-    const d = imageData.data;
-    for(let i = 0; i < d.length; i += 4){
-      // Luminance formula (perceptual)
-      const lum = Math.round(0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]);
-      // Invert: white background, dark lines
-      const inv = 255 - lum;
-      d[i] = d[i+1] = d[i+2] = inv;
-    }
-    tctx.putImageData(imageData, 0, 0);
-  }
 
   // ── Composite pinned instrument modals ──────────────────────────────
   if(opts.modals && _pinnedMeters.size > 0){
     _pinnedMeters.forEach((state) => {
       const el = state.el;
       if(!el) return;
-      // Get position of the modal relative to the circuit canvas
       const elRect  = el.getBoundingClientRect();
       const cvRect  = canvas.getBoundingClientRect();
-      // Position in canvas pixels
-      const mx = (elRect.left - cvRect.left) * (tw / canvas.width);
-      const my = (elRect.top  - cvRect.top)  * (th / canvas.height);
-      const mw = elRect.width  * (tw / canvas.width)  * state.scale;
-      const mh = elRect.height * (th / canvas.height) * state.scale;
-      // Render the modal's pm-canvas into our export canvas
+      const mx = (elRect.left - cvRect.left) * scaleRatio;
+      const my = (elRect.top  - cvRect.top)  * scaleRatio;
+      const mw = elRect.width  * scaleRatio * state.scale;
+      const mh = elRect.height * scaleRatio * state.scale;
       const pmCanvas = el.querySelector('.pm-canvas');
       if(!pmCanvas) return;
-      // Draw modal background
       tctx.save();
-      tctx.fillStyle = opts.bw ? 'rgba(240,240,240,0.95)' : 'rgba(13,15,20,0.95)';
-      tctx.strokeStyle = opts.bw ? '#999' : 'rgba(140,160,220,.28)';
+      tctx.fillStyle   = opts.bw ? 'rgba(245,245,245,0.97)' : 'rgba(13,15,20,0.95)';
+      tctx.strokeStyle = opts.bw ? '#333' : 'rgba(140,160,220,.28)';
       tctx.lineWidth = 1;
       _roundRectPath(tctx, mx, my, mw, mh, 6);
       tctx.fill(); tctx.stroke();
-      // Draw meter canvas content
       tctx.drawImage(pmCanvas, mx+8, my+24, mw-16, mh-32);
       tctx.restore();
     });
@@ -2731,8 +3593,935 @@ function doExport(){
   closeExportModal();
 }
 function exportDebugLog(){ saveCircuit(); }
-function startTutorial(){ document.getElementById('tutoverlay').classList.add('show'); }
-function tutNav(d){ document.getElementById('tutoverlay').classList.remove('show'); }
+// ═══════════════════════════════════════════════════
+//  TUTORIAL SYSTEM
+// ═══════════════════════════════════════════════════
+
+const TUT_STEPS = [
+  {
+    title: 'Welcome to Circuit Lab',
+    body: `Build, connect, and simulate DC circuits right in your browser. This tutorial walks you through the core tools.\n\nUse <b>← Back</b> and <b>Next →</b> to navigate, or click any dot to jump.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      // Simple circuit sketch
+      c.strokeStyle='rgba(74,158,255,0.6)'; c.lineWidth=2;
+      c.strokeRect(20,30,w-40,h-60);
+      c.fillStyle='#ffb830'; c.font='bold 13px IBM Plex Mono'; c.textAlign='center';
+      c.fillText('Battery',w*0.15,h/2+5);
+      c.fillStyle='#c8d4f0'; c.fillText('Resistor',w*0.5,h/2+5);
+      c.fillStyle='#ffb830'; c.fillText('Lamp',w*0.82,h/2+5);
+    }
+  },
+  {
+    title: 'Adding Components',
+    body: `Click any component in the left palette to place it at the canvas centre, or <b>drag it</b> onto the canvas.\n\nDouble-click a <b>switch</b> to open or close it. Select a component to edit its properties in the right panel.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      const items=[['Battery','#ffb830',w*0.12],['Resistor','#c8d4f0',w*0.32],['Switch','#3de88e',w*0.52],['Lamp','#ffb830',w*0.72],['LED','#3de88e',w*0.88]];
+      items.forEach(([lbl,col,x])=>{
+        c.fillStyle=col+'33'; c.strokeStyle=col; c.lineWidth=1;
+        c.beginPath(); c.roundRect(x-20,h*0.2,40,h*0.6,5); c.fill(); c.stroke();
+        c.fillStyle=col; c.font='9px IBM Plex Mono'; c.textAlign='center';
+        c.fillText(lbl,x,h*0.56);
+      });
+    }
+  },
+  {
+    title: 'Drawing Wires',
+    body: `Press <code>W</code> or click <b>Wire</b> to enter wire mode. Click a component terminal to start, click another to finish.\n\nWires snap to the grid and to terminals automatically. Press <code>Esc</code> to cancel a wire in progress.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      c.strokeStyle='rgba(74,158,255,0.7)'; c.lineWidth=2.5; c.lineCap='round';
+      c.beginPath(); c.moveTo(30,h/2); c.lineTo(w-30,h/2); c.stroke();
+      [[30,h/2],[w/2,h/2],[w-30,h/2]].forEach(([x,y])=>{
+        c.fillStyle='rgba(74,158,255,0.9)'; c.beginPath(); c.arc(x,y,4,0,Math.PI*2); c.fill();
+      });
+      c.fillStyle='#4a9eff55'; c.beginPath(); c.arc(w/2,h/2,16,0,Math.PI*2); c.fill();
+      c.strokeStyle='#4a9eff'; c.lineWidth=1.5; c.beginPath(); c.arc(w/2,h/2,16,0,Math.PI*2); c.stroke();
+      c.fillStyle='#3de88e'; c.font='bold 11px IBM Plex Mono'; c.textAlign='center';
+      c.fillText('click to start',w/2,h*0.82);
+    }
+  },
+  {
+    title: 'Running the Simulation',
+    body: `Press <code>Space</code> or click <b>Simulate</b>. The solver uses Modified Nodal Analysis (MNA) to find all node voltages and branch currents.\n\nBlue dots animate along wires showing conventional current direction and magnitude.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      c.strokeStyle='rgba(74,158,255,0.55)'; c.lineWidth=2;
+      c.strokeRect(20,20,w-40,h-40);
+      // Dots
+      for(let i=0;i<6;i++){
+        const x=30+i*(w-40)/5, alpha=0.3+0.7*(i/5);
+        c.fillStyle=`rgba(74,158,255,${alpha})`;
+        c.beginPath(); c.arc(x,20,3.5,0,Math.PI*2); c.fill();
+      }
+      c.fillStyle='#3de88e'; c.font='bold 12px IBM Plex Mono'; c.textAlign='center';
+      c.fillText('Engine Solved ✓', w/2, h/2+5);
+    }
+  },
+  {
+    title: 'Ammeters & Voltmeters',
+    body: `Place an <b>Ammeter</b> in series to read current, or a <b>Voltmeter</b> across two nodes to read voltage.\n\nHover over a meter to see its analog face. In <b>Pin mode</b>, click a meter to open a persistent, draggable readout. Change the range from the Properties panel.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      // Ammeter circle
+      c.strokeStyle='#ff4a6a'; c.lineWidth=2; c.beginPath(); c.arc(w*0.3,h/2,22,0,Math.PI*2); c.stroke();
+      c.fillStyle='#ff4a6a'; c.font='bold 14px IBM Plex Mono'; c.textAlign='center'; c.textBaseline='middle';
+      c.fillText('A',w*0.3,h/2);
+      // Voltmeter
+      c.strokeStyle='#4a9eff'; c.lineWidth=2; c.beginPath(); c.arc(w*0.7,h/2,22,0,Math.PI*2); c.stroke();
+      c.fillStyle='#4a9eff'; c.fillText('V',w*0.7,h/2);
+      c.textBaseline='alphabetic';
+      c.fillStyle='#ff4a6a'; c.font='10px IBM Plex Mono';
+      c.fillText('series →',w*0.3,h*0.85);
+      c.fillStyle='#4a9eff'; c.fillText('parallel →',w*0.7,h*0.85);
+    }
+  },
+  {
+    title: 'LEDs & Diodes',
+    body: `<b>LEDs</b> and <b>diodes</b> are unidirectional. The solver uses an iterative algorithm: devices start as open circuits, then conducting devices are added per pass until stable.\n\nA <b>reverse-biased</b> LED passes zero current and does not light — the ammeter reading drops accordingly. Use <b>Flip</b> to reverse orientation.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      // Forward biased
+      c.strokeStyle='#3de88e'; c.lineWidth=1.5;
+      c.beginPath(); c.moveTo(w*0.1,h/2); c.lineTo(w*0.4,h/2); c.stroke();
+      c.beginPath(); c.moveTo(w*0.2,h*0.3); c.lineTo(w*0.2,h*0.7); c.lineTo(w*0.35,h/2); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(w*0.35,h*0.3); c.lineTo(w*0.35,h*0.7); c.stroke();
+      c.fillStyle='rgba(61,232,142,0.25)'; c.beginPath(); c.arc(w*0.25,h/2,18,0,Math.PI*2); c.fill();
+      c.fillStyle='#3de88e'; c.font='9px IBM Plex Mono'; c.textAlign='center'; c.fillText('FORWARD → lit',w*0.25,h*0.88);
+      // Reverse biased
+      c.strokeStyle='#454e6a'; c.lineWidth=1.5;
+      c.beginPath(); c.moveTo(w*0.6,h/2); c.lineTo(w*0.9,h/2); c.stroke();
+      c.beginPath(); c.moveTo(w*0.88,h*0.3); c.lineTo(w*0.88,h*0.7); c.lineTo(w*0.73,h/2); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(w*0.73,h*0.3); c.lineTo(w*0.73,h*0.7); c.stroke();
+      c.fillStyle='#454e6a'; c.fillText('REVERSE → dark',w*0.75,h*0.88);
+    }
+  },
+  {
+    title: 'CRO (Oscilloscope)',
+    body: `The CRO displays an animated waveform — <b>sine, square, or sawtooth</b> — selected in the Properties panel. The amplitude scales with the measured DC voltage across its probes.\n\n⚠️ The waveform is a <b>visual representation</b> only. The CRO does not perform time-domain simulation. For AC and transient analysis, see the <b>LCR Explorer</b>.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      const sw=w*0.7, sh=h*0.65, ox=(w-sw)/2, oy=(h-sh)/2;
+      c.strokeStyle='#30e8d8'; c.lineWidth=1.2;
+      c.strokeRect(ox,oy,sw,sh);
+      // Sine wave
+      c.strokeStyle='#3de88e'; c.lineWidth=2; c.beginPath();
+      for(let i=0;i<=60;i++){
+        const t=i/60, x=ox+t*sw, y=oy+sh/2-Math.sin(t*Math.PI*4)*(sh*0.35);
+        i===0?c.moveTo(x,y):c.lineTo(x,y);
+      }
+      c.stroke();
+      c.fillStyle='#30e8d855'; c.font='8px IBM Plex Mono'; c.textAlign='right';
+      c.fillText('SINE',ox+sw-4,oy+sh-4);
+      c.fillStyle='#ff9a7a'; c.font='8px IBM Plex Mono'; c.textAlign='left';
+      c.fillText('Y',ox+4,oy+12);
+    }
+  },
+  {
+    title: 'Export & Save',
+    body: `<b>Save</b> exports your circuit as a <code>.json</code> file — reload it with <b>Load</b>.\n\n<b>Export PNG</b> opens a panel with options: native colour or black & white, with or without electron flow dots, and with or without pinned meter modals composited in.\n\nUse <b>Recenter View</b> (bottom of Properties panel) to fit all components on screen.`,
+    illus: (c,w,h)=>{
+      c.fillStyle='#0d0f14'; c.fillRect(0,0,w,h);
+      [['Save','#30e8d8',w*0.2],['Load','#30e8d8',w*0.38],['Export PNG','#4a9eff',w*0.62],['Recenter','#4a9eff',w*0.82]].forEach(([lbl,col,x])=>{
+        c.fillStyle=col+'22'; c.strokeStyle=col; c.lineWidth=1;
+        const tw=lbl.length*7+16;
+        c.beginPath(); c.roundRect(x-tw/2,h/2-12,tw,24,5); c.fill(); c.stroke();
+        c.fillStyle=col; c.font='10px IBM Plex Mono'; c.textAlign='center'; c.textBaseline='middle';
+        c.fillText(lbl,x,h/2);
+      });
+      c.textBaseline='alphabetic';
+    }
+  },
+];
+
+let _tutStep = 0;
+
+function startTutorial(){
+  _tutStep = 0;
+  document.getElementById('tutoverlay').classList.add('show');
+  _renderTutStep();
+}
+
+function tutNav(d){
+  if(d === 999){ document.getElementById('tutoverlay').classList.remove('show'); return; }
+  _tutStep = Math.max(0, Math.min(TUT_STEPS.length-1, _tutStep + d));
+  _renderTutStep();
+}
+
+function _renderTutStep(){
+  const step = TUT_STEPS[_tutStep];
+  const n = TUT_STEPS.length;
+  document.getElementById('tut-step').textContent = `Step ${_tutStep+1} / ${n}`;
+  document.getElementById('tut-title').textContent = step.title;
+  document.getElementById('tut-body').innerHTML = step.body.replace(/\n/g,'<br>');
+
+  // Draw illustration
+  const box = document.getElementById('tutbox');
+  let illus = box.querySelector('.tut-illus');
+  if(!illus){
+    illus = document.createElement('canvas');
+    illus.className = 'tut-illus';
+    document.getElementById('tut-body').before(illus);
+  }
+  illus.width = illus.offsetWidth || 380;
+  illus.height = 86;
+  step.illus(illus.getContext('2d'), illus.width, illus.height);
+
+  // Dots
+  const dots = document.getElementById('tut-dots');
+  dots.innerHTML = '';
+  for(let i=0;i<n;i++){
+    const d = document.createElement('div');
+    d.className = 'tut-dot' + (i===_tutStep?' active':'');
+    d.onclick = ()=>{ _tutStep=i; _renderTutStep(); };
+    dots.appendChild(d);
+  }
+
+  // Buttons
+  document.getElementById('tut-prev').style.opacity = _tutStep===0 ? '0.35':'1';
+  document.getElementById('tut-prev').disabled = _tutStep===0;
+  const nextBtn = document.getElementById('tut-next');
+  if(_tutStep === n-1){
+    nextBtn.textContent = 'Done ✓';
+    nextBtn.onclick = ()=>tutNav(999);
+  } else {
+    nextBtn.textContent = 'Next →';
+    nextBtn.onclick = ()=>tutNav(1);
+  }
+
+  // Position box nicely
+  box.style.left = '50%'; box.style.top = '50%';
+  box.style.transform = 'translate(-50%,-50%)';
+}
+
+// ═══════════════════════════════════════════════════
+//  LCR EXPLORER  — Transient Solver + Canvas Placer
+// ═══════════════════════════════════════════════════
+// Uses backward-Euler companion models (standard SPICE method).
+// Completely separate from the DC MNA solver.
+// Placing a circuit loads real components onto the PhysicsLab canvas
+// so they can be wired, inspected, and interacted with normally.
+
+let _lcrTab = 'rc';
+
+function openLCR(){
+  document.getElementById('lcr-overlay').classList.add('show');
+  _lcrTab = 'rc';
+  document.querySelectorAll('.lcr-tab').forEach((b,i)=>b.classList.toggle('active',i===0));
+  _renderLCRTab('rc');
+}
+function closeLCR(){
+  document.getElementById('lcr-overlay').classList.remove('show');
+}
+function setLCRTab(tab, btn){
+  _lcrTab = tab;
+  document.querySelectorAll('.lcr-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  _renderLCRTab(tab);
+}
+
+// ── Helpers ───────────────────────────────────────
+function _si(v, unit){
+  if(v===undefined||v===null||isNaN(v)) return '—';
+  const a=Math.abs(v);
+  if(a===0) return `0 ${unit}`;
+  if(a>=1e6)  return `${(v/1e6).toPrecision(3)} M${unit}`;
+  if(a>=1e3)  return `${(v/1e3).toPrecision(3)} k${unit}`;
+  if(a>=1)    return `${v.toPrecision(4)} ${unit}`;
+  if(a>=1e-3) return `${(v*1e3).toPrecision(3)} m${unit}`;
+  if(a>=1e-6) return `${(v*1e6).toPrecision(3)} µ${unit}`;
+  if(a>=1e-9) return `${(v*1e9).toPrecision(3)} n${unit}`;
+  return `${(v*1e12).toPrecision(3)} p${unit}`;
+}
+function _deg(rad){ return (rad*180/Math.PI).toFixed(1)+'°'; }
+function _sliderHTML(id, label, min, max, val, step, fmt){
+  return `<div class="lcr-row">
+    <label>${label}</label>
+    <input type="range" id="${id}" min="${min}" max="${max}" value="${val}" step="${step}"
+      oninput="document.getElementById('${id}_v').textContent=this.value${fmt?`+' ${fmt}'`:''};_refreshLCR()">
+    <span class="lcr-val" id="${id}_v">${val}${fmt?' '+fmt:''}</span>
+  </div>`;
+}
+function _getN(id){ const el=document.getElementById(id); return el?parseFloat(el.value)||0:0; }
+function _results(rows){
+  const el=document.getElementById('lcr-results'); if(!el) return;
+  el.innerHTML=rows.map(([lbl,val])=>`
+    <div class="lcr-result-row">
+      <span class="lcr-result-label">${lbl}</span>
+      <span class="lcr-result-value">${val}</span>
+    </div>`).join('');
+}
+
+// ── Transient Solver (Backward Euler) ────────────────────────────────────
+// Solves a series circuit: Vs → R → L → C → (back to Vs)
+// State variables: iL (inductor current), vC (capacitor voltage)
+// For missing components: R=0 → tiny r_series, L=0 → skip, C=∞ → skip
+//
+// Equations (backward Euler, timestep h):
+//   Capacitor companion: i_C(n+1) = C/h * (v_C(n+1) - v_C(n))
+//   Inductor companion:  v_L(n+1) = L/h * (i_L(n+1) - i_L(n))
+//
+// KVL for series RLC:  Vs = V_R + V_L + V_C
+//   V_R = i*R
+//   V_L = L/h*(i - i_L_prev)  →  V_L = (L/h)*i - (L/h)*i_L_prev
+//   i   = C/h*(v_C - v_C_prev)  →  v_C = h/C * i + v_C_prev
+//   Substituting:
+//   Vs = i*R + (L/h)*i - (L/h)*i_L_prev + h/C*i + v_C_prev
+//   Vs + (L/h)*i_L_prev - v_C_prev = i*(R + L/h + h/C)
+//   → i(n+1) = (Vs + (L/h)*i_prev - v_C_prev) / (R + L/h + h/C)
+
+class TransientSolver {
+  // config: { Vs, R, L, C, tMax, steps, Vtype:'step'|'sine', freq }
+  // returns: { t[], vR[], vL[], vC[], iL[], vs[] }
+  static solve(cfg){
+    const { Vs=5, freq=50, Vtype='step' } = cfg;
+    let { R=0, L=0, C=0, tMax=0.01, steps=500 } = cfg;
+
+    // Avoid division by zero — use tiny values for missing components
+    const r  = Math.max(R, 1e-3);          // series resistance
+    const l  = L > 0 ? L : 0;             // 0 = no inductor
+    const c  = C > 0 ? C : 0;             // 0 = no capacitor
+
+    const h  = tMax / steps;
+    const t  = [], vs_arr=[], vR_arr=[], vL_arr=[], vC_arr=[], iL_arr=[];
+
+    let iL = 0, vC = 0;
+
+    for(let n=0; n<=steps; n++){
+      const tn = n * h;
+      // Source voltage
+      let Vn = 0;
+      if(Vtype==='step')       Vn = n===0 ? 0 : Vs;
+      else if(Vtype==='sine')  Vn = Vs * Math.sin(2*Math.PI*freq*tn);
+      else if(Vtype==='square')Vn = Vs * (Math.sin(2*Math.PI*freq*tn)>=0?1:-1);
+      else if(Vtype==='pulse') Vn = (tn % (1/freq)) < (0.5/freq) ? Vs : 0;
+
+      let i, vL_n, vC_n;
+
+      if(l>0 && c>0){
+        // Full RLC
+        const denom = r + l/h + h/c;
+        i    = (Vn + (l/h)*iL - vC) / denom;
+        vC_n = h/c * i + vC;
+        vL_n = (l/h)*(i - iL);
+        iL   = i; vC = vC_n;
+      } else if(l>0 && c===0){
+        // RL: vC=0
+        const denom = r + l/h;
+        i    = (Vn + (l/h)*iL) / denom;
+        vL_n = (l/h)*(i - iL);
+        vC_n = 0;
+        iL   = i;
+      } else if(l===0 && c>0){
+        // RC: L=0, no inductor
+        const denom = r + h/c;
+        i    = (Vn - vC) / denom;
+        vC_n = h/c * i + vC;
+        vL_n = 0;
+        iL   = i; vC = vC_n;
+      } else {
+        // R only
+        i    = Vn / r;
+        vC_n = 0; vL_n = 0;
+        iL   = i;
+      }
+
+      t.push(tn);
+      vs_arr.push(Vn);
+      vR_arr.push(i*r);
+      vL_arr.push(vL_n);
+      vC_arr.push(vC_n);
+      iL_arr.push(iL);
+    }
+    return { t, vs:vs_arr, vR:vR_arr, vL:vL_arr, vC:vC_arr, iL:iL_arr };
+  }
+}
+
+// ── Canvas drawing helper ─────────────────────────
+function _drawTrace(cv, traces, opts={}){
+  if(!cv) return;
+  const w=cv.width||cv.offsetWidth, h=cv.height||cv.offsetHeight;
+  cv.width=w; cv.height=h;
+  const c=cv.getContext('2d');
+  c.fillStyle='#080a10'; c.fillRect(0,0,w,h);
+  // Grid
+  c.strokeStyle='rgba(140,160,220,0.07)'; c.lineWidth=1;
+  for(let i=1;i<5;i++){ const x=w*i/5; c.beginPath(); c.moveTo(x,4); c.lineTo(x,h-14); c.stroke(); }
+  for(let i=1;i<4;i++){ const y=4+(h-18)*i/4; c.beginPath(); c.moveTo(32,y); c.lineTo(w-4,y); c.stroke(); }
+  // Zero line
+  c.strokeStyle='rgba(140,160,220,0.18)'; c.lineWidth=1;
+  if(opts.zeroY!==undefined){
+    const zy=opts.zeroY; c.beginPath(); c.moveTo(32,zy); c.lineTo(w-4,zy); c.stroke();
+  }
+
+  const n = traces[0]?.y?.length||0; if(n<2) return;
+  const xs = traces[0].x || traces[0].y.map((_,i)=>i);
+  const allY = traces.flatMap(t=>t.y);
+  let yMin=Math.min(...allY), yMax=Math.max(...allY);
+  if(yMax-yMin<1e-12){ yMin-=1; yMax+=1; }
+  const pad=0.08*(yMax-yMin); yMin-=pad; yMax+=pad;
+  const xMin=xs[0], xMax=xs[xs.length-1];
+  const px=(x)=>32+(w-36)*(x-xMin)/(xMax-xMin);
+  const py=(y)=>4+(h-18)*(1-(y-yMin)/(yMax-yMin));
+
+  // Y axis labels
+  c.fillStyle='#454e6a'; c.font='8px IBM Plex Mono'; c.textAlign='right';
+  for(let i=0;i<=4;i++){
+    const yv=yMin+(yMax-yMin)*i/4;
+    c.fillText(_si(yv,opts.unit||'')?.split(' ')[0],30,py(yv)+3);
+  }
+
+  traces.forEach(trace=>{
+    c.strokeStyle=trace.col||'#3de88e'; c.lineWidth=trace.lw||1.8; c.lineCap='round'; c.lineJoin='round';
+    c.beginPath();
+    trace.y.forEach((yv,i)=>{ const x=px(xs[i]), y=py(yv); i===0?c.moveTo(x,y):c.lineTo(x,y); });
+    c.stroke();
+    // Legend dot
+    if(trace.label){
+      const li=traces.indexOf(trace);
+      c.fillStyle=trace.col; c.beginPath(); c.arc(36+li*90,h-4,4,0,Math.PI*2); c.fill();
+      c.fillStyle=trace.col; c.font='8px IBM Plex Mono'; c.textAlign='left';
+      c.fillText(trace.label,44+li*90,h-1);
+    }
+  });
+  // X axis unit
+  if(opts.xLabel){ c.fillStyle='#454e6a'; c.font='8px IBM Plex Mono'; c.textAlign='right'; c.fillText(opts.xLabel,w-2,h-1); }
+}
+
+// ── Tab HTML templates ────────────────────────────
+function _tabTemplate(controls, placeBtn){
+  return `
+  <div class="lcr-controls">
+    ${controls}
+    <div class="lcr-results" id="lcr-results"></div>
+    <button onclick="${placeBtn}" style="width:100%;padding:7px;border-radius:6px;
+      border:1px solid var(--accent);background:rgba(74,158,255,.12);
+      color:var(--accent);font-family:var(--font);font-size:11px;font-weight:500;
+      cursor:pointer;margin-top:4px;transition:all .15s"
+      onmouseover="this.style.background='rgba(74,158,255,.22)'"
+      onmouseout="this.style.background='rgba(74,158,255,.12)'">
+      ⊕ Place on canvas &amp; close
+    </button>
+    <div class="lcr-note" style="margin-top:8px">Transient solver uses backward-Euler companion models. Separate from the DC MNA solver.</div>
+  </div>
+  <div class="lcr-display">
+    <div class="lcr-canvas-wrap">
+      <div class="lcr-canvas-title" id="lcr-cv1-title">Response</div>
+      <canvas id="lcr-cv1" height="160" style="display:block;width:100%;height:160px"></canvas>
+    </div>
+    <div class="lcr-canvas-wrap">
+      <div class="lcr-canvas-title" id="lcr-cv2-title">Current</div>
+      <canvas id="lcr-cv2" height="110" style="display:block;width:100%;height:110px"></canvas>
+    </div>
+  </div>`;
+}
+
+function _renderLCRTab(tab){
+  const body=document.getElementById('lcr-body');
+  const srcControls=`
+    <div class="lcr-ctrl-group">
+      <div class="lcr-ctrl-label">Source</div>
+      ${_sliderHTML('lcr_V','V',1,50,5,1,'V')}
+      <div class="lcr-row" style="margin-bottom:0">
+        <label style="width:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">Type</label>
+        <select id="lcr_vtype" onchange="_refreshLCR()" style="flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-size:11px;padding:3px 6px;font-family:var(--mono)">
+          <option value="step">Step (DC switch-on)</option>
+          <option value="sine">Sine AC</option>
+          <option value="square">Square wave</option>
+          <option value="pulse">Pulse</option>
+        </select>
+      </div>
+    </div>`;
+  const freqCtrl=`
+    <div class="lcr-ctrl-group">
+      <div class="lcr-ctrl-label">AC Frequency</div>
+      ${_sliderHTML('lcr_f','f',1,5000,50,1,'Hz')}
+    </div>`;
+  const timeCtrl=`
+    <div class="lcr-ctrl-group">
+      <div class="lcr-ctrl-label">Time window</div>
+      ${_sliderHTML('lcr_tmax','ms',1,200,20,1,'ms')}
+    </div>`;
+
+  if(tab==='rc') body.innerHTML=_tabTemplate(`${srcControls}
+    <div class="lcr-ctrl-group"><div class="lcr-ctrl-label">Components</div>
+      ${_sliderHTML('lcr_R','R',1,10000,1000,1,'Ω')}
+      ${_sliderHTML('lcr_C','C',1,10000,100,1,'µF')}
+    </div>${freqCtrl}${timeCtrl}`, "placeLCROnCanvas('rc')");
+  else if(tab==='rl') body.innerHTML=_tabTemplate(`${srcControls}
+    <div class="lcr-ctrl-group"><div class="lcr-ctrl-label">Components</div>
+      ${_sliderHTML('lcr_R','R',1,1000,100,1,'Ω')}
+      ${_sliderHTML('lcr_L','L',1,5000,100,1,'mH')}
+    </div>${freqCtrl}${timeCtrl}`, "placeLCROnCanvas('rl')");
+  else if(tab==='lc') body.innerHTML=_tabTemplate(`${srcControls}
+    <div class="lcr-ctrl-group"><div class="lcr-ctrl-label">Components</div>
+      ${_sliderHTML('lcr_R','R',0,100,1,1,'Ω')}
+      ${_sliderHTML('lcr_L','L',1,5000,100,1,'mH')}
+      ${_sliderHTML('lcr_C','C',1,10000,100,1,'µF')}
+    </div>${freqCtrl}${timeCtrl}`, "placeLCROnCanvas('lc')");
+  else if(tab==='lcr') body.innerHTML=_tabTemplate(`${srcControls}
+    <div class="lcr-ctrl-group"><div class="lcr-ctrl-label">Components</div>
+      ${_sliderHTML('lcr_R','R',1,1000,100,1,'Ω')}
+      ${_sliderHTML('lcr_L','L',1,5000,100,1,'mH')}
+      ${_sliderHTML('lcr_C','C',1,10000,100,1,'µF')}
+    </div>${freqCtrl}${timeCtrl}`, "placeLCROnCanvas('lcr')");
+  else if(tab==='phasor') body.innerHTML=_tabTemplate(`
+    <div class="lcr-ctrl-group"><div class="lcr-ctrl-label">Series LCR (AC)</div>
+      ${_sliderHTML('lcr_V','V',1,50,5,1,'V')}
+      ${_sliderHTML('lcr_R','R',1,1000,100,1,'Ω')}
+      ${_sliderHTML('lcr_L','L',1,5000,100,1,'mH')}
+      ${_sliderHTML('lcr_C','C',1,10000,100,1,'µF')}
+      ${_sliderHTML('lcr_f','f',1,5000,50,1,'Hz')}
+    </div>`, "placeLCROnCanvas('lcr')");
+
+  _refreshLCR();
+}
+
+function _updateSrcNote(){
+  const el = document.getElementById('lcr-src-note');
+  if(!el) return;
+  const tab = _lcrTab;
+  const vtype = document.getElementById('lcr_vtype')?.value || 'step';
+
+  // What source will actually be placed, and why
+  const notes = {
+    rc: {
+      step:   '🔋 DC (battery) placed — step input studies transient charging: V_C = V(1 − e^{−t/RC}), time constant τ = RC.',
+      sine:   '〜 AC source placed — sine input studies impedance Z = √(R² + X_C²) and phase lag φ = −arctan(X_C/R).',
+      square: '🔋 Square wave (battery + switch) placed — repeated DC steps show charge/discharge cycles.',
+      pulse:  '🔋 Pulse source placed — useful for observing RC response to brief voltage bursts.',
+    },
+    rl: {
+      step:   '🔋 DC (battery) placed — step input studies current build-up: i(t) = (V/R)(1 − e^{−t·R/L}), time constant τ = L/R.',
+      sine:   '〜 AC source placed — sine input studies impedance Z = √(R² + X_L²) and phase lead φ = arctan(X_L/R).',
+      square: '🔋 Square wave placed — shows repeated RL transient response.',
+      pulse:  '🔋 Pulse source placed — shows RL response to brief voltage bursts.',
+    },
+    lc: {
+      step:   '🔋 DC (battery) placed — most instructive for LC: energy oscillates between L and C at f₀ = 1/(2π√LC). No R means undamped ideal oscillation.',
+      sine:   '〜 AC source placed — at resonance f = f₀, impedance → 0 (series) and current → maximum.',
+      square: '🔋 Square wave placed — repeated step inputs excite natural LC oscillation each cycle.',
+      pulse:  '🔋 Pulse source placed — each pulse excites a damped oscillation at f₀.',
+    },
+    lcr: {
+      step:   '🔋 DC (battery) placed — step input shows damped oscillation. Under/critically/overdamped depends on Q = ω₀L/R.',
+      sine:   '〜 AC source placed — at resonance f₀, Z = R (minimum). Q = ω₀L/R determines sharpness of resonance.',
+      square: '🔋 Square wave placed — repeated steps show damped RLC transient response.',
+      pulse:  '🔋 Pulse source placed — each pulse excites a damped RLC oscillation.',
+    },
+    phasor: {
+      step:   '〜 AC source placed (overrides DC — phasors only exist in steady-state AC). Adjust frequency f to explore V_R, V_L, V_C phase relationships.',
+      sine:   '〜 AC source placed — phasor diagram shows V_R (in phase), V_L (leads 90°), V_C (lags 90°) at the set frequency.',
+      square: '〜 AC source placed (overrides — phasors require sinusoidal steady state).',
+      pulse:  '〜 AC source placed (overrides — phasors require sinusoidal steady state).',
+    },
+  };
+
+  const note = notes[tab]?.[vtype] || '';
+  el.textContent = note;
+}
+
+function _refreshLCR(){
+  _updateSrcNote();
+  const tab=_lcrTab;
+  const V  = _getN('lcr_V');
+  const R  = _getN('lcr_R');
+  const L  = (['rl','lc','lcr','phasor'].includes(tab)) ? _getN('lcr_L')*1e-3 : 0;
+  const C  = (['rc','lc','lcr','phasor'].includes(tab)) ? _getN('lcr_C')*1e-6 : 0;
+  const f  = _getN('lcr_f')||50;
+  const tMax = (_getN('lcr_tmax')||20)*1e-3;
+  const Vtype = document.getElementById('lcr_vtype')?.value||'step';
+
+  if(tab==='phasor'){ _drawPhasorTab(V,R,L,C,f); return; }
+
+  const res = TransientSolver.solve({ Vs:V, R, L, C, tMax, steps:400, Vtype, freq:f });
+
+  // Analytical results
+  const rows=[];
+  if(C>0&&R>0&&L===0){ const tau=R*C; rows.push(['τ = RC',_si(tau,'s')],['f_c = 1/(2πτ)',_si(1/(2*Math.PI*tau),'Hz')]); }
+  if(L>0&&R>0&&C===0){ const tau=L/R; rows.push(['τ = L/R',_si(tau,'s')],['f_c = R/(2πL)',_si(R/(2*Math.PI*L),'Hz')]); }
+  if(L>0&&C>0){ const f0=1/(2*Math.PI*Math.sqrt(L*C)); rows.push(['f₀ = 1/(2π√LC)',_si(f0,'Hz')],['ω₀',_si(2*Math.PI*f0,'rad/s')]); if(R>0) rows.push(['Q = ω₀L/R',((2*Math.PI*f0*L)/R).toFixed(2)]); }
+  if(R>0) rows.push(['R',_si(R,'Ω')]);
+  if(L>0) rows.push(['L',_si(L,'H')]);
+  if(C>0) rows.push(['C',_si(C,'F')]);
+  _results(rows);
+
+  // Voltage traces
+  const cv1=document.getElementById('lcr-cv1');
+  if(cv1){ cv1.width=cv1.offsetWidth||460; cv1.height=160; }
+  const traces1=[{x:res.t, y:res.vs, col:'#ffb83066', lw:1, label:'Vs'}];
+  if(C>0) traces1.push({x:res.t, y:res.vC, col:'#7bb8ff', lw:2, label:'V_C'});
+  if(L>0) traces1.push({x:res.t, y:res.vL, col:'#b87aff', lw:2, label:'V_L'});
+  if(R>0) traces1.push({x:res.t, y:res.vR, col:'#4a9eff', lw:1.5, label:'V_R'});
+  const t1=document.getElementById('lcr-cv1-title');
+  if(t1) t1.textContent='Voltage response — V_C, V_L, V_R over time';
+  _drawTrace(cv1, traces1, {unit:'V', xLabel:'t (s)'});
+
+  // Current trace
+  const cv2=document.getElementById('lcr-cv2');
+  if(cv2){ cv2.width=cv2.offsetWidth||460; cv2.height=110; }
+  const t2=document.getElementById('lcr-cv2-title');
+  if(t2) t2.textContent='Current i(t)';
+  _drawTrace(cv2, [{x:res.t, y:res.iL, col:'#3de88e', lw:2, label:'i(t)'}], {unit:'A', xLabel:'t (s)'});
+}
+
+// ── Phasor tab ─────────────────────────────────────
+function _drawPhasorTab(V,R,L,C,f){
+  const XL=2*Math.PI*f*L, Xc=C>0?1/(2*Math.PI*f*C):0;
+  const X=XL-Xc, Z=Math.sqrt(R*R+X*X)||1e-9;
+  const phi=Math.atan2(X,R);
+  const I=V/Z, f0=L>0&&C>0?1/(2*Math.PI*Math.sqrt(L*C)):0;
+  _results([
+    ['f₀',f0>0?_si(f0,'Hz'):'—'],
+    ['|Z|',_si(Z,'Ω')],
+    ['φ',_deg(phi)],
+    ['I',_si(I,'A')],
+    ['V_R',_si(I*R,'V')],
+    ['V_L',_si(I*XL,'V')],
+    ['V_C',_si(I*Xc,'V')],
+  ]);
+  const cv1=document.getElementById('lcr-cv1');
+  if(!cv1) return;
+  cv1.width=cv1.offsetWidth||460; cv1.height=160;
+  _drawPhasorDiagram(cv1, I, R, XL, Xc, phi);
+
+  // Draw AC waveforms on cv2
+  const cv2=document.getElementById('lcr-cv2');
+  if(!cv2) return;
+  cv2.width=cv2.offsetWidth||460; cv2.height=110;
+  const t2=document.getElementById('lcr-cv2-title');
+  if(t2) t2.textContent='AC waveforms — Vs, V_R, V_C, V_L';
+  const steps=300, tMax=f>0?3/f:0.06;
+  const t=Array.from({length:steps+1},(_,i)=>i*tMax/steps);
+  const vsW=t.map(tn=>V*Math.sin(2*Math.PI*f*tn));
+  const vRW=t.map(tn=>I*R*Math.sin(2*Math.PI*f*tn));
+  const vLW=t.map(tn=>I*XL*Math.sin(2*Math.PI*f*tn+Math.PI/2));
+  const vCW=t.map(tn=>I*Xc*Math.sin(2*Math.PI*f*tn-Math.PI/2));
+  const wtraces=[{x:t,y:vsW,col:'#ffb83066',lw:1,label:'Vs'}];
+  if(R>0) wtraces.push({x:t,y:vRW,col:'#4a9eff',lw:1.5,label:'V_R'});
+  if(XL>0) wtraces.push({x:t,y:vLW,col:'#b87aff',lw:1.5,label:'V_L'});
+  if(Xc>0) wtraces.push({x:t,y:vCW,col:'#7bb8ff',lw:1.5,label:'V_C'});
+  _drawTrace(cv2, wtraces, {unit:'V', xLabel:'t (s)'});
+}
+
+function _drawPhasorDiagram(cv, I, R, XL, Xc, phi){
+  const w=cv.width, h=cv.height, c=cv.getContext('2d');
+  c.fillStyle='#080a10'; c.fillRect(0,0,w,h);
+  const cx=w*0.45, cy=h*0.60;
+  const Vr=I*R, VL=I*XL, Vc=I*Xc;
+  const Vtot=Math.sqrt(Vr*Vr+(VL-Vc)**2)||1;
+  const sc=Math.min(cx*0.75,cy*0.75)/Vtot;
+
+  // Axes
+  c.strokeStyle='rgba(140,160,220,0.18)'; c.lineWidth=1;
+  c.beginPath(); c.moveTo(8,cy); c.lineTo(w-8,cy); c.stroke();
+  c.beginPath(); c.moveTo(cx,8); c.lineTo(cx,h-8); c.stroke();
+  c.fillStyle='#454e6a'; c.font='8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('+jX (inductive)',cx,12);
+  c.fillText('−jX (capacitive)',cx,h-2);
+  c.textAlign='right'; c.fillText('+R',w-6,cy-3);
+
+  function arrow(x1,y1,x2,y2,col,lbl){
+    const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy); if(len<2) return;
+    const ux=dx/len,uy=dy/len,px=-uy,py=ux;
+    c.strokeStyle=col; c.lineWidth=2.2; c.lineCap='round';
+    c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2-ux*8,y2-uy*8); c.stroke();
+    c.fillStyle=col; c.beginPath();
+    c.moveTo(x2,y2); c.lineTo(x2-ux*10+px*4,y2-uy*10+py*4); c.lineTo(x2-ux*10-px*4,y2-uy*10-py*4);
+    c.closePath(); c.fill();
+    if(lbl){ c.fillStyle=col; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+      c.fillText(lbl, (x1+x2)/2+ux*12, (y1+y2)/2+uy*12); }
+  }
+
+  // V_R along real axis
+  arrow(cx,cy, cx+Vr*sc,cy, '#4a9eff', `V_R\n${Vr.toFixed(1)}V`);
+  // From tip of V_R: V_L up, V_C down
+  const tx=cx+Vr*sc, ty=cy;
+  if(VL>0) arrow(tx,ty, tx,ty-VL*sc, '#ff4a6a', `V_L ${VL.toFixed(1)}V`);
+  if(Vc>0) arrow(tx,ty, tx,ty+Vc*sc, '#3de88e', `V_C ${Vc.toFixed(1)}V`);
+  // V_total (resultant)
+  c.strokeStyle='#ffd166'; c.lineWidth=2.5; c.setLineDash([5,3]);
+  c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx+Vr*sc,cy-(VL-Vc)*sc); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle='#ffd166'; c.font='bold 10px IBM Plex Mono'; c.textAlign='left';
+  c.fillText(`V_total ${Vtot.toFixed(1)}V  φ=${_deg(phi)}`, cx+Vr*sc+6, cy-(VL-Vc)*sc);
+  // Current reference
+  c.strokeStyle='#3de88e88'; c.lineWidth=1; c.setLineDash([3,3]);
+  c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx+Math.min(Vr*sc,60),cy); c.stroke(); c.setLineDash([]);
+  c.fillStyle='#3de88e'; c.font='8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('I (ref)',cx+4,cy-5);
+}
+
+// ── Place circuit on canvas ────────────────────────────────────────────────
+// Builds a real PhysicsLab circuit using _ac() and _seg() helpers.
+// Topology: series loop — battery → ammeter → R → L → C → voltmeter → ground
+// Components not in the current tab are simply omitted.
+
+function placeLCROnCanvas(type){
+  // Read all values BEFORE closing (while DOM elements still in the live overlay)
+  const V      = _getN('lcr_V') || 5;
+  const R      = _getN('lcr_R');
+  const Lv     = _getN('lcr_L');          // mH as displayed
+  const Cv     = _getN('lcr_C');          // µF as displayed
+  const f      = _getN('lcr_f') || 50;
+  const tMaxMs = _getN('lcr_tmax') || 20;
+  const Vtype  = document.getElementById('lcr_vtype')?.value || 'step';
+
+  closeLCR();
+  _clearForExample();
+
+  const ox = 48, oy = 80;   // canvas pixel origin
+  const PI2 = Math.PI / 2;
+
+  const hasR = ['rc','rl','lcr'].includes(type) && R > 0;
+  const hasL = ['rl','lc','lcr'].includes(type) && Lv > 0;
+  const hasC = ['rc','lc','lcr'].includes(type) && Cv > 0;
+
+  // ── Source type selection ─────────────────────────────────────────────
+  // Phasor tab: always AC — phasors are a steady-state AC concept.
+  // LC with step: DC is actually the MOST instructive choice (shows natural
+  //   oscillation / energy transfer between L and C). AC is also valid
+  //   (resonance) but requires frequency sweep to be meaningful.
+  // RC / RL / LCR with step: DC shows the transient (τ = RC, τ = L/R,
+  //   damped oscillation). Perfectly valid.
+  // RC / RL / LCR with sine/square/pulse: AC source is correct.
+  // Square wave and pulse are just repeated DC steps — valid for all types,
+  //   most useful for RC to show repeated charge/discharge cycles.
+
+  let effectiveVtype = Vtype;
+  if(type === 'phasor') effectiveVtype = 'sine';   // phasor = AC only
+
+  const srcType = (effectiveVtype === 'step') ? 'battery' : 'ac';
+  const srcLabel = srcType === 'battery'
+    ? `${V}V DC`
+    : `${V}V ${effectiveVtype==='sine'?'AC':effectiveVtype}`;
+  const srcProps = srcType === 'battery'
+    ? { voltage: V, cells: 4, intR: 0.5, label: srcLabel }
+    : { voltage: V, freq: f, label: srcLabel };
+
+  // ── Series loop layout (all horizontal on top rail) ────────────────────
+  // Components placed left-to-right on top rail (topY).
+  // Each component occupies a fixed width in grid units:
+  //   battery / ac source: gw=4 → terminals at ±2 from centre
+  //   ammeter:             gw=2 → terminals at ±1
+  //   resistor / inductor: gw=4 → terminals at ±2
+  //   capacitor:           gw=2 → terminals at ±1
+  // We place the CENTRE of each component at (cx, topY),
+  // then the left terminal is at (cx-hw, topY) and right at (cx+hw, topY).
+
+  const topY = 2, botY = 16;
+  const comps = [];   // { cx, halfW } for wiring
+
+  let x = 4;  // start x (grid units from ox)
+
+  // Source centre at x+2, half-width=2
+  const srcComp = _ac(srcType, x+2, topY, ox, oy, 0, srcProps);
+  if(srcComp) srcComp._lcrRole = 'source';
+  comps.push({ l: x, r: x+4 });
+  x += 5;   // 1 gap after
+
+  // Ammeter centre at x+1, half-width=1
+  const ammComp = _ac('ammeter', x+1, topY, ox, oy, 0, { range:'1A', label:'A' });
+  if(ammComp) ammComp._lcrRole = 'ammeter';
+  comps.push({ l: x, r: x+2 });
+  x += 3;
+
+  // Resistor centre at x+2, half-width=2
+  let rNodeLeft = null;
+  if(hasR){
+    const rc = _ac('resistor', x+2, topY, ox, oy, 0, { resistance: R, label: `R ${R}Ω` });
+    if(rc) rc._lcrRole = 'resistor';
+    rNodeLeft = `${x},${topY}`;
+    comps.push({ l: x, r: x+4 });
+    x += 5;
+  }
+
+  // Inductor centre at x+2, half-width=2
+  let lNodeLeft = null;
+  if(hasL){
+    const lc = _ac('inductor', x+2, topY, ox, oy, 0, { inductance: Lv*1e-3, label: `L ${Lv}mH` });
+    if(lc) lc._lcrRole = 'inductor';
+    lNodeLeft = `${x},${topY}`;
+    comps.push({ l: x, r: x+4 });
+    x += 5;
+  }
+
+  // Capacitor centre at x+1, half-width=1
+  let capLeft = x, capRight = x;
+  let cNodeLeft = null;
+  if(hasC){
+    const cc = _ac('capacitor', x+1, topY, ox, oy, 0, { capacitance: Cv*1e-6, label: `C ${Cv}µF` });
+    if(cc) cc._lcrRole = 'capacitor';
+    cNodeLeft = `${x},${topY}`;
+    comps.push({ l: x, r: x+2 });
+    capLeft = x; capRight = x+2;
+    x += 3;
+  }
+
+  // Voltmeter across capacitor — placed vertically beside the cap
+  if(hasC){
+    const vmCx = x+1, vmCy = (topY+botY)/2;
+    _ac('voltmeter', vmCx, vmCy, ox, oy, PI2, { range:'20V', label:'V_C' });
+    _seg(capLeft, topY, vmCx, topY, ox, oy);
+    _seg(capRight, topY, vmCx, topY, ox, oy);
+    _seg(vmCx, vmCy-1, vmCx, topY, ox, oy);
+    _seg(vmCx, vmCy+1, vmCx, botY, ox, oy);
+    x += 3;
+  }
+
+  const rightEdge = x;
+
+  // Ground at bottom-centre
+  const gndX = Math.round((comps[0].l + rightEdge) / 2);
+  _ac('ground', gndX, botY+2, ox, oy, 0, {});
+
+  // ── Wire the top rail ──────────────────────────────────────────────────
+  const srcLeftX = comps[0].l;
+  _seg(srcLeftX, topY, srcLeftX, botY, ox, oy);
+  for(let i = 0; i < comps.length-1; i++){
+    const ra = comps[i].r, lb = comps[i+1].l;
+    if(lb > ra) _seg(ra, topY, lb, topY, ox, oy);
+  }
+  _seg(comps[comps.length-1].r, topY, rightEdge, topY, ox, oy);
+  _seg(rightEdge, topY, rightEdge, botY, ox, oy);
+  _seg(srcLeftX, botY, rightEdge, botY, ox, oy);
+  _seg(gndX, botY, gndX, botY+2, ox, oy);
+
+  updateSB();
+  recenterView();
+
+  // ── Build node→trace lookup for CRO ──────────────────────────────────
+  // Any node on the top rail maps to the transient trace at that point in the series chain.
+  // Grid key format: "gx,gy" where gx = pixel_x / GS, gy = pixel_y / GS
+  // We store pixel coordinates → trace name, resolved at probe-attach time.
+  const nodeRoles = new Map();
+  // All top-rail x positions → vs (source voltage reference)
+  for(let gx = comps[0].l; gx <= rightEdge; gx++){
+    nodeRoles.set(`${ox + gx*GS},${oy + topY*GS}`, 'vs');
+  }
+  // More specific overrides — right-terminal of each component → its output voltage
+  if(cNodeLeft !== null){
+    // Node to the LEFT of capacitor = input = vR + vL accumulated
+    // Node to the RIGHT of capacitor = output side
+    const cRightKey = `${ox + capRight*GS},${oy + topY*GS}`;
+    nodeRoles.set(cRightKey, 'vC');
+    nodeRoles.set(`${ox + capLeft*GS},${oy + topY*GS}`, 'vC_left');
+  }
+  if(lNodeLeft !== null){
+    const lRightGx = hasC ? capLeft : (hasR ? x : rightEdge);
+    nodeRoles.set(`${ox + lNodeLeft.split(',')[0]/GS + 4*GS},${oy + topY*GS}`, 'vL');
+  }
+  if(rNodeLeft !== null){
+    nodeRoles.set(`${ox + rNodeLeft.split(',')[0]/GS + 4*GS},${oy + topY*GS}`, 'vR');
+  }
+  // Bottom rail = ground reference
+  for(let gx = comps[0].l; gx <= rightEdge; gx++){
+    nodeRoles.set(`${ox + gx*GS},${oy + botY*GS}`, 'gnd');
+  }
+
+  // Show the transient results panel AND store data for CRO
+  _showTransientPanel(type, V, hasR?R:0, hasL?Lv*1e-3:0, hasC?Cv*1e-6:0, f, effectiveVtype, tMaxMs*1e-3, nodeRoles);
+}
+
+// ── Floating transient results panel ──────────────────────────────────────
+let _transientPanelEl = null;
+
+// Last transient solve result — shared with CRO display
+// Structure: { t[], vC[], vL[], vR[], vs[], iL[], nodeRoles: Map(gridKey→traceName) }
+let _lastTransientData = null;
+
+function _showTransientPanel(type, V, R, L, C, f, Vtype, tMaxOverride, nodeRoles){
+  if(_transientPanelEl){ _transientPanelEl.remove(); _transientPanelEl=null; }
+
+  const tMax = tMaxOverride || Math.max(
+    L>0&&R>0 ? 8*L/R : 0,
+    R>0&&C>0 ? 8*R*C : 0,
+    L>0&&C>0 ? 6/(2*Math.PI*Math.sqrt(L*C)) : 0,
+    Vtype!=='step' && f>0 ? 3/f : 0,
+    0.002
+  );
+  const steps = 500;
+  const res = TransientSolver.solve({ Vs:V, R, L, C, tMax, steps, Vtype, freq:f });
+
+  // Store globally so CRO probes can access it
+  _lastTransientData = {
+    t: res.t, vs: res.vs, vR: res.vR, vL: res.vL, vC: res.vC, iL: res.iL,
+    tMax, hasR: R>0, hasL: L>0, hasC: C>0,
+    nodeRoles: nodeRoles || new Map(),
+    // Provide a lookup: trace name → array
+    traces: { vs: res.vs, vR: res.vR, vL: res.vL, vC: res.vC, iL: res.iL }
+  };
+
+  const panel = document.createElement('div');
+  panel.style.cssText=`position:fixed;z-index:820;background:#0d0f14;
+    border:1px solid rgba(184,122,255,.35);border-radius:10px;
+    box-shadow:0 10px 40px rgba(0,0,0,.7);
+    left:${canvas.getBoundingClientRect().left+20}px;
+    top:${canvas.getBoundingClientRect().top+20}px;
+    width:420px;user-select:none;`;
+
+  // Analytical summary
+  let summary='';
+  if(C>0&&R>0&&L===0){ const tau=R*C; summary=`τ = RC = ${_si(tau,'s')}`; }
+  if(L>0&&R>0&&C===0){ const tau=L/R; summary=`τ = L/R = ${_si(tau,'s')}`; }
+  if(L>0&&C>0){ const f0=1/(2*Math.PI*Math.sqrt(L*C)); summary=`f₀ = 1/(2π√LC) = ${_si(f0,'Hz')}  Q=${R>0?((2*Math.PI*f0*L)/R).toFixed(2):'∞'}`; }
+
+  panel.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      padding:8px 12px 6px;border-bottom:1px solid rgba(184,122,255,.2);cursor:grab" class="tp-handle">
+      <span style="font-size:10px;font-family:'IBM Plex Mono';color:#b87aff;font-weight:500">
+        Transient — ${type.toUpperCase()} Circuit
+      </span>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${summary?`<span style="font-size:9px;font-family:'IBM Plex Mono';color:#454e6a">${summary}</span>`:''}
+        <button onclick="this.closest('div[style*=fixed]').remove()"
+          style="font-size:11px;padding:1px 7px;border-radius:4px;border:1px solid rgba(184,122,255,.3);
+          background:transparent;color:#b87aff;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div style="padding:8px 12px">
+      <div style="font-size:9px;font-family:'IBM Plex Mono';color:#454e6a;margin-bottom:4px">
+        VOLTAGE RESPONSE — V_C, V_L, V_R, Vs
+      </div>
+      <canvas id="tp-cv1" height="130" style="display:block;width:100%;height:130px"></canvas>
+      <div style="font-size:9px;font-family:'IBM Plex Mono';color:#454e6a;margin-top:6px;margin-bottom:4px">
+        CURRENT i(t)
+      </div>
+      <canvas id="tp-cv2" height="80" style="display:block;width:100%;height:80px"></canvas>
+      <div style="font-size:8px;font-family:'IBM Plex Mono';color:#3a4460;margin-top:6px;text-align:right">
+        Backward-Euler transient solver · ${steps} steps · t_max=${_si(tMax,'s')}
+      </div>
+    </div>`;
+
+  document.body.appendChild(panel);
+  _transientPanelEl = panel;
+
+  // Drag
+  const handle=panel.querySelector('.tp-handle');
+  let drag=false,ox2=0,oy2=0;
+  handle.addEventListener('mousedown',ev=>{
+    drag=true; ox2=ev.clientX-panel.offsetLeft; oy2=ev.clientY-panel.offsetTop;
+    handle.style.cursor='grabbing'; ev.preventDefault();
+  });
+  window.addEventListener('mousemove',ev=>{ if(!drag) return; panel.style.left=(ev.clientX-ox2)+'px'; panel.style.top=(ev.clientY-oy2)+'px'; });
+  window.addEventListener('mouseup',()=>{ drag=false; handle.style.cursor='grab'; });
+
+  // Draw after DOM settles
+  requestAnimationFrame(()=>{
+    const cv1=document.getElementById('tp-cv1');
+    const cv2=document.getElementById('tp-cv2');
+    if(cv1){ cv1.width=cv1.offsetWidth||396; cv1.height=130; }
+    if(cv2){ cv2.width=cv2.offsetWidth||396; cv2.height=80; }
+    const t1=[];
+    if(C>0) t1.push({x:res.t,y:res.vC,col:'#7bb8ff',lw:2,label:'V_C'});
+    if(L>0) t1.push({x:res.t,y:res.vL,col:'#b87aff',lw:2,label:'V_L'});
+    if(R>0) t1.push({x:res.t,y:res.vR,col:'#4a9eff',lw:1.5,label:'V_R'});
+    t1.push({x:res.t,y:res.vs,col:'#ffb83055',lw:1,label:'Vs'});
+    _drawTrace(cv1,t1,{unit:'V',xLabel:'t (s)'});
+    _drawTrace(cv2,[{x:res.t,y:res.iL,col:'#3de88e',lw:2,label:'i(t)'}],{unit:'A',xLabel:'t (s)'});
+  });
+}
 
 // ═══════════════════════════════════════════════════
 //  EXAMPLE CIRCUITS  (3 verified IGCSE-grade circuits)
