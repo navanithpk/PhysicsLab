@@ -128,7 +128,42 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 .ci.danger:hover{background:rgba(255,74,106,.1)}
 .csep{border:none;border-top:1px solid var(--border);margin:3px 0}
 
-/* ── TUTORIAL OVERLAY ── */
+/* ── EXPORT MODAL ── */
+.export-overlay{
+  position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);
+  display:none;align-items:center;justify-content:center;
+}
+.export-overlay.show{display:flex}
+.export-box{
+  background:var(--bg2);border:1px solid var(--bord2);border-radius:14px;
+  padding:24px;width:460px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.7);
+}
+.export-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+.export-sub{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:18px}
+.export-preview-wrap{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  overflow:hidden;margin-bottom:18px;
+  display:flex;align-items:center;justify-content:center;
+}
+.export-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.export-opt{
+  display:flex;align-items:flex-start;gap:10px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;cursor:pointer;transition:border-color .15s;
+}
+.export-opt:hover{border-color:var(--bord2)}
+.export-opt.active{border-color:var(--accent);background:rgba(74,158,255,.07)}
+.export-opt input{margin-top:2px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.export-opt-text{}
+.export-opt-label{font-size:12px;font-weight:500;color:var(--text);display:block;margin-bottom:2px}
+.export-opt-desc{font-size:10px;color:var(--text3);line-height:1.4}
+.export-actions{display:flex;justify-content:flex-end;gap:8px}
+.export-btn{padding:8px 20px;border-radius:7px;font-size:13px;font-family:var(--font);
+  font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--bord2)}
+.export-btn.cancel{background:var(--bg3);color:var(--text2)}
+.export-btn.cancel:hover{background:var(--bg4);color:var(--text)}
+.export-btn.go{background:var(--accent);border-color:var(--accent);color:#fff}
+.export-btn.go:hover{background:#3a8cf0;box-shadow:0 0 20px rgba(74,158,255,.3)}
 .tut-overlay{
   position:fixed;inset:0;z-index:500;pointer-events:none;
   background:rgba(0,0,0,.72);display:none;
@@ -280,6 +315,59 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <div class="tut-highlight" id="tut-hl" style="display:none"></div>
 </div>
 
+<!-- ═══ EXPORT MODAL ═══ -->
+<div class="export-overlay" id="export-overlay" onclick="if(event.target===this)closeExportModal()">
+  <div class="export-box">
+    <div class="export-title">Export as PNG</div>
+    <div class="export-sub">// preview reflects current options</div>
+
+    <div class="export-preview-wrap" id="export-preview-wrap">
+      <canvas id="export-preview-canvas" style="display:block;max-width:100%;max-height:220px"></canvas>
+    </div>
+
+    <div class="export-opts">
+
+      <label class="export-opt" id="eopt-color" onclick="toggleExportOpt('bw')">
+        <input type="checkbox" id="echk-bw" onchange="updateExportPreview()">
+        <div class="export-opt-text">
+          <span class="export-opt-label">Black &amp; white</span>
+          <span class="export-opt-desc">Desaturate all colours to greyscale — ideal for print or worksheets.</span>
+        </div>
+      </label>
+
+      <label class="export-opt" id="eopt-dots" onclick="toggleExportOpt('nodots')">
+        <input type="checkbox" id="echk-nodots" onchange="updateExportPreview()">
+        <div class="export-opt-text">
+          <span class="export-opt-label">Hide flow dots</span>
+          <span class="export-opt-desc">Omit animated electron flow markers for a clean static diagram.</span>
+        </div>
+      </label>
+
+      <label class="export-opt" id="eopt-modals" onclick="toggleExportOpt('modals')">
+        <input type="checkbox" id="echk-modals" onchange="updateExportPreview()">
+        <div class="export-opt-text">
+          <span class="export-opt-label">Include modals</span>
+          <span class="export-opt-desc">Composite pinned instrument readouts onto the exported image.</span>
+        </div>
+      </label>
+
+      <label class="export-opt" id="eopt-2x" onclick="toggleExportOpt('2x')">
+        <input type="checkbox" id="echk-2x" checked onchange="updateExportPreview()">
+        <div class="export-opt-text">
+          <span class="export-opt-label">2× resolution</span>
+          <span class="export-opt-desc">Double pixel density — sharper on retina screens and for print.</span>
+        </div>
+      </label>
+
+    </div>
+
+    <div class="export-actions">
+      <button class="export-btn cancel" onclick="closeExportModal()">Cancel</button>
+      <button class="export-btn go" onclick="doExport()">Download PNG</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -406,16 +494,67 @@ class MNASolver {
       if (c.t === 'cell' || c.t === 'battery') {
         constrainedBranches.push({ type: 'vsrc', comp: c, nodes: ns, value: +c.props.voltage });
       } else if (c.t === 'ac') {
-        // AC source treated as DC RMS equivalent for steady-state analysis
-        // Note: Full phasor analysis requires complex matrix solver (not implemented)
         const rmsValue = (+c.props.voltage) / Math.sqrt(2);
         constrainedBranches.push({ type: 'vsrc_ac_rms', comp: c, nodes: ns, value: rmsValue });
         logSim(`AC Source: ${c.props.voltage}V peak -> ${rmsValue.toFixed(2)}V RMS (DC equivalent)`);
       } else if (c.t === 'ammeter') {
-        constrainedBranches.push({ type: 'ammeter', comp: c, nodes: ns, value: 0.0 }); // V_drop constraint = 0
+        constrainedBranches.push({ type: 'ammeter', comp: c, nodes: ns, value: 0.0 });
       }
     });
 
+    // ── Iterative diode / LED solver ──────────────────────────────────────
+    // Diodes and LEDs are nonlinear: they block in reverse and conduct in
+    // forward bias. We can't know polarity before solving, so we iterate:
+    //   1. Solve with all diodes/LEDs OFF (open circuit).
+    //   2. Check each diode/LED: if solved vd > vf → mark as ON.
+    //   3. Re-solve with ON devices stamped. Repeat until stable.
+    // Typically converges in 2–3 passes for simple circuits.
+
+    const diodeLike = components.filter(c => c.t === 'led' || c.t === 'diode');
+    const conducting = new Set(); // compIds that are currently ON
+
+    let nodeVoltages, internalCurrents;
+    let iters = 0;
+    const MAX_ITERS = 8;
+
+    while(iters++ < MAX_ITERS) {
+      const result = MNASolver._solveOnce(
+        components, compNodesMap, totalNodes,
+        groundNode, constrainedBranches, conducting
+      );
+      if(!result) {
+        throw new Error("Singular matrix: Check for floating subcircuits or conflicting voltage sources.");
+      }
+      nodeVoltages     = result.nodeVoltages;
+      internalCurrents = result.internalCurrents;
+
+      // Check diode/LED states against solved voltages
+      let changed = false;
+      diodeLike.forEach(c => {
+        const ns = compNodesMap.get(c.id);
+        if(!ns) return;
+        const v1 = nodeVoltages.get(ns[0]) || 0;
+        const v2 = nodeVoltages.get(ns[1]) || 0;
+        const vd = v1 - v2;
+        const vf = +(c.props.vf || (c.t === 'led' ? 2.0 : 0.7));
+        const shouldConduct = vd > vf * 0.95; // small tolerance
+        if(shouldConduct && !conducting.has(c.id)){
+          conducting.add(c.id); changed = true;
+          logSim(`${c.t.toUpperCase()} #${c.id}: forward biased (vd=${vd.toFixed(3)}V > vf=${vf}V) — now conducting`);
+        } else if(!shouldConduct && conducting.has(c.id)){
+          conducting.delete(c.id); changed = true;
+          logSim(`${c.t.toUpperCase()} #${c.id}: reverse biased (vd=${vd.toFixed(3)}V) — now blocking`);
+        }
+      });
+
+      if(!changed) break; // converged
+    }
+
+    return { nodeVoltages, internalCurrents };
+  }
+
+  // Single MNA solve pass. `conducting` is the Set of diode/LED compIds that are ON.
+  static _solveOnce(components, compNodesMap, totalNodes, groundNode, constrainedBranches, conducting) {
     const matrixDim = totalNodes + constrainedBranches.length;
     const A = Array.from({ length: matrixDim }, () => new Float64Array(matrixDim));
     const B = new Float64Array(matrixDim);
@@ -428,37 +567,38 @@ class MNASolver {
       }
     };
 
-    // Matrix stamping phase - KCL conductance contributions
     components.forEach(c => {
       const ns = compNodesMap.get(c.id);
       if (!ns || ns.length < 2) return;
       const [n1, n2] = ns;
-      
-      // Skip ground components (they only define reference, no KCL contribution)
       if (c.t === 'ground') return;
-      
+
       let g = 0, vForward = 0;
 
       switch (c.t) {
         case 'resistor': case 'varresistor': g = 1 / (+c.props.resistance || 1000); break;
-        case 'heater': g = 1 / (+c.props.resistance || 20); break;
-        case 'lamp': g = 1 / (+c.props.resistance || 60); break;
-        case 'ldr': g = 1 / (+c.props.resistance || 1000); break;
-        case 'thermistor': g = 1 / (+c.props.resistance || 1000); break;
+        case 'heater':    g = 1 / (+c.props.resistance || 20); break;
+        case 'lamp':      g = 1 / (+c.props.resistance || 60); break;
+        case 'ldr':       g = 1 / (+c.props.resistance || 1000); break;
+        case 'thermistor':g = 1 / (+c.props.resistance || 1000); break;
         case 'switch': case 'relay_switch':
-          // FIX: open switches are NOT stamped — they leave the branch completely
-          // open (no conductance path). Their nodes were already merged or left
-          // isolated by the topology pre-pass. Stamping 1e-12 caused a condition
-          // number of ~1e17 when 2+ open switches isolated intermediate nodes,
-          // producing garbage voltages via catastrophic cancellation in float64.
-          g = c.props.closed ? 1e5 : 0;
-          break;
+          g = c.props.closed ? 1e5 : 0; break;
         case 'voltmeter': g = 1e-9; break;
-        case 'cro': g = 1e-9; break; // CRO input impedance — purely passive, does not affect circuit
-        case 'diode': g = 0.05; vForward = +c.props.vf || 0.7; break;
-        case 'led': g = 0.1; vForward = +c.props.vf || 2.0; break;
+        case 'cro':       g = 1e-9; break;
+        case 'diode':
+          // Only stamp if in the conducting set (forward biased)
+          if(conducting.has(c.id)){
+            g = 0.05; vForward = +(c.props.vf || 0.7);
+          }
+          break;
+        case 'led':
+          // Only stamp if in the conducting set (forward biased)
+          if(conducting.has(c.id)){
+            g = 0.1; vForward = +(c.props.vf || 2.0);
+          }
+          break;
         case 'relay_coil': g = 1 / (+c.props.resistance || 200); break;
-        case 'capacitor': g = 1e-12; break; // DC steady-state approximation
+        case 'capacitor':  g = 1e-12; break;
       }
 
       if (g > 0) applyConductance(n1, n2, g);
@@ -468,56 +608,35 @@ class MNASolver {
       }
     });
 
-    // Stamp explicit voltage and ammeter row rules
     constrainedBranches.forEach((branch, idx) => {
       const [n1, n2] = branch.nodes;
       const row = totalNodes + idx;
       if (n2 !== groundNode) { A[row][n2-1] = 1; A[n2-1][row] = 1; }
       if (n1 !== groundNode) { A[row][n1-1] = -1; A[n1-1][row] = -1; }
       B[row] = branch.value;
-
-      // Real battery internal resistance drop stamp
       const intR = +(branch.comp.props.intR || 0);
       if (intR > 0 && branch.type === 'vsrc') {
         applyConductance(n1, n2, 1 / intR);
       }
     });
 
-    // Zero out ground row boundaries
+    // Zero out ground row
     for (let i = 0; i < matrixDim; i++) { A[groundNode-1][i] = 0; A[i][groundNode-1] = 0; }
     A[groundNode-1][groundNode-1] = 1; B[groundNode-1] = 0;
 
-    // FIX: Clamp floating nodes to 0V.
-    // Open switches (g=0) leave intermediate nodes with zero diagonal entries —
-    // those nodes have no conductance path to anything and would make the matrix
-    // singular. We detect them (diagonal < threshold) and pin them to 0V by
-    // inserting a self-loop row, exactly as we do for the ground node.
-    // This is physically correct: a node isolated by open switches carries no
-    // current and can be assigned any reference; 0V is the natural choice and
-    // avoids singular-matrix errors without affecting the solved branches.
+    // Clamp floating nodes (isolated by open switches or reverse-biased diodes)
     for (let i = 0; i < totalNodes; i++) {
-      if (i === groundNode - 1) continue; // already handled
-      let diagVal = A[i][i];
-      // Also check if the row has any off-diagonal contribution
+      if (i === groundNode - 1) continue;
       let rowNorm = 0;
       for (let j = 0; j < matrixDim; j++) rowNorm += Math.abs(A[i][j]);
       if (rowNorm < 1e-10) {
-        // Completely empty row — floating node. Pin to 0V.
         A[i][i] = 1; B[i] = 0;
-        logSim(`Node ${i+1} is floating (isolated by open switch). Pinned to 0V.`);
+        logSim(`Node ${i+1} is floating — pinned to 0V.`);
       }
     }
 
-    // Gauss-Jordan row operations engine with improved singular matrix detection
     const solution = this.gaussEliminate(A, B, matrixDim);
-    if (!solution) {
-      // Check for floating subcircuits (no ground connection)
-      const hasGround = components.some(c => c.t === 'ground');
-      if (!hasGround) {
-        throw new Error("Singular matrix: Circuit lacks a ground reference. Add a ground component to define 0V reference.");
-      }
-      throw new Error("Singular matrix: Check for floating subcircuits, open wires, or conflicting voltage sources.");
-    }
+    if (!solution) return null;
 
     const nodeVoltages = new Map();
     for (let i = 0; i < totalNodes; i++) {
@@ -525,7 +644,6 @@ class MNASolver {
     }
     nodeVoltages.set(groundNode, 0);
 
-    // Assign native solved hard constraints currents
     const internalCurrents = new Map();
     constrainedBranches.forEach((branch, idx) => {
       internalCurrents.set(branch.comp.id, solution[totalNodes + idx]);
@@ -595,13 +713,20 @@ class PhysicsEngine {
             I = vd / (+c.props.resistance || 60);
             c._lit = Math.abs(I) > 0.01;
             c._intensity = Math.min(1, Math.abs(I * vd) / (c.props.rating || 12)); break;
-          case 'led':
-            I = Math.max(0, (vd - (+c.props.vf || 2.0)) * 0.1);
+          case 'led':{
+            // If forward biased: I = (vd - vf) * g (same model as MNA stamp)
+            // If reverse biased: I = 0 — diode is blocking
+            const vf_led = +(c.props.vf || 2.0);
+            I = vd > vf_led * 0.95 ? Math.max(0, (vd - vf_led) * 0.1) : 0;
             c._lit = I > 0.003; break;
+          }
           case 'switch': case 'relay_switch':
             I = c.props.closed ? vd * 1e5 : 0; break;
-          case 'diode':
-            I = Math.max(0, (vd - (+c.props.vf || 0.7)) * 0.05); break;
+          case 'diode':{
+            const vf_d = +(c.props.vf || 0.7);
+            I = vd > vf_d * 0.95 ? Math.max(0, (vd - vf_d) * 0.05) : 0;
+            break;
+          }
           case 'capacitor':
             I = vd * 1e-12; break; // DC leakage approximation
           case 'voltmeter':
@@ -782,6 +907,15 @@ function loop(ts){
   S.animT+=(ts-lastT)/1000; lastT=ts;
   render();
   updateAllPinnedMeters();
+  // Refresh inline meter face in properties panel if a meter is selected
+  if(S.sel.size){
+    const selId = [...S.sel][0];
+    const c = S.comps.find(x=>x.id===selId);
+    if(c && (c.t==='ammeter'||c.t==='voltmeter')){
+      const propCanvas = document.getElementById(`prop-meter-canvas-${c.id}`);
+      if(propCanvas) renderMeterFaceOnCanvas(c, propCanvas);
+    }
+  }
   rafId=requestAnimationFrame(loop);
 }
 
@@ -1664,14 +1798,14 @@ function onMD(e){
   }
 
   const c=compAt(w.x,w.y);
-  // ── Pin mode: clicking meter toggles pinned modal ─────────────────────
+  // ── Pin mode: clicking meter toggles pinned modal, but still selects it ──
   if(_meterMode === 'pin' && c && (c.t==='ammeter'||c.t==='voltmeter')){
     if(_pinnedMeters.has(c.id)){
       removePinnedMeter(c.id);
     } else {
       pinMeter(c, e.clientX, e.clientY);
     }
-    return;
+    // Fall through — still select the component normally
   }
   if(c){ S.sel.clear(); S.sel.add(c.id); S.drag=true; S.dragStart={x:w.x,y:w.y}; S.dragOff.set(c.id,{ox:c.x-w.x,oy:c.y-w.y}); }
   else { S.sel.clear(); } updateProps(); render();
@@ -1788,6 +1922,7 @@ function onKey(e){
   if(e.key==='e' || e.key==='E') setTool('erase', document.getElementById('tb-erase'));
   if(e.key==='p' || e.key==='P') setTool('pan', document.getElementById('tb-pan'));
   if(e.key==='Escape'){
+    if(document.getElementById('export-overlay').classList.contains('show')){ closeExportModal(); return; }
     if(_croProbeMode !== null){ _croProbeMode=null; canvas.style.cursor=''; render(); return; }
     _eraseHover=null;
     setTool('select', document.getElementById('tb-select'));
@@ -1874,19 +2009,168 @@ function updateProps(){
     h+=`<div class="pr"><button class="ptb" style="font-size:10px;width:100%" onclick="croResetProbes(${c.id})">Reset Probes</button></div>`;
     body.innerHTML=h; return;
   }
+  // ── Ammeter / Voltmeter — rich properties panel ─────────────────────────
+  if(c.t === 'ammeter' || c.t === 'voltmeter'){
+    const isA    = c.t === 'ammeter';
+    const col    = isA ? '#ff4a6a' : '#4a9eff';
+    const table  = isA ? AMMETER_RANGES : VOLTMETER_RANGES;
+    const curKey = c.props.range || (isA ? '1A' : '20V');
+    const isPinned = _pinnedMeters.has(c.id);
+
+    // Range selector
+    const opts = table.map(r=>`<option value="${r.key}" ${r.key===curKey?'selected':''}>${r.label}</option>`).join('');
+    h += `<div class="pr">
+      <div class="pl">Range</div>
+      <select class="psel" onchange="sp(${c.id},'range',this.value)">${opts}</select>
+    </div>`;
+
+    // Label
+    h += `<div class="pr"><div class="pl">Label</div>
+      <input class="pin" type="text" value="${c.props.label||''}"
+        onchange="sp(${c.id},'label',this.value)"></div>`;
+
+    // Pin / unpin button
+    h += `<div class="pr">
+      <button class="ptb ${isPinned?'on':''}" style="width:100%;font-size:10px;padding:5px 8px"
+        onclick="togglePinFromProps(${c.id})">
+        ${isPinned ? '📌 Unpin modal' : '📌 Pin modal'}
+      </button>
+    </div>`;
+
+    // Live inline meter face (canvas, refreshed by a dedicated id)
+    h += `<div class="pr" style="margin-top:4px">
+      <div style="text-align:center">
+        <canvas id="prop-meter-canvas-${c.id}" width="170" height="100"
+          style="display:block;margin:0 auto;border-radius:5px;
+          background:#0a0c14;border:1px solid rgba(140,160,220,.1)"></canvas>
+      </div>
+    </div>`;
+
+    body.innerHTML = h;
+
+    // Draw into the inline canvas immediately
+    const propCanvas = document.getElementById(`prop-meter-canvas-${c.id}`);
+    if(propCanvas) renderMeterFaceOnCanvas(c, propCanvas);
+    return;
+  }
+
+  // ── All other components ──────────────────────────────────────────────
   Object.entries(c.props).forEach(([k,v])=>{
     if(k==='closed'){ h+=`<div class="pr"><div class="pl">State</div><button class="ptb ${v?'on':''}" onclick="sp(${c.id},'closed',${!v})">${v?'Closed':'Open'}</button></div>`; }
-    else if(k==='wave') { /* handled above for CRO */ }
-    else if(k==='range' && (c.t==='ammeter'||c.t==='voltmeter')){
-      const table = c.t==='ammeter' ? AMMETER_RANGES : VOLTMETER_RANGES;
-      const opts = table.map(r=>`<option value="${r.key}" ${r.key===v?'selected':''}>${r.label}</option>`).join('');
-      h+=`<div class="pr"><div class="pl">Range</div><select class="psel" onchange="sp(${c.id},'range',this.value)">${opts}</select></div>`;
-    }
+    else if(k==='wave') { /* handled in CRO block */ }
     else { h+=`<div class="pr"><div class="pl">${k}</div><input class="pin" type="number" value="${v}" onchange="sp(${c.id},'${k}',+this.value)"></div>`; }
   });
   body.innerHTML=h;
 }
-function sp(id,k,v){ const c=S.comps.find(x=>x.id===id); if(c){ c.props[k]=v; if(S.simOn) runSimulation(); updateProps(); render(); } }
+function sp(id,k,v){
+  const c=S.comps.find(x=>x.id===id);
+  if(c){
+    c.props[k]=v;
+    if(S.simOn) runSimulation();
+    updateProps();
+    render();
+  }
+}
+
+// Render the meter face into an arbitrary canvas element (used by props panel)
+function renderMeterFaceOnCanvas(comp, canvasEl){
+  if(!canvasEl) return;
+  const isAmmeter = comp.t === 'ammeter';
+  const col       = isAmmeter ? '#ff4a6a' : '#4a9eff';
+  const unit      = isAmmeter ? 'A' : 'V';
+  const rangeObj  = getMeterRange(comp);
+  const maxVal    = rangeObj.max;
+  const value     = comp._simVal || 0;
+  const absVal    = Math.abs(value);
+  const overRange = absVal > maxVal * 1.02;
+  const norm      = Math.max(0, Math.min(1, absVal / maxVal));
+
+  const actx = canvasEl.getContext('2d');
+  const W = canvasEl.width, H = canvasEl.height;
+  actx.clearRect(0,0,W,H);
+
+  const cx = W/2, cy = H-10, radius = Math.min(W,H)*0.50;
+  const arcStart = Math.PI*0.80, arcEnd = Math.PI*2.20, arcSpan = arcEnd-arcStart;
+
+  // Track
+  actx.beginPath(); actx.arc(cx,cy,radius,arcStart,arcEnd);
+  actx.strokeStyle='#1e2438'; actx.lineWidth=10; actx.lineCap='butt'; actx.stroke();
+
+  // Fill
+  actx.beginPath(); actx.arc(cx,cy,radius,arcStart,arcStart+norm*arcSpan);
+  actx.strokeStyle=overRange?'#ff4a6a':col; actx.lineWidth=10; actx.lineCap='round'; actx.stroke();
+
+  // Major ticks + labels
+  for(let i=0;i<=5;i++){
+    const frac=i/5, ang=arcStart+frac*arcSpan;
+    const r0=radius-14, r1=radius-6;
+    actx.beginPath();
+    actx.moveTo(cx+Math.cos(ang)*r0, cy+Math.sin(ang)*r0);
+    actx.lineTo(cx+Math.cos(ang)*r1, cy+Math.sin(ang)*r1);
+    actx.strokeStyle='#4a5470'; actx.lineWidth=1.4; actx.stroke();
+    if(i===0||i===2||i===5){
+      const tv=frac*maxVal;
+      let ts;
+      if(maxVal>=1)      ts = tv>=1 ? tv.toFixed(tv>=10?0:1) : (tv*1e3).toFixed(0)+'m';
+      else if(maxVal>=1e-3) ts = (tv*1e3).toFixed(tv===0?0:1);
+      else               ts = (tv*1e6).toFixed(0);
+      actx.fillStyle='#6878a0'; actx.font=`${Math.round(radius*0.17)}px IBM Plex Mono`;
+      actx.textAlign='center'; actx.textBaseline='middle';
+      const lr=r0-8;
+      actx.fillText(ts, cx+Math.cos(ang)*lr, cy+Math.sin(ang)*lr);
+    }
+  }
+  // Minor ticks
+  for(let i=0;i<5;i++) for(let j=1;j<=3;j++){
+    const ang=arcStart+(i+j/4)/5*arcSpan;
+    actx.beginPath();
+    actx.moveTo(cx+Math.cos(ang)*(radius-10),cy+Math.sin(ang)*(radius-10));
+    actx.lineTo(cx+Math.cos(ang)*(radius-6), cy+Math.sin(ang)*(radius-6));
+    actx.strokeStyle='#2e3650'; actx.lineWidth=0.9; actx.stroke();
+  }
+
+  // Needle
+  const na=arcStart+norm*arcSpan;
+  const nx=cx+Math.cos(na)*(radius-7), ny=cy+Math.sin(na)*(radius-7);
+  actx.beginPath(); actx.moveTo(cx+1,cy+1); actx.lineTo(nx+1,ny+1);
+  actx.strokeStyle='rgba(0,0,0,.4)'; actx.lineWidth=3; actx.lineCap='round'; actx.stroke();
+  actx.beginPath(); actx.moveTo(cx,cy); actx.lineTo(nx,ny);
+  actx.strokeStyle=overRange?'#ff4a6a':'#f0f4ff'; actx.lineWidth=2.2; actx.stroke();
+  actx.beginPath(); actx.arc(cx,cy,5,0,Math.PI*2);
+  actx.fillStyle='#3de88e'; actx.fill();
+
+  // Range label
+  actx.fillStyle='#8890b0'; actx.font=`${Math.round(radius*0.18)}px IBM Plex Mono`;
+  actx.textAlign='center'; actx.textBaseline='bottom';
+  actx.fillText(rangeObj.label, cx, cy-radius+4);
+
+  // Digital value below needle pivot
+  let dv, du;
+  if(overRange){ dv='OL'; du=''; }
+  else if(absVal>=1)    { dv=value.toFixed(3);       du=unit; }
+  else if(absVal>=1e-3) { dv=(value*1e3).toFixed(2); du='m'+unit; }
+  else if(absVal>=1e-6) { dv=(value*1e6).toFixed(2); du='µ'+unit; }
+  else                  { dv=(value*1e9).toFixed(2); du='n'+unit; }
+
+  actx.fillStyle=overRange?'#ff4a6a':'#3de88e';
+  actx.font=`bold ${Math.round(radius*0.24)}px IBM Plex Mono`;
+  actx.textAlign='center'; actx.textBaseline='top';
+  actx.fillText(dv+(du?' '+du:''), cx, cy+4);
+}
+
+function togglePinFromProps(compId){
+  const c = S.comps.find(x=>x.id===compId);
+  if(!c) return;
+  if(_pinnedMeters.has(compId)){
+    removePinnedMeter(compId);
+  } else {
+    // Pin near the right panel
+    const rp = document.getElementById('rpanel-props');
+    const rect = rp ? rp.getBoundingClientRect() : {left:window.innerWidth-250, top:100};
+    pinMeter(c, rect.left - 200, rect.top + 40);
+  }
+  updateProps();  // refresh the pin button label
+}
 function croResetProbes(id){ const c=S.comps.find(x=>x.id===id); if(c){ c._probeKeys=[null,null]; updateProps(); render(); } }
 
 function showCtx(x,y){ 
@@ -2282,35 +2566,169 @@ function loadCircuit(){
     r.readAsText(f);
   }; i.click();
 }
-function exportPNG(){
-  // Temporarily clear selection so no selection halos appear in the export
-  const savedSel = new Set(S.sel);
-  S.sel.clear();
-  render();
+// ═══════════════════════════════════════════════════
+//  EXPORT SYSTEM
+// ═══════════════════════════════════════════════════
 
-  // Draw to an off-screen canvas at 2× pixel density for crispness
-  const scale = 2;
+function exportPNG(){
+  // Open the export modal and refresh the preview
+  document.getElementById('export-overlay').classList.add('show');
+  // Size preview canvas to match aspect ratio of circuit canvas, max 420px wide
+  const pw = Math.min(420, canvas.width);
+  const ph = Math.round(pw * canvas.height / canvas.width);
+  const pc = document.getElementById('export-preview-canvas');
+  pc.width  = pw;
+  pc.height = ph;
+  updateExportPreview();
+}
+
+function closeExportModal(){
+  document.getElementById('export-overlay').classList.remove('show');
+}
+
+// Read current option checkbox states
+function getExportOpts(){
+  return {
+    bw:      document.getElementById('echk-bw').checked,
+    noDots:  document.getElementById('echk-nodots').checked,
+    modals:  document.getElementById('echk-modals').checked,
+    scale:   document.getElementById('echk-2x').checked ? 2 : 1,
+  };
+}
+
+// Toggle an opt checkbox and update active class
+function toggleExportOpt(key){
+  const ids = { bw:'echk-bw', nodots:'echk-nodots', modals:'echk-modals', '2x':'echk-2x' };
+  const chk = document.getElementById(ids[key]);
+  if(chk){ chk.checked = !chk.checked; }
+  updateExportPreview();
+}
+
+// Render export scene into any target canvas, respecting opts
+function renderExportScene(targetCanvas, opts){
+  const tw = targetCanvas.width, th = targetCanvas.height;
+  const tctx = targetCanvas.getContext('2d');
+
+  // ── Background ──────────────────────────────────
+  tctx.fillStyle = opts.bw ? '#ffffff' : '#0d0f14';
+  tctx.fillRect(0, 0, tw, th);
+
+  // ── Draw circuit via a temporary saved-state render ─────────────────
+  // We temporarily redirect the global ctx to target and draw
+  const savedCtx   = ctx;
+  const savedSel   = new Set(S.sel);
+  const savedHover = S.hover;
+
+  // Suppress selection halos and hover highlights
+  S.sel   = new Set();
+  S.hover = null;
+
+  // Swap global ctx for our target
+  ctx = tctx;
+
+  // Scale/pan: we want to fill the target canvas the same way the live canvas is filled
+  const scaleRatio = tw / canvas.width;
+  ctx.save();
+  ctx.scale(scaleRatio, scaleRatio);
+  ctx.translate(S.pan.x, S.pan.y);
+  ctx.scale(S.zoom, S.zoom);
+
+  // Draw layers — colour or greyscale handled after via pixel manipulation
+  drawGrid();
+  drawWires();
+  drawComps();
+  drawTexts();
+  if(!opts.noDots) drawElectronFlow();
+
+  ctx.restore();
+
+  // Restore globals immediately
+  ctx   = savedCtx;
+  S.sel = savedSel;
+  S.hover = savedHover;
+
+  // ── Greyscale pass ──────────────────────────────────────────────────
+  if(opts.bw){
+    const imageData = tctx.getImageData(0, 0, tw, th);
+    const d = imageData.data;
+    for(let i = 0; i < d.length; i += 4){
+      // Luminance formula (perceptual)
+      const lum = Math.round(0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]);
+      // Invert: white background, dark lines
+      const inv = 255 - lum;
+      d[i] = d[i+1] = d[i+2] = inv;
+    }
+    tctx.putImageData(imageData, 0, 0);
+  }
+
+  // ── Composite pinned instrument modals ──────────────────────────────
+  if(opts.modals && _pinnedMeters.size > 0){
+    _pinnedMeters.forEach((state) => {
+      const el = state.el;
+      if(!el) return;
+      // Get position of the modal relative to the circuit canvas
+      const elRect  = el.getBoundingClientRect();
+      const cvRect  = canvas.getBoundingClientRect();
+      // Position in canvas pixels
+      const mx = (elRect.left - cvRect.left) * (tw / canvas.width);
+      const my = (elRect.top  - cvRect.top)  * (th / canvas.height);
+      const mw = elRect.width  * (tw / canvas.width)  * state.scale;
+      const mh = elRect.height * (th / canvas.height) * state.scale;
+      // Render the modal's pm-canvas into our export canvas
+      const pmCanvas = el.querySelector('.pm-canvas');
+      if(!pmCanvas) return;
+      // Draw modal background
+      tctx.save();
+      tctx.fillStyle = opts.bw ? 'rgba(240,240,240,0.95)' : 'rgba(13,15,20,0.95)';
+      tctx.strokeStyle = opts.bw ? '#999' : 'rgba(140,160,220,.28)';
+      tctx.lineWidth = 1;
+      _roundRectPath(tctx, mx, my, mw, mh, 6);
+      tctx.fill(); tctx.stroke();
+      // Draw meter canvas content
+      tctx.drawImage(pmCanvas, mx+8, my+24, mw-16, mh-32);
+      tctx.restore();
+    });
+  }
+}
+
+// Small helper to draw rounded rect path without roundRect API (compatibility)
+function _roundRectPath(c, x, y, w, h, r){
+  c.beginPath();
+  c.moveTo(x+r, y);
+  c.lineTo(x+w-r, y); c.arcTo(x+w, y, x+w, y+r, r);
+  c.lineTo(x+w, y+h-r); c.arcTo(x+w, y+h, x+w-r, y+h, r);
+  c.lineTo(x+r, y+h); c.arcTo(x, y+h, x, y+h-r, r);
+  c.lineTo(x, y+r); c.arcTo(x, y, x+r, y, r);
+  c.closePath();
+}
+
+function updateExportPreview(){
+  const opts = getExportOpts();
+  const pc   = document.getElementById('export-preview-canvas');
+  if(!pc) return;
+  // Update active state on option tiles
+  document.getElementById('eopt-color').classList.toggle('active',  opts.bw);
+  document.getElementById('eopt-dots').classList.toggle('active',   opts.noDots);
+  document.getElementById('eopt-modals').classList.toggle('active', opts.modals);
+  document.getElementById('eopt-2x').classList.toggle('active',     opts.scale===2);
+  renderExportScene(pc, opts);
+}
+
+function doExport(){
+  const opts = getExportOpts();
+  const scale = opts.scale;
+
   const offscreen = document.createElement('canvas');
   offscreen.width  = canvas.width  * scale;
   offscreen.height = canvas.height * scale;
-  const octx = offscreen.getContext('2d');
 
-  // Fill with the app background colour so the PNG isn't transparent
-  octx.fillStyle = '#0d0f14';
-  octx.fillRect(0, 0, offscreen.width, offscreen.height);
+  renderExportScene(offscreen, opts);
 
-  // Scale up and copy from the live canvas
-  octx.drawImage(canvas, 0, 0, offscreen.width, offscreen.height);
-
-  // Restore selection and re-render normally
-  S.sel = savedSel;
-  render();
-
-  // Trigger download
   const link = document.createElement('a');
-  link.download = 'circuit.png';
+  link.download = opts.bw ? 'circuit-bw.png' : 'circuit.png';
   link.href = offscreen.toDataURL('image/png');
   link.click();
+  closeExportModal();
 }
 function exportDebugLog(){ saveCircuit(); }
 function startTutorial(){ document.getElementById('tutoverlay').classList.add('show'); }
