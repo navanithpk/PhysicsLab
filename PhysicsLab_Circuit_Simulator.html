@@ -74,10 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
 /* ── RIGHT PANEL ── */
 .right-panel{width:218px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.rp-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
-.rp-tab{flex:1;padding:8px 4px;border:none;background:transparent;color:var(--text3);font-family:var(--font);font-size:11px;font-weight:500;cursor:pointer;transition:all .13s;border-bottom:2px solid transparent}
-.rp-tab:hover{color:var(--text2)}
-.rp-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* layers tab removed */
 
 /* ── PROPERTIES ── */
 .props{
@@ -167,7 +164,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
   <button class="tb" id="tb-select" onclick="setTool('select',this)" title="Select / Move [V]">Select</button>
   <button class="tb" id="tb-wire" onclick="setTool('wire',this)" title="Draw wire [W]">Wire</button>
-  <button class="tb" id="tb-erase" onclick="setTool('erase',this)" title="Erase wire [E]">Eraser</button>
+  <button class="tb" id="tb-erase" onclick="setTool('erase',this)" title="Erase [E]">Eraser</button>
+  <button class="tb" id="tb-pan" onclick="setTool('pan',this)" title="Pan canvas [P]">Pan</button>
   <div class="sep"></div>
   <button class="tb" id="tb-undo" onclick="undo()" title="Undo [Ctrl+Z]" style="opacity:.35">Undo</button>
   <button class="tb" id="tb-redo" onclick="redo()" title="Redo [Ctrl+Y]" style="opacity:.35">Redo</button>
@@ -183,7 +181,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <button class="tb amber" onclick="stopSimulation()">Stop</button>
   <div class="sep"></div>
   <button class="tb" onclick="clearCanvas()">Clear</button>
-  <button class="tb" onclick="loadExample()">Example</button>
+  <button class="tb" id="tb-example" onclick="loadExample()" title="Cycle through 3 example circuits [1: Staircase · 2: Ladder · 3: Lamp Bank]">Example</button>
 
   <div class="tb-right">
     <button class="tb" onclick="fitView()" style="color:var(--cyan)">Fit View</button>
@@ -222,25 +220,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   </div>
 
   <div class="right-panel">
-    <div class="rp-tabs">
-      <button class="rp-tab active" id="rpt-props" onclick="setRightTab('props',this)">Properties</button>
-      <button class="rp-tab" id="rpt-layers" onclick="setRightTab('layers',this)">Layers</button>
-    </div>
+    <div style="padding:8px 12px 6px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:500;flex-shrink:0">Properties</div>
 
-    <div class="props" id="rpanel-props">
-      <div class="pb" id="propbody"><div style="color:var(--text3);font-size:11px;margin-top:6px">Select a component.</div></div>
+    <div class="props" id="rpanel-props" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div class="pb" id="propbody" style="flex:1;overflow-y:auto"><div style="color:var(--text3);font-size:11px;margin-top:6px">Select a component.</div></div>
       <div class="sim-status" id="simstatus"></div>
-    </div>
-
-    <div class="props" id="rpanel-layers" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px 4px;border-bottom:1px solid var(--border)">
-        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">All Elements</span>
-        <div style="display:flex;gap:4px">
-          <button onclick="layerSelectAll()" style="font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">All</button>
-          <button onclick="layerDeselectAll()" style="font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">None</button>
-        </div>
+      <div style="padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0">
+        <button onclick="recenterView()" style="width:100%;padding:6px 0;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--accent);font-family:var(--font);font-size:11px;font-weight:500;cursor:pointer;letter-spacing:.2px;transition:all .14s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">⊕ Recenter View</button>
       </div>
-      <div id="layer-list" style="flex:1;overflow-y:auto;padding:4px 6px"></div>
     </div>
   </div>
 </div>
@@ -263,14 +250,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <div class="ci danger" onclick="ctxDel()">Delete Component</div>
 </div>
 
-<div id="meter-tooltip" style="position:fixed;display:none;z-index:800;background:#0d0f14;border:1px solid rgba(140,160,220,.28);border-radius:8px;padding:10px 14px;pointer-events:none;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.6);">
+<div id="meter-tooltip" style="position:fixed;display:none;z-index:800;background:#0d0f14;border:1px solid rgba(140,160,220,.28);border-radius:8px;padding:10px 14px;pointer-events:none;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,.6);">
   <div id="mtt-title" style="font-size:10px;color:#454e6a;text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;font-family:'IBM Plex Mono'"></div>
-  <canvas id="mtt-7seg" width="160" height="50" style="display:none;margin-bottom:4px"></canvas>
-  <div id="mtt-analog-wrap" style="display:none;text-align:center;margin-bottom:4px">
-    <canvas id="mtt-analog" width="120" height="70"></canvas>
+  <div id="mtt-analog-wrap" style="display:none;text-align:center;margin-bottom:6px">
+    <canvas id="mtt-analog" width="140" height="85"></canvas>
   </div>
-  <div id="mtt-value" style="font-size:15px;font-weight:600;font-family:'IBM Plex Mono';color:#3de88e"></div>
-  <div id="mtt-range" style="font-size:10px;color:#454e6a;margin-top:2px;font-family:'IBM Plex Mono'"></div>
+  <div id="mtt-value" style="font-size:16px;font-weight:600;font-family:'IBM Plex Mono';color:#3de88e"></div>
+  <div id="mtt-range" style="font-size:10px;color:#454e6a;margin-top:3px;font-family:'IBM Plex Mono'"></div>
 </div>
 
 <div class="tut-overlay" id="tutoverlay">
@@ -343,6 +329,34 @@ class CircuitTopology {
       });
     });
 
+    // FIX: Also check if a terminal lies on the INTERIOR of any wire segment.
+    // Without this, a component placed onto an existing wire (or a wire routed
+    // past an existing terminal without an endpoint exactly at that terminal)
+    // leaves the component topologically disconnected.
+    // For each terminal, scan all segments; if the terminal projects onto the
+    // segment and is within snapRadius, union the terminal with BOTH segment
+    // endpoints — effectively performing a virtual split.
+    terminalPoints.forEach(t => {
+      activeWires.forEach(w => {
+        for (let i = 0; i < w.pts.length - 1; i++) {
+          const ax = snap(w.pts[i].x),   ay = snap(w.pts[i].y);
+          const bx = snap(w.pts[i+1].x), by = snap(w.pts[i+1].y);
+          const dx = bx - ax, dy = by - ay;
+          const lenSq = dx*dx + dy*dy;
+          if (lenSq < 1) continue;
+          // Project terminal onto segment, clamp to [0,1]
+          const tParam = Math.max(0, Math.min(1, ((t.x-ax)*dx + (t.y-ay)*dy) / lenSq));
+          const closestX = ax + tParam*dx;
+          const closestY = ay + tParam*dy;
+          if (Math.hypot(t.x - closestX, t.y - closestY) < snapRadius) {
+            // Terminal is on this segment — join it to both endpoints
+            union(t.key, keyStr(ax, ay));
+            union(t.key, keyStr(bx, by));
+          }
+        }
+      });
+    });
+
     // Map raw coordinate hashes to sequential Node IDs
     const rootsMap = new Map();
     let nextNodeId = 1;
@@ -351,6 +365,7 @@ class CircuitTopology {
     components.forEach(c => {
       const def = DEFS.find(d => d.t === c.t);
       if (!def) return;
+      // Use termPos to get actual terminal positions (respects flip & rotation)
       const mappedIds = def.terms.map((_, ti) => {
         const pt = termPos(c, ti);
         const root = find(keyStr(pt.x, pt.y));
@@ -383,8 +398,14 @@ class MNASolver {
     components.forEach(c => {
       const ns = compNodesMap.get(c.id);
       if (!ns || ns.length < 2) return;
-      if (c.t === 'cell' || c.t === 'battery' || c.t === 'ac') {
+      if (c.t === 'cell' || c.t === 'battery') {
         constrainedBranches.push({ type: 'vsrc', comp: c, nodes: ns, value: +c.props.voltage });
+      } else if (c.t === 'ac') {
+        // AC source treated as DC RMS equivalent for steady-state analysis
+        // Note: Full phasor analysis requires complex matrix solver (not implemented)
+        const rmsValue = (+c.props.voltage) / Math.sqrt(2);
+        constrainedBranches.push({ type: 'vsrc_ac_rms', comp: c, nodes: ns, value: rmsValue });
+        logSim(`AC Source: ${c.props.voltage}V peak -> ${rmsValue.toFixed(2)}V RMS (DC equivalent)`);
       } else if (c.t === 'ammeter') {
         constrainedBranches.push({ type: 'ammeter', comp: c, nodes: ns, value: 0.0 }); // V_drop constraint = 0
       }
@@ -402,11 +423,15 @@ class MNASolver {
       }
     };
 
-    // Matrix stamping phase
+    // Matrix stamping phase - KCL conductance contributions
     components.forEach(c => {
       const ns = compNodesMap.get(c.id);
       if (!ns || ns.length < 2) return;
       const [n1, n2] = ns;
+      
+      // Skip ground components (they only define reference, no KCL contribution)
+      if (c.t === 'ground') return;
+      
       let g = 0, vForward = 0;
 
       switch (c.t) {
@@ -415,12 +440,20 @@ class MNASolver {
         case 'lamp': g = 1 / (+c.props.resistance || 60); break;
         case 'ldr': g = 1 / (+c.props.resistance || 1000); break;
         case 'thermistor': g = 1 / (+c.props.resistance || 1000); break;
-        case 'switch': case 'relay_switch': g = c.props.closed ? 1e5 : 1e-12; break;
+        case 'switch': case 'relay_switch':
+          // FIX: open switches are NOT stamped — they leave the branch completely
+          // open (no conductance path). Their nodes were already merged or left
+          // isolated by the topology pre-pass. Stamping 1e-12 caused a condition
+          // number of ~1e17 when 2+ open switches isolated intermediate nodes,
+          // producing garbage voltages via catastrophic cancellation in float64.
+          g = c.props.closed ? 1e5 : 0;
+          break;
         case 'voltmeter': g = 1e-9; break;
+        case 'cro': g = 1e-9; break; // CRO input impedance — purely passive, does not affect circuit
         case 'diode': g = 0.05; vForward = +c.props.vf || 0.7; break;
         case 'led': g = 0.1; vForward = +c.props.vf || 2.0; break;
         case 'relay_coil': g = 1 / (+c.props.resistance || 200); break;
-        case 'capacitor': g = 1e-12; break; 
+        case 'capacitor': g = 1e-12; break; // DC steady-state approximation
       }
 
       if (g > 0) applyConductance(n1, n2, g);
@@ -449,9 +482,37 @@ class MNASolver {
     for (let i = 0; i < matrixDim; i++) { A[groundNode-1][i] = 0; A[i][groundNode-1] = 0; }
     A[groundNode-1][groundNode-1] = 1; B[groundNode-1] = 0;
 
-    // Gauss-Jordan row operations engine
+    // FIX: Clamp floating nodes to 0V.
+    // Open switches (g=0) leave intermediate nodes with zero diagonal entries —
+    // those nodes have no conductance path to anything and would make the matrix
+    // singular. We detect them (diagonal < threshold) and pin them to 0V by
+    // inserting a self-loop row, exactly as we do for the ground node.
+    // This is physically correct: a node isolated by open switches carries no
+    // current and can be assigned any reference; 0V is the natural choice and
+    // avoids singular-matrix errors without affecting the solved branches.
+    for (let i = 0; i < totalNodes; i++) {
+      if (i === groundNode - 1) continue; // already handled
+      let diagVal = A[i][i];
+      // Also check if the row has any off-diagonal contribution
+      let rowNorm = 0;
+      for (let j = 0; j < matrixDim; j++) rowNorm += Math.abs(A[i][j]);
+      if (rowNorm < 1e-10) {
+        // Completely empty row — floating node. Pin to 0V.
+        A[i][i] = 1; B[i] = 0;
+        logSim(`Node ${i+1} is floating (isolated by open switch). Pinned to 0V.`);
+      }
+    }
+
+    // Gauss-Jordan row operations engine with improved singular matrix detection
     const solution = this.gaussEliminate(A, B, matrixDim);
-    if (!solution) throw new Error("Singular matrix profile detected. Isolate loops or open wires.");
+    if (!solution) {
+      // Check for floating subcircuits (no ground connection)
+      const hasGround = components.some(c => c.t === 'ground');
+      if (!hasGround) {
+        throw new Error("Singular matrix: Circuit lacks a ground reference. Add a ground component to define 0V reference.");
+      }
+      throw new Error("Singular matrix: Check for floating subcircuits, open wires, or conflicting voltage sources.");
+    }
 
     const nodeVoltages = new Map();
     for (let i = 0; i < totalNodes; i++) {
@@ -501,11 +562,21 @@ class PhysicsEngine {
     const { nodeVoltages, internalCurrents } = solverResult;
 
     components.forEach(c => {
+      // Skip ground - no voltage drop or current to compute
+      if (c.t === 'ground') {
+        c._simV = 0;
+        c._simI = 0;
+        c._simVal = 0;
+        return;
+      }
+      
       const nodes = compNodesMap.get(c.id);
       if (!nodes || nodes.length < 2) return;
       const v1 = nodeVoltages.get(nodes[0]) || 0;
       const v2 = nodeVoltages.get(nodes[1]) || 0;
-      const vd = v2 - v1;
+      // Calculate voltage drop as potential at terminal 0 minus potential at terminal 1
+      // This ensures consistent polarity regardless of flip state
+      const vd = v1 - v2;
       let I = 0;
 
       // Extract raw baseline values
@@ -526,11 +597,19 @@ class PhysicsEngine {
             I = c.props.closed ? vd * 1e5 : 0; break;
           case 'diode':
             I = Math.max(0, (vd - (+c.props.vf || 0.7)) * 0.05); break;
+          case 'capacitor':
+            I = vd * 1e-12; break; // DC leakage approximation
+          case 'voltmeter':
+            I = vd * 1e-9; break; // High impedance
+          case 'cro':
+            I = vd * 1e-9; break; // CRO input, passive
+          case 'relay_coil':
+            I = vd / (+c.props.resistance || 200); break;
         }
       }
 
       c._simV = vd;
-      c._simI = I;
+      c._simI = Math.abs(I);  // Current magnitude is always positive
       c._simVal = (c.t === 'ammeter') ? Math.abs(I) : Math.abs(vd);
     });
   }
@@ -542,14 +621,31 @@ class PhysicsEngine {
     const v0 = voltagesMap.get(ns[0]) || 0;
     const v1 = voltagesMap.get(ns[1]) || 0;
 
-    // BUG FIX: Electrons carry negative charge. They move from LOW potential to HIGH potential.
-    // If v1 > v0, conventional current flows terminal 0 -> 1. Electrons flow terminal 1 -> 0.
+    // Electrons flow from lower potential to higher potential in passive components
+    // For sources (battery/cell), electrons are pumped internally from positive to negative
     if (comp.t === 'battery' || comp.t === 'cell' || comp.t === 'ac') {
-      // Inside a chemical source cell, electrons pump against potential toward negative terminal
       return v0 <= v1 ? -1 : 1;
     } else {
-      // External components: Electrons flow toward higher positive electrical potential
+      // Passive components: electrons flow toward higher potential
       return v0 <= v1 ? 1 : -1;
+    }
+  }
+  
+  // Helper to get current direction for electron flow animation (returns +1 or -1)
+  static getCurrentDirectionForFlow(comp, voltagesMap, compNodesMap) {
+    // This determines the direction of conventional current flow for animation purposes
+    const ns = compNodesMap.get(comp.id);
+    if (!ns || ns.length < 2) return 1;
+    
+    const v0 = voltagesMap.get(ns[0]) || 0;
+    const v1 = voltagesMap.get(ns[1]) || 0;
+    
+    // Conventional current flows from higher to lower potential in passive components
+    // For sources, conventional current flows from lower to higher (inside the source)
+    if (comp.t === 'battery' || comp.t === 'cell' || comp.t === 'ac') {
+      return v0 >= v1 ? -1 : 1;
+    } else {
+      return v0 >= v1 ? 1 : -1;
     }
   }
 }
@@ -577,11 +673,48 @@ const DEFS = [
   {t:'ldr',lbl:'LDR',grp:'Sensors',col:'#ffb830',props:{resistance:1000,label:'LDR'},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'thermistor',lbl:'Thermistor',grp:'Sensors',col:'#ff4a6a',props:{resistance:1000,label:'NTC'},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'diode',lbl:'Diode',grp:'Semiconductors',col:'#b87aff',props:{vf:0.7,label:'D'},terms:[[-1,0],[1,0]],gw:2,gh:1},
-  {t:'ammeter',lbl:'Ammeter',grp:'Meters',col:'#ff4a6a',props:{range:'auto',label:'A'},terms:[[-1,0],[1,0]],gw:2,gh:2},
-  {t:'voltmeter',lbl:'Voltmeter',grp:'Meters',col:'#4a9eff',props:{range:'auto',label:'V'},terms:[[-1,0],[1,0]],gw:2,gh:2},
-  {t:'ground',lbl:'Ground',grp:'Reference',col:'#8890b0',props:{label:''},terms:[[0,-1]],gw:1,gh:1},
+  {t:'ammeter',lbl:'Ammeter',grp:'Meters',col:'#ff4a6a',props:{range:'1A',label:'A'},terms:[[-1,0],[1,0]],gw:2,gh:2},
+  {t:'voltmeter',lbl:'Voltmeter',grp:'Meters',col:'#4a9eff',props:{range:'20V',label:'V'},terms:[[-1,0],[1,0]],gw:2,gh:2},
+  {t:'cro',lbl:'CRO',grp:'Meters',col:'#30e8d8',props:{wave:'sine',timeDiv:1,voltDiv:5,label:'CRO'},terms:[[-1,3],[1,3]],gw:5,gh:7},
+  {t:'ground',lbl:'Ground',grp:'Reference',col:'#8890b0',props:{label:''},terms:[[0,0],[0,0]],gw:1,gh:1},
 ];
 const DMAP = {}; DEFS.forEach(d=>DMAP[d.t]=d);
+
+// ── Meter range definitions ────────────────────────────────────────────────
+// key: the value stored in comp.props.range
+// max: full-scale value in SI base units (A or V)
+// label: displayed on the range selector and on the tooltip arc
+const AMMETER_RANGES = [
+  { key:'100uA', max:100e-6,  label:'100 µA' },
+  { key:'1mA',   max:1e-3,    label:'1 mA'   },
+  { key:'10mA',  max:10e-3,   label:'10 mA'  },
+  { key:'100mA', max:100e-3,  label:'100 mA' },
+  { key:'300mA', max:300e-3,  label:'300 mA' },
+  { key:'500mA', max:500e-3,  label:'500 mA' },
+  { key:'1A',    max:1,       label:'1 A'    },
+  { key:'2A',    max:2,       label:'2 A'    },
+  { key:'3A',    max:3,       label:'3 A'    },
+  { key:'10A',   max:10,      label:'10 A'   },
+  { key:'20A',   max:20,      label:'20 A'   },
+];
+const VOLTMETER_RANGES = [
+  { key:'100mV', max:100e-3,  label:'100 mV' },
+  { key:'500mV', max:500e-3,  label:'500 mV' },
+  { key:'1V',    max:1,       label:'1 V'    },
+  { key:'2V',    max:2,       label:'2 V'    },
+  { key:'5V',    max:5,       label:'5 V'    },
+  { key:'10V',   max:10,      label:'10 V'   },
+  { key:'20V',   max:20,      label:'20 V'   },
+  { key:'50V',   max:50,      label:'50 V'   },
+  { key:'100V',  max:100,     label:'100 V'  },
+  { key:'250V',  max:250,     label:'250 V'  },
+  { key:'500V',  max:500,     label:'500 V'  },
+];
+
+function getMeterRange(comp){
+  const table = comp.t==='ammeter' ? AMMETER_RANGES : VOLTMETER_RANGES;
+  return table.find(r=>r.key===comp.props.range) || table[table.length>>1];
+}
 
 const S = {
   tool:'select',comps:[],wires:[],sel:new Set(),hover:null,
@@ -601,6 +734,18 @@ let _flashPts = [];
 let _toastTimer = null;
 let _lastCompNodes = null;
 let _nodeV = null;
+
+// ── CRO probe placement state ──────────────────────────────────────────────
+// When user clicks a CRO probe terminal, we enter probe-placement mode.
+// _croProbeMode: null | { compId, probeIdx } — which probe is being placed
+// Each CRO comp stores: comp._probeNode[0/1] = nodeId from solver, or null
+let _croProbeMode = null;  // { compId, probeIdx:0|1 }
+
+// ── Hover-eraser state ─────────────────────────────────────────────────────
+// In erase mode the cursor acts as a hover-eraser: whatever wire segment or
+// component is under the cursor is highlighted, and a click deletes just that
+// one item (not a radius sweep).
+let _eraseHover = null;  // { type:'wire'|'comp', idx, segIdx } — what's highlighted
 
 window.addEventListener('load',()=>{
   canvas=document.getElementById('mc');
@@ -633,6 +778,7 @@ function loop(ts){
 const C={wire:'#4a9eff',comp:'#c8d4f0',src:'#ffb830',meter_a:'#ff9a7a',meter_v:'#7ab8ff',green:'#3de88e',red:'#ff4a6a',purple:'#b87aff'};
 function compColor(t){
   if(t==='ammeter') return C.meter_a; if(t==='voltmeter') return C.meter_v;
+  if(t==='cro') return '#30e8d8';
   if(t==='cell'||t==='battery'||t==='ac'||t==='lamp'||t==='ldr') return C.src;
   if(t==='led'||t==='switch'||t==='relay_coil'||t==='relay_switch') return C.green;
   if(t==='heater'||t==='thermistor') return C.red; if(t==='diode') return C.purple;
@@ -734,18 +880,43 @@ function drawLamp(ctx,col,lit,intensity){
   const d=r*0.58; ctx.beginPath(); ctx.moveTo(-d,-d); ctx.lineTo(d,d); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( d,-d); ctx.lineTo(-d,d); ctx.stroke();
 }
+// Draw a single arrow: shaft from (x1,y1) to tip (x2,y2), filled triangular arrowhead
+function drawArrow(ctx, x1, y1, x2, y2, headLen, col){
+  const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy);
+  if(len<1) return;
+  const ux=dx/len, uy=dy/len;          // unit along shaft
+  const px=-uy, py=ux;                 // perpendicular
+  const hw = headLen*0.38;             // half-width of arrowhead base
+  // Shaft stops slightly before tip so arrowhead doesn't overdraw
+  const sx2 = x2 - ux*headLen*0.6, sy2 = y2 - uy*headLen*0.6;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(sx2,sy2); ctx.stroke();
+  // Filled triangle arrowhead
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - ux*headLen + px*hw, y2 - uy*headLen + py*hw);
+  ctx.lineTo(x2 - ux*headLen - px*hw, y2 - uy*headLen - py*hw);
+  ctx.closePath();
+  ctx.fillStyle = col; ctx.fill();
+}
+
 function drawLED(ctx,col,lit){
-  ss(ctx,col); 
-  // Draw diode base - cathode bar
+  ss(ctx,col);
+  // Cathode bar
   ctx.beginPath(); ctx.moveTo(GS*0.4,-GS*0.5); ctx.lineTo(GS*0.4,GS*0.5); ctx.stroke();
-  // Draw diode triangle (anode to cathode)
+  // Triangle (anode left → cathode tip right)
   ctx.beginPath(); ctx.moveTo(-GS*0.65,-GS*0.52); ctx.lineTo(-GS*0.65,GS*0.52); ctx.lineTo(GS*0.4,0); ctx.closePath(); ctx.stroke();
-  // Draw leads
+  // Leads
   ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.65,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS,0); ctx.lineTo( GS*0.4,0); ctx.stroke();
-  // Draw light emission arrows (pointing outward)
-  ctx.beginPath(); ctx.moveTo(GS*0.2,-GS*0.9); ctx.lineTo(GS*0.5,-GS*1.2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(GS*0.35,-GS*0.85); ctx.lineTo(GS*0.65,-GS*1.15); ctx.stroke();
+  // Two emission arrows: parallel, 4px apart, pointing top-right at 45°.
+  // Both start to the right of the cathode bar so they're clearly above the triangle body.
+  // Offset between the two arrows is perpendicular to the shaft direction (1,-1)/√2,
+  // so perp = (1,1)/√2. Arrows are separated by 4px in this direction.
+  const sep = 2.83; // 4/√2
+  // Arrow 1 (lower-right of the pair)
+  drawArrow(ctx, GS*0.50, -GS*0.28, GS*0.82, -GS*0.60, 5, col);
+  // Arrow 2 (upper-left of the pair, shifted by -sep in (1,1)/√2 direction)
+  drawArrow(ctx, GS*0.50-sep, -GS*0.28-sep, GS*0.82-sep, -GS*0.60-sep, 5, col);
   if(lit){
     ctx.save(); const grad=ctx.createRadialGradient(0,0,0,0,0,GS*1.5);
     grad.addColorStop(0,col+'55'); grad.addColorStop(1,'transparent');
@@ -760,17 +931,15 @@ function drawHeater(ctx,col){
   for(let i=1;i<4;i++){ const x=-w/2+i*w/4; ctx.beginPath(); ctx.moveTo(x,-h/2); ctx.lineTo(x,h/2); ctx.stroke(); }
 }
 function drawLDR(ctx,col){
-  // Draw resistor base
-  const w=GS*1.3, h=GS*0.5; 
+  const w=GS*1.3, h=GS*0.5;
   ss(ctx,col);
   ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.stroke();
-  // Draw two inward-pointing arrows (light incident)
-  ctx.beginPath(); ctx.moveTo(-GS*0.8,-GS*1.1); ctx.lineTo(-GS*0.4,-GS*0.75); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-GS*0.65,-GS*1.05); ctx.lineTo(-GS*0.55,-GS*0.95); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo( GS*0.3,-GS*1.15); ctx.lineTo( GS*0.7,-GS*0.8); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo( GS*0.45,-GS*1.1); ctx.lineTo( GS*0.55,-GS*1.0); ctx.stroke();
+  // Two incoming-light arrows pointing toward component (tip at lower-right, shaft from upper-left)
+  // Centred roughly over the left half of the box so they don't overlap the right lead
+  drawArrow(ctx, -GS*0.65, -GS*1.15, -GS*0.22, -GS*0.65, 5, col);  // left arrow
+  drawArrow(ctx, -GS*0.25, -GS*1.15,  GS*0.18, -GS*0.65, 5, col);  // right arrow
 }
 function drawThermistor(ctx,col){
   // Draw resistor base
@@ -779,10 +948,10 @@ function drawThermistor(ctx,col){
   ctx.beginPath(); ctx.moveTo(-GS*2,0); ctx.lineTo(-w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo( GS*2,0); ctx.lineTo( w/2,0); ctx.stroke();
   ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.stroke();
-  // Draw diagonal line with flat tail (temperature dependence symbol)
-  ctx.beginPath(); ctx.moveTo(-w/2-GS*0.25,h/2+GS*0.25); ctx.lineTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.stroke();
+  // Draw diagonal line with flat tail (temperature dependence symbol) - rotated 180 degrees from previous
+  ctx.beginPath(); ctx.moveTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.lineTo(-w/2-GS*0.25,h/2+GS*0.25); ctx.stroke();
   // Small horizontal segment at the end
-  ctx.beginPath(); ctx.moveTo(w/2+GS*0.25,-h/2-GS*0.25); ctx.lineTo(w/2+GS*0.55,-h/2-GS*0.25); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-w/2-GS*0.25,h/2+GS*0.25); ctx.lineTo(-w/2-GS*0.55,h/2+GS*0.25); ctx.stroke();
 }
 function drawDiode(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.moveTo(-GS,0); ctx.lineTo(-GS*0.6,0); ctx.stroke();
@@ -859,8 +1028,142 @@ function drawMeter(ctx,col,letter,value,range,over,under,dispMode,animT,compId){
   }
 }
 function drawGround(ctx,col){
-  ss(ctx,col); ctx.beginPath(); ctx.moveTo(0,-GS); ctx.lineTo(0,0); ctx.stroke();
+  ss(ctx,col); ctx.beginPath(); ctx.moveTo(0,-GS*0.8); ctx.lineTo(0,0); ctx.stroke();
   [[GS*0.7,0],[GS*0.5,GS*0.28],[GS*0.3,GS*0.56]].forEach(([hw,y])=>{ ctx.beginPath(); ctx.moveTo(-hw,y); ctx.lineTo(hw,y); ctx.stroke(); });
+  ctx.beginPath(); ctx.arc(0,0,2.5,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
+}
+
+function drawCRO(ctx, col, comp, animT, simOn, nodeVoltages, compNodesMap){
+  const W = GS*2.4, H = GS*2.2;
+  ss(ctx, col, 1.4);
+
+  // ── Outer casing ─────────────────────────────────
+  roundRect(ctx, -W, -H, W*2, H*2, 5); ctx.stroke();
+
+  // ── Screen ───────────────────────────────────────
+  const scrW = W*0.74, scrH = H*0.68;
+  ctx.strokeStyle = col; ctx.lineWidth = 1;
+  roundRect(ctx, -scrW, -scrH, scrW*2, scrH*2, 3); ctx.stroke();
+
+  // ── Graticule ────────────────────────────────────
+  ctx.strokeStyle = col+'33'; ctx.lineWidth = 0.5;
+  for(let gx=-1;gx<=1;gx++){
+    ctx.beginPath(); ctx.moveTo(gx*scrW*0.5,-scrH); ctx.lineTo(gx*scrW*0.5,scrH); ctx.stroke();
+  }
+  for(let gy=-1;gy<=1;gy++){
+    ctx.beginPath(); ctx.moveTo(-scrW,gy*scrH*0.5); ctx.lineTo(scrW,gy*scrH*0.5); ctx.stroke();
+  }
+
+  // ── Waveform trace ───────────────────────────────
+  const vd = comp._simV || 0;
+  const wave = comp.props.wave || 'sine';
+  const amp = simOn ? Math.min(scrH*0.82, Math.abs(vd)*(scrH*0.82)/10) : scrH*0.42;
+  const sign = vd < 0 ? -1 : 1;
+  ctx.strokeStyle = '#3de88e'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for(let i=0; i<=72; i++){
+    const t=i/72, x=-scrW+t*scrW*2;
+    const phase=t*Math.PI*4+animT*(wave==='sine'?1.8:2.4);
+    let y=0;
+    if(wave==='sine')        y=-sign*amp*Math.sin(phase);
+    else if(wave==='square') y=-sign*amp*(Math.sin(phase)>=0?1:-1);
+    else                     y=-sign*amp*(((t*2+animT*0.4)%1)*2-1);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  // ── Screen labels ────────────────────────────────
+  ctx.fillStyle='#30e8d855'; ctx.font='6px IBM Plex Mono';
+  ctx.textAlign='right'; ctx.textBaseline='bottom';
+  ctx.fillText((comp.props.wave||'SINE').toUpperCase(), scrW-3, scrH-2);
+
+  // ── CRO label ────────────────────────────────────
+  ctx.fillStyle=col+'99'; ctx.font='7px IBM Plex Mono';
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('CRO', 0, H+2);
+
+  // ── Probe cables ─────────────────────────────────
+  // Each probe has:
+  //   1. A socket hole on the bottom face of the casing
+  //   2. A thick coloured cable running down to the terminal point
+  //   3. A visible probe tip (pointed triangle) at the terminal end
+  //   4. A label
+  //
+  // DEFS terms [[-1,3],[1,3]] → electrical terminal at (±GS, 3*GS) in local space
+  // That is 3*GS=48px below centre, or (48 - H) = 12.8px below casing bottom.
+  // We draw the cable visually from the socket (at casing bottom) down to the tip.
+
+  const probeCol  = ['#ff9a7a', '#30e8d8'];
+  const probeLbl  = ['Y', '⏚'];
+  // Socket x positions — spaced out a bit on the bottom face
+  const sockXArr  = [-GS*1.1,  GS*1.1];
+  const sockY     = H;                   // bottom of casing
+  // Terminal y (matches DEFS)
+  const termYArr  = [GS*3, GS*3];
+  const termXArr  = [-GS,   GS];
+
+  const hasProbe  = comp._probeKeys && comp._probeKeys.length===2;
+
+  probeCol.forEach((pc, pi)=>{
+    const sx  = sockXArr[pi];
+    const tx  = termXArr[pi];
+    const ty  = termYArr[pi];          // electrical terminal
+    const attached = hasProbe && comp._probeKeys[pi] !== null;
+
+    // 1. Socket on casing bottom face — small filled rectangle slot
+    ctx.fillStyle = pc+'99';
+    ctx.fillRect(sx-3, sockY-2, 6, 5);
+    ctx.strokeStyle = pc; ctx.lineWidth = 1.2;
+    ctx.strokeRect(sx-3, sockY-2, 6, 5);
+
+    // 2. Thick cable from socket down to just above probe tip
+    //    Cable runs straight down then slightly angled to terminal x
+    const cableEndY = ty - 6;
+    ctx.strokeStyle = pc; ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(sx, sockY+3);
+    // Gentle bend: go straight down most of the way, then curve to terminal x
+    ctx.bezierCurveTo(
+      sx,  sockY + (cableEndY-sockY)*0.6,
+      tx,  sockY + (cableEndY-sockY)*0.7,
+      tx,  cableEndY
+    );
+    ctx.stroke();
+    ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+
+    // 3. Probe tip — a small solid diamond/triangle at the terminal point
+    //    The tip sits right at the electrical terminal (tx, ty)
+    const tipH = 7, tipW = 3.5;
+    ctx.fillStyle = attached ? pc : pc+'77';
+    ctx.strokeStyle = attached ? pc : pc+'55';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(tx,        ty + tipH);   // bottom point
+    ctx.lineTo(tx - tipW, ty - 2);      // upper-left
+    ctx.lineTo(tx,        ty - 5);      // top notch
+    ctx.lineTo(tx + tipW, ty - 2);      // upper-right
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // Small collar ring above the tip
+    ctx.strokeStyle = pc; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(tx, ty-4, 2.8, 0, Math.PI*2); ctx.stroke();
+
+    // 4. Label beside the socket
+    ctx.fillStyle = pc; ctx.font = 'bold 7px IBM Plex Mono';
+    ctx.textAlign  = pi===0 ? 'right' : 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(probeLbl[pi], sx+(pi===0?-6:6), sockY+1);
+
+    // Glow when attached
+    if(attached){
+      ctx.save();
+      ctx.fillStyle = pc+'30';
+      ctx.beginPath(); ctx.arc(tx, ty, 8, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  });
 }
 
 function drawComp(ctx,comp,def,sel,hov,animT){
@@ -884,6 +1187,7 @@ function drawComp(ctx,comp,def,sel,hov,animT){
     case 'ammeter': drawMeter(ctx,hov?'#fff':col,'A',comp._simVal||0,{max:10},false,false,S.dispMode,animT,comp.id); break;
     case 'voltmeter': drawMeter(ctx,hov?'#fff':col,'V',comp._simVal||0,{max:20},false,false,S.dispMode,animT,comp.id); break;
     case 'ground': drawGround(ctx,hov?'#fff':col); break;
+    case 'cro': drawCRO(ctx,hov?'#fff':col,comp,animT,S.simOn,_nodeV,_lastCompNodes); break;
   }
   if(sel){ ctx.strokeStyle='rgba(74,158,255,0.55)'; ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.strokeRect(-def.gw*GS*0.5-9,-def.gh*GS*0.5-9,def.gw*GS+18,def.gh*GS+18); }
   ctx.restore();
@@ -919,7 +1223,7 @@ function placePal(type){ const cx=(canvas.width/2-S.pan.x)/S.zoom; const cy=(can
 function render(){
   if(!ctx)return; ctx.fillStyle='#0d0f14'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.save(); ctx.translate(S.pan.x,S.pan.y); ctx.scale(S.zoom,S.zoom);
-  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes();
+  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawCROProbeMode();
   ctx.restore();
 }
 
@@ -994,8 +1298,8 @@ function drawElectronFlow(){
     const len = Math.hypot(dx, dy);
     if (len < 1) return;
 
-    // Call physics routing vector module
-    const direction = PhysicsEngine.getElectronFlowDirection(c, _nodeV, _lastCompNodes);
+    // Call physics routing vector module - use direction based on conventional current flow
+    const direction = PhysicsEngine.getCurrentDirectionForFlow(c, _nodeV, _lastCompNodes);
     
     // Compute motion parameters (electrons move faster with higher current intensity)
     const speed = Math.min(4.0, currentMag / 0.002) * 0.5;
@@ -1034,6 +1338,46 @@ function drawFlashes(){
   });
 }
 
+function drawEraseHover(){
+  if(S.tool !== 'erase' || !_eraseHover) return;
+  ctx.save();
+  if(_eraseHover.type === 'wire'){
+    const wire = S.wires[_eraseHover.idx]; if(!wire) return;
+    const si = _eraseHover.segIdx;
+    const a = wire.pts[si], b = wire.pts[si+1]; if(!a||!b) return;
+    // Highlight the segment in red
+    ctx.strokeStyle='rgba(255,74,106,0.9)'; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    // Red dot midpoint
+    ctx.fillStyle='#ff4a6a';
+    ctx.beginPath(); ctx.arc((a.x+b.x)/2,(a.y+b.y)/2,4,0,Math.PI*2); ctx.fill();
+  } else if(_eraseHover.type === 'comp'){
+    const c = S.comps[_eraseHover.idx]; if(!c) return;
+    const def=DMAP[c.t]; if(!def) return;
+    const hw=def.gw*GS*0.5+8, hh=def.gh*GS*0.5+8;
+    ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(c.rot||0);
+    ctx.strokeStyle='rgba(255,74,106,0.85)'; ctx.lineWidth=2; ctx.setLineDash([5,3]);
+    ctx.strokeRect(-hw,-hh,hw*2,hh*2);
+    ctx.fillStyle='rgba(255,74,106,0.12)';
+    ctx.fillRect(-hw,-hh,hw*2,hh*2);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawCROProbeMode(){
+  if(_croProbeMode === null) return;
+  // Draw a pulsing ring around the probe being placed
+  const croComp = S.comps.find(c=>c.id===_croProbeMode.compId); if(!croComp) return;
+  const tp = termPos(croComp, _croProbeMode.probeIdx);
+  const r = GS*0.8 + Math.sin(S.animT*6)*GS*0.2;
+  const col = _croProbeMode.probeIdx===0 ? '#ff9a7a' : '#30e8d8';
+  ctx.save();
+  ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.arc(tp.x,tp.y,r,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+}
+
 // ═══════════════════════════════════════════════════
 //  SIMULATION MANAGEMENT CONTROLLER
 // ═══════════════════════════════════════════════════
@@ -1051,6 +1395,13 @@ function runSimulation() {
   // ──────────────────────────────────────────────────────────────────────
   try {
     logSim("Validating loop topology setup...");
+    
+    // Check for at least one ground reference
+    const hasGround = S.comps.some(c => c.t === 'ground');
+    if (!hasGround) {
+      logSim("Warning: No ground reference found. Adding implicit ground at node 1.");
+    }
+    
     const topology = CircuitTopology.buildNodeGroups(S.comps, S.wires, GS);
     
     if (topology.nodeCount < 1) {
@@ -1137,9 +1488,17 @@ function flipSelected(){
 function clearCanvas(){ if(confirm('Clear workspace?')){ snapshot(); S.comps=[]; S.wires=[]; S.sel.clear(); stopSimulation(); updateSB(); render(); } }
 
 function bindEvents(){
-  canvas.addEventListener('mousedown',onMD); canvas.addEventListener('mousemove',onMM); canvas.addEventListener('mouseup',onMU);
-  canvas.addEventListener('wheel',onWheel,{passive:false}); canvas.addEventListener('contextmenu',onCtxMenu);
+  canvas.addEventListener('mousedown',onMD); 
+  canvas.addEventListener('mousemove',onMM); 
+  canvas.addEventListener('mouseup',onMU);
+  // Release pan even if mouse leaves canvas
+  window.addEventListener('mouseup', e=>{ if(S.panning){ S.panning=false; canvas.style.cursor=S.tool==='pan'?'grab':''; } });
+  canvas.addEventListener('wheel',onWheel,{passive:false}); 
+  canvas.addEventListener('contextmenu',onCtxMenu);
   canvas.addEventListener('dblclick',onDbl);
+  // Prevent middle-mouse scroll/autoscroll
+  canvas.addEventListener('mousedown', e=>{ if(e.button===1) e.preventDefault(); });
+  canvas.addEventListener('auxclick',  e=>{ e.preventDefault(); });
 }
 function sw(sx,sy){ const r=canvas.getBoundingClientRect(); return{x:(sx-r.left-S.pan.x)/S.zoom, y:(sy-r.top-S.pan.y)/S.zoom}; }
 
@@ -1170,58 +1529,125 @@ function wireAt(wx, wy){
 
 function onMD(e){
   const w=sw(e.clientX,e.clientY); hideCtx();
-  
-  // Eraser tool - delete wires near click point
-  if(S.tool === 'erase'){
-    snapshot();
-    const eraseRadius = GS * 1.5;
-    S.wires = S.wires.filter(wire => {
-      // Check if any point of the wire is within erase radius
-      for(const pt of wire.pts){
-        const dist = Math.hypot(pt.x - w.x, pt.y - w.y);
-        if(dist < eraseRadius) return false; // Delete this wire
-      }
-      return true; // Keep this wire
-    });
-    updateSB();
-    if(S.simOn) runSimulation();
-    render();
-    return;
+
+  // ── Middle-mouse pan (any tool) ────────────────────────────────────────
+  if(e.button === 1){
+    e.preventDefault();
+    S.panning=true; S._panStart={x:e.clientX,y:e.clientY}; S._panOrig={x:S.pan.x,y:S.pan.y};
+    canvas.style.cursor='grabbing'; return;
   }
-  
+
+  // ── Pan tool ───────────────────────────────────────────────────────────
+  if(S.tool==='pan'){
+    S.panning=true; S._panStart={x:e.clientX,y:e.clientY}; S._panOrig={x:S.pan.x,y:S.pan.y};
+    canvas.style.cursor='grabbing'; return;
+  }
+
+  // ── CRO probe placement mode ───────────────────────────────────────────
+  if(_croProbeMode !== null){
+    // User clicked somewhere in the circuit — find nearest wire node or terminal
+    // We find the wire point nearest to the click and record its grid position
+    const croComp = S.comps.find(c=>c.id===_croProbeMode.compId);
+    if(croComp){
+      // Find the closest point on any wire or component terminal
+      let bestDist = GS*3, bestKey = null;
+      // Check component terminals
+      S.comps.forEach(c=>{
+        if(c.id===croComp.id) return;
+        const def=DMAP[c.t]; if(!def) return;
+        def.terms.forEach((_,ti)=>{
+          const tp=termPos(c,ti);
+          const d=Math.hypot(w.x-tp.x,w.y-tp.y);
+          if(d<bestDist){ bestDist=d; bestKey=`${Math.round(tp.x/GS)*GS},${Math.round(tp.y/GS)*GS}`; }
+        });
+      });
+      // Check wire points
+      S.wires.forEach(wire=>{
+        wire.pts.forEach(pt=>{
+          const d=Math.hypot(w.x-pt.x,w.y-pt.y);
+          if(d<bestDist){ bestDist=d; bestKey=`${Math.round(pt.x/GS)*GS},${Math.round(pt.y/GS)*GS}`; }
+        });
+      });
+      if(bestKey){
+        if(!croComp._probeKeys) croComp._probeKeys=[null,null];
+        croComp._probeKeys[_croProbeMode.probeIdx] = bestKey;
+        logSim(`CRO probe ${_croProbeMode.probeIdx===0?'CH1':'GND'} placed at grid ${bestKey}`);
+      }
+    }
+    _croProbeMode = null;
+    canvas.style.cursor='';
+    if(S.simOn) runSimulation();
+    render(); return;
+  }
+
+  // ── Hover-eraser tool ──────────────────────────────────────────────────
+  if(S.tool === 'erase'){
+    if(_eraseHover){
+      snapshot();
+      if(_eraseHover.type === 'wire'){
+        const wire = S.wires[_eraseHover.idx];
+        if(wire){
+          if(wire.pts.length <= 2){
+            // Remove whole wire
+            S.wires.splice(_eraseHover.idx, 1);
+          } else {
+            // Remove just the segment between segIdx and segIdx+1
+            // Split into two sub-wires at the removed segment
+            const si = _eraseHover.segIdx;
+            const before = wire.pts.slice(0, si+1);
+            const after  = wire.pts.slice(si+1);
+            S.wires.splice(_eraseHover.idx, 1);
+            if(before.length >= 2) S.wires.push({pts:before, sel:false});
+            if(after.length  >= 2) S.wires.push({pts:after,  sel:false});
+          }
+        }
+      } else if(_eraseHover.type === 'comp'){
+        const c = S.comps[_eraseHover.idx];
+        if(c){ S.comps.splice(_eraseHover.idx,1); S.sel.delete(c.id); }
+      }
+      _eraseHover = null;
+      updateSB();
+      if(S.simOn) runSimulation();
+    }
+    render(); return;
+  }
+
   if(S.tool==='wire'){
-    // Try to snap to a terminal first, then fall back to grid
     let sx = snap(w.x), sy = snap(w.y);
     let snappedToTerminal = false;
-    
-    // Check if we're near any terminal
     for(const c of S.comps){
-      const def = DMAP[c.t];
-      if(!def || !def.terms) continue;
+      const def = DMAP[c.t]; if(!def || !def.terms) continue;
       for(let ti=0; ti<def.terms.length; ti++){
         const tp = termPos(c, ti);
-        const dist = Math.hypot(w.x - tp.x, w.y - tp.y);
-        if(dist < GS * 0.8){
-          sx = tp.x;
-          sy = tp.y;
-          snappedToTerminal = true;
-          break;
-        }
+        if(Math.hypot(w.x - tp.x, w.y - tp.y) < GS * 0.8){ sx=tp.x; sy=tp.y; snappedToTerminal=true; break; }
       }
       if(snappedToTerminal) break;
     }
-    
-    if(!S.wirePts.length){ 
-      S.wirePts = [{x:sx, y:sy}]; 
+    if(!S.wirePts.length){
+      S.wirePts = [{x:sx, y:sy}];
     } else {
       const lastPt = S.wirePts[S.wirePts.length - 1];
-      if(lastPt.x !== sx || lastPt.y !== sy) {
-        S.wirePts.push({x:sx, y:sy}); 
-      }
+      if(lastPt.x !== sx || lastPt.y !== sy) S.wirePts.push({x:sx, y:sy});
       if(S.wirePts.length >= 2) finishWire();
     }
     return;
   }
+
+  // ── Check for CRO probe terminal click ────────────────────────────────
+  for(const c of S.comps){
+    if(c.t !== 'cro') continue;
+    const def=DMAP['cro'];
+    def.terms.forEach((t,ti)=>{
+      const tp=termPos(c,ti);
+      if(Math.hypot(w.x-tp.x,w.y-tp.y)<GS*1.2){
+        // Enter probe placement mode
+        _croProbeMode={compId:c.id, probeIdx:ti};
+        canvas.style.cursor='crosshair';
+        render(); return;
+      }
+    });
+  }
+
   const c=compAt(w.x,w.y);
   if(c){ S.sel.clear(); S.sel.add(c.id); S.drag=true; S.dragStart={x:w.x,y:w.y}; S.dragOff.set(c.id,{ox:c.x-w.x,oy:c.y-w.y}); }
   else { S.sel.clear(); } updateProps(); render();
@@ -1229,7 +1655,55 @@ function onMD(e){
 function onMM(e){
   const w=sw(e.clientX,e.clientY);
   document.getElementById('sb-xy').textContent=`x:${Math.round(w.x/GS)} y:${Math.round(w.y/GS)}`;
-  
+
+  // ── Pan dragging ────────────────────────────────────────────────────────
+  if(S.panning){
+    S.pan.x = S._panOrig.x + (e.clientX - S._panStart.x);
+    S.pan.y = S._panOrig.y + (e.clientY - S._panStart.y);
+    canvas.style.cursor='grabbing';
+    render(); return;
+  }
+
+  // Pan tool idle cursor
+  if(S.tool==='pan'){ canvas.style.cursor='grab'; return; }
+
+  // CRO probe placement cursor
+  if(_croProbeMode !== null){
+    canvas.style.cursor='crosshair'; render(); return;
+  }
+
+  // Hover-eraser: find what's under cursor (segment-precise)
+  if(S.tool === 'erase'){
+    _eraseHover = null;
+    const hitR = GS * 1.2;
+    // Check components first
+    for(let i=S.comps.length-1;i>=0;i--){
+      const c=S.comps[i]; const def=DMAP[c.t]; if(!def) continue;
+      const hr=Math.max(def.gw,def.gh)*GS*0.7;
+      if(Math.hypot(w.x-c.x,w.y-c.y)<=hr){ _eraseHover={type:'comp',idx:i}; break; }
+    }
+    // Check wire segments (only if no comp hit)
+    if(!_eraseHover){
+      outer: for(let i=S.wires.length-1;i>=0;i--){
+        const wire=S.wires[i];
+        for(let si=0;si<wire.pts.length-1;si++){
+          const ax=wire.pts[si].x, ay=wire.pts[si].y;
+          const bx=wire.pts[si+1].x, by=wire.pts[si+1].y;
+          const dx=bx-ax, dy=by-ay, lenSq=dx*dx+dy*dy;
+          if(lenSq<1) continue;
+          const t=Math.max(0,Math.min(1,((w.x-ax)*dx+(w.y-ay)*dy)/lenSq));
+          const cx2=ax+t*dx, cy2=ay+t*dy;
+          if(Math.hypot(w.x-cx2,w.y-cy2)<hitR){
+            _eraseHover={type:'wire',idx:i,segIdx:si}; break outer;
+          }
+        }
+      }
+    }
+    canvas.style.cursor = _eraseHover ? 'not-allowed' : 'crosshair';
+    render(); return;
+  }
+  canvas.style.cursor='';
+
   // Check for meter hover and show tooltip
   const hoveredComp = compAt(w.x, w.y);
   if(hoveredComp && (hoveredComp.t === 'ammeter' || hoveredComp.t === 'voltmeter')) {
@@ -1237,40 +1711,29 @@ function onMM(e){
   } else {
     hideMeterTooltip();
   }
-  
+
   if(S.drag){ S.sel.forEach(id=>{ const c=S.comps.find(x=>x.id===id); const o=S.dragOff.get(id); if(c&&o){ c.x=snap(w.x+o.ox); c.y=snap(w.y+o.oy); } }); render(); }
   if(S.tool==='wire'){
-    // Try to snap to a terminal first, then fall back to grid
     let sx = snap(w.x), sy = snap(w.y);
     let snappedToTerminal = false;
-    
-    // Check if we're near any terminal
     for(const c of S.comps){
-      const def = DMAP[c.t];
-      if(!def || !def.terms) continue;
+      const def = DMAP[c.t]; if(!def || !def.terms) continue;
       for(let ti=0; ti<def.terms.length; ti++){
         const tp = termPos(c, ti);
-        const dist = Math.hypot(w.x - tp.x, w.y - tp.y);
-        if(dist < GS * 0.8){
-          sx = tp.x;
-          sy = tp.y;
-          snappedToTerminal = true;
-          break;
-        }
+        if(Math.hypot(w.x - tp.x, w.y - tp.y) < GS * 0.8){ sx=tp.x; sy=tp.y; snappedToTerminal=true; break; }
       }
       if(snappedToTerminal) break;
     }
-    
-    // Only update mouse position if it moved to a new snap location
-    if(!S._wMouse || S._wMouse.x !== sx || S._wMouse.y !== sy){
-      S._wMouse = {x:sx, y:sy};
-    }
+    if(!S._wMouse || S._wMouse.x !== sx || S._wMouse.y !== sy) S._wMouse = {x:sx, y:sy};
   }
 }
-function onMU(){ 
+function onMU(e){ 
+  if(S.panning){
+    S.panning=false;
+    canvas.style.cursor = S.tool==='pan' ? 'grab' : '';
+    return;
+  }
   S.drag=false; 
-  // Don't cancel wire drawing - let users click to add points
-  // Wire is only cancelled when switching tools or completing a connection
   if(S.simOn) runSimulation(); 
 }
 function onWheel(e){ e.preventDefault(); S.zoom=Math.max(0.3,Math.min(3,S.zoom*(e.deltaY>0?0.9:1.1))); render(); }
@@ -1294,7 +1757,12 @@ function onKey(e){
   if(e.key==='v' || e.key==='V') setTool('select', document.getElementById('tb-select'));
   if(e.key==='w' || e.key==='W') setTool('wire', document.getElementById('tb-wire'));
   if(e.key==='e' || e.key==='E') setTool('erase', document.getElementById('tb-erase'));
-  if(e.key==='Escape') setTool('select', document.getElementById('tb-select'));
+  if(e.key==='p' || e.key==='P') setTool('pan', document.getElementById('tb-pan'));
+  if(e.key==='Escape'){
+    if(_croProbeMode !== null){ _croProbeMode=null; canvas.style.cursor=''; render(); return; }
+    _eraseHover=null;
+    setTool('select', document.getElementById('tb-select'));
+  }
   
   // Undo/Redo with Ctrl+Z and Ctrl+Y
   if(e.ctrlKey && e.key === 'z'){ e.preventDefault(); undo(); return; }
@@ -1322,7 +1790,34 @@ function finishWire(){
   if(S.wirePts.length < 2) { S.wirePts = []; S._wMouse = null; render(); return; }
   snapshot(); S.wires.push({pts:[...S.wirePts],sel:false}); S.wirePts=[]; S._wMouse=null; updateSB(); if(S.simOn) runSimulation(); render();
 }
-function fitView(){ S.pan={x:canvas.width/4,y:canvas.height/3}; S.zoom=1.0; render(); }
+function recenterView(){
+  // If nothing on canvas, just reset to default
+  if(!S.comps.length && !S.wires.length){
+    S.pan={x:80,y:80}; S.zoom=1.0; render(); return;
+  }
+  // Compute bounding box of all components and wire points
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  S.comps.forEach(c=>{
+    const def=DMAP[c.t]; if(!def) return;
+    const hw=def.gw*GS*0.5+GS, hh=def.gh*GS*0.5+GS;
+    minX=Math.min(minX,c.x-hw); maxX=Math.max(maxX,c.x+hw);
+    minY=Math.min(minY,c.y-hh); maxY=Math.max(maxY,c.y+hh);
+  });
+  S.wires.forEach(w=>w.pts.forEach(p=>{
+    minX=Math.min(minX,p.x-GS); maxX=Math.max(maxX,p.x+GS);
+    minY=Math.min(minY,p.y-GS); maxY=Math.max(maxY,p.y+GS);
+  }));
+  const contentW = maxX-minX, contentH = maxY-minY;
+  const pad = 48;
+  const availW = canvas.width  - pad*2;
+  const availH = canvas.height - pad*2;
+  const zoom = Math.max(0.3, Math.min(2.5, Math.min(availW/contentW, availH/contentH)));
+  S.zoom = zoom;
+  S.pan.x = pad + (availW - contentW*zoom)/2 - minX*zoom;
+  S.pan.y = pad + (availH - contentH*zoom)/2 - minY*zoom;
+  render();
+}
+function fitView(){ recenterView(); }
 
 // ═══════════════════════════════════════════════════
 //  UX PANELS MANAGEMENT STORES
@@ -1332,16 +1827,38 @@ function updateProps(){
   const c=S.comps.find(x=>x.id===[...S.sel][0]); if(!c)return;
   let h=`<div style="font-size:11px;font-weight:600;margin-bottom:10px">${DMAP[c.t].lbl} #${c.id}</div>`;
   if(S.simOn){
-    h+=`<div class="pr"><div class="pl">Voltage drop</div><div class="pval">${(c._simV||0).toFixed(3)}V</div></div>`;
-    h+=`<div class="pr"><div class="pl">Current</div><div class="pval">${(c._simI||0).toExponential(3)}A</div></div>`;
+    h+=`<div class="pr"><div class="pl">Potential drop</div><div class="pval">${Math.abs(c._simV||0).toFixed(3)}V</div></div>`;
+    h+=`<div class="pr"><div class="pl">Current</div><div class="pval">${Math.abs(c._simI||0).toExponential(3)}A</div></div>`;
+  }
+  // CRO-specific props panel
+  if(c.t === 'cro'){
+    const wv = c.props.wave||'sine';
+    h+=`<div class="pr"><div class="pl">Waveform</div><div class="ptog">
+      <button class="ptb ${wv==='sine'?'on':''}" onclick="sp(${c.id},'wave','sine')">~</button>
+      <button class="ptb ${wv==='square'?'on':''}" onclick="sp(${c.id},'wave','square')">▢</button>
+      <button class="ptb ${wv==='sawtooth'?'on':''}" onclick="sp(${c.id},'wave','sawtooth')">/|</button>
+    </div></div>`;
+    const pk0 = (c._probeKeys&&c._probeKeys[0]) ? c._probeKeys[0] : '—';
+    const pk1 = (c._probeKeys&&c._probeKeys[1]) ? c._probeKeys[1] : '—';
+    h+=`<div class="pr"><div class="pl">CH1 probe</div><div style="font-family:var(--mono);font-size:10px;color:var(--accent)">${pk0}</div></div>`;
+    h+=`<div class="pr"><div class="pl">GND probe</div><div style="font-family:var(--mono);font-size:10px;color:var(--cyan)">${pk1}</div></div>`;
+    h+=`<div class="pr"><button class="ptb" style="font-size:10px;width:100%" onclick="croResetProbes(${c.id})">Reset Probes</button></div>`;
+    body.innerHTML=h; return;
   }
   Object.entries(c.props).forEach(([k,v])=>{
     if(k==='closed'){ h+=`<div class="pr"><div class="pl">State</div><button class="ptb ${v?'on':''}" onclick="sp(${c.id},'closed',${!v})">${v?'Closed':'Open'}</button></div>`; }
+    else if(k==='wave') { /* handled above for CRO */ }
+    else if(k==='range' && (c.t==='ammeter'||c.t==='voltmeter')){
+      const table = c.t==='ammeter' ? AMMETER_RANGES : VOLTMETER_RANGES;
+      const opts = table.map(r=>`<option value="${r.key}" ${r.key===v?'selected':''}>${r.label}</option>`).join('');
+      h+=`<div class="pr"><div class="pl">Range</div><select class="psel" onchange="sp(${c.id},'range',this.value)">${opts}</select></div>`;
+    }
     else { h+=`<div class="pr"><div class="pl">${k}</div><input class="pin" type="number" value="${v}" onchange="sp(${c.id},'${k}',+this.value)"></div>`; }
   });
   body.innerHTML=h;
 }
 function sp(id,k,v){ const c=S.comps.find(x=>x.id===id); if(c){ c.props[k]=v; if(S.simOn) runSimulation(); updateProps(); render(); } }
+function croResetProbes(id){ const c=S.comps.find(x=>x.id===id); if(c){ c._probeKeys=[null,null]; updateProps(); render(); } }
 
 function showCtx(x,y){ 
   const m=document.getElementById('ctxmenu'); 
@@ -1372,106 +1889,154 @@ function ctxDelWire(){
 function showMeterTooltip(comp, clientX, clientY){
   const tooltip = document.getElementById('meter-tooltip');
   if(!tooltip) return;
-  
-  const title = document.getElementById('mtt-title');
+
+  const title      = document.getElementById('mtt-title');
   const analogWrap = document.getElementById('mtt-analog-wrap');
-  const valueDiv = document.getElementById('mtt-value');
-  const rangeDiv = document.getElementById('mtt-range');
-  
-  // Set title
-  const isAmmeter = comp.t === 'ammeter';
+  const valueDiv   = document.getElementById('mtt-value');
+  const rangeDiv   = document.getElementById('mtt-range');
+
+  const isAmmeter  = comp.t === 'ammeter';
+  const col        = isAmmeter ? '#ff4a6a' : '#4a9eff';
+  const unit       = isAmmeter ? 'A' : 'V';
+
   title.textContent = isAmmeter ? 'AMMETER' : 'VOLTMETER';
-  title.style.color = isAmmeter ? '#ff4a6a' : '#4a9eff';
-  
-  // Get simulation value
-  const value = comp._simVal || 0;
-  const unit = isAmmeter ? 'A' : 'V';
-  
-  // Format value with appropriate prefix
+  title.style.color = col;
+
+  // ── Range resolution ────────────────────────────────
+  const rangeObj  = getMeterRange(comp);
+  const maxVal    = rangeObj.max;
+  const value     = comp._simVal || 0;
+  const absVal    = Math.abs(value);
+  const overRange = absVal > maxVal * 1.02;
+  const clampedNorm = Math.max(0, Math.min(1, absVal / maxVal));
+
+  // ── Formatted digital readout ────────────────────────
   let displayValue, displayUnit;
-  const absVal = Math.abs(value);
-  if (absVal >= 1e6) {
-    displayValue = (value / 1e6).toFixed(3);
-    displayUnit = 'M' + unit;
-  } else if (absVal >= 1e3) {
-    displayValue = (value / 1e3).toFixed(3);
-    displayUnit = 'k' + unit;
-  } else if (absVal >= 1) {
-    displayValue = value.toFixed(3);
-    displayUnit = unit;
-  } else if (absVal >= 1e-3) {
-    displayValue = (value * 1e3).toFixed(3);
-    displayUnit = 'm' + unit;
-  } else if (absVal >= 1e-6) {
-    displayValue = (value * 1e6).toFixed(3);
-    displayUnit = 'µ' + unit;
+  if(overRange){
+    displayValue = 'OL';
+    displayUnit  = '— over range';
   } else {
-    displayValue = (value * 1e9).toFixed(3);
-    displayUnit = 'n' + unit;
+    if      (absVal >= 1)    { displayValue = value.toFixed(4);              displayUnit = unit;   }
+    else if (absVal >= 1e-3) { displayValue = (value*1e3).toFixed(3);        displayUnit = 'm'+unit; }
+    else if (absVal >= 1e-6) { displayValue = (value*1e6).toFixed(2);        displayUnit = 'µ'+unit; }
+    else                     { displayValue = (value*1e9).toFixed(2);        displayUnit = 'n'+unit; }
   }
-  
-  // Show analog meter visualization
+
+  // ── Analog meter canvas ─────────────────────────────
   analogWrap.style.display = 'block';
   const analogCanvas = document.getElementById('mtt-analog');
   const actx = analogCanvas.getContext('2d');
-  actx.clearRect(0, 0, analogCanvas.width, analogCanvas.height);
-  
-  // Draw analog meter face
-  const cx = analogCanvas.width / 2;
-  const cy = analogCanvas.height - 15;
-  const radius = 50;
-  
-  // Background arc
+  const W = analogCanvas.width, H = analogCanvas.height;
+  actx.clearRect(0, 0, W, H);
+
+  const cx     = W / 2;
+  const cy     = H - 12;
+  const radius = 46;
+  const arcStart = Math.PI * 0.80;          // left end of arc (≈ 144°)
+  const arcEnd   = Math.PI * 2.20;          // right end       (≈ 396° = 36° past 360°)
+  const arcSpan  = arcEnd - arcStart;
+
+  // Background track
   actx.beginPath();
-  actx.arc(cx, cy, radius, Math.PI * 0.75, Math.PI * 2.25);
-  actx.strokeStyle = '#2a3047';
-  actx.lineWidth = 8;
+  actx.arc(cx, cy, radius, arcStart, arcEnd);
+  actx.strokeStyle = '#1e2438';
+  actx.lineWidth = 9;
+  actx.lineCap = 'butt';
   actx.stroke();
-  
-  // Value arc based on current value
-  const maxVal = isAmmeter ? 10 : 20;
-  const normalizedVal = Math.max(-1, Math.min(1, value / maxVal));
-  const angle = Math.PI * 0.75 + (normalizedVal + 1) * Math.PI * 0.75;
-  
+
+  // Coloured fill arc
+  const fillEnd = arcStart + clampedNorm * arcSpan;
   actx.beginPath();
-  actx.arc(cx, cy, radius, Math.PI * 0.75, angle);
-  actx.strokeStyle = isAmmeter ? '#ff4a6a' : '#4a9eff';
-  actx.lineWidth = 8;
+  actx.arc(cx, cy, radius, arcStart, fillEnd);
+  actx.strokeStyle = overRange ? '#ff4a6a' : col;
+  actx.lineWidth = 9;
   actx.lineCap = 'round';
   actx.stroke();
-  
-  // Needle
-  const needleAngle = Math.PI * 0.75 + (normalizedVal + 1) * Math.PI * 0.75;
-  const nx = cx + Math.cos(needleAngle) * (radius - 5);
-  const ny = cy + Math.sin(needleAngle) * (radius - 5);
+
+  // ── Scale ticks + labels ─────────────────────────────
+  // 5 major divisions (0, 25%, 50%, 75%, 100%)
+  const majorTicks = 5;
+  for(let i=0; i<=majorTicks; i++){
+    const frac  = i / majorTicks;
+    const angle = arcStart + frac * arcSpan;
+    const cos_a = Math.cos(angle), sin_a = Math.sin(angle);
+    const inner = radius - 12, outer = radius - 5;
+
+    actx.beginPath();
+    actx.moveTo(cx + cos_a*inner, cy + sin_a*inner);
+    actx.lineTo(cx + cos_a*outer, cy + sin_a*outer);
+    actx.strokeStyle = '#4a5470';
+    actx.lineWidth = 1.2;
+    actx.stroke();
+
+    // Tick label (only 0, 50%, 100%)
+    if(i===0 || i===majorTicks/2 || i===majorTicks){
+      const tickVal  = frac * maxVal;
+      let tickStr;
+      if     (maxVal >= 1)    tickStr = tickVal >= 1 ? tickVal.toFixed(tickVal>=10?0:1) : (tickVal*1000).toFixed(0)+'m';
+      else if(maxVal >= 1e-3) tickStr = (tickVal*1e3).toFixed(tickVal===0?0:1);
+      else                    tickStr = (tickVal*1e6).toFixed(tickVal===0?0:0);
+
+      const labelR = inner - 7;
+      actx.fillStyle = '#6878a0';
+      actx.font = '8px IBM Plex Mono';
+      actx.textAlign = 'center';
+      actx.textBaseline = 'middle';
+      actx.fillText(tickStr, cx + Math.cos(angle)*labelR, cy + Math.sin(angle)*labelR);
+    }
+  }
+
+  // 4 minor ticks between each major pair
+  for(let i=0; i<majorTicks; i++){
+    for(let j=1; j<=3; j++){
+      const frac  = (i + j/4) / majorTicks;
+      const angle = arcStart + frac * arcSpan;
+      const inner = radius - 9, outer = radius - 5;
+      actx.beginPath();
+      actx.moveTo(cx + Math.cos(angle)*inner, cy + Math.sin(angle)*inner);
+      actx.lineTo(cx + Math.cos(angle)*outer, cy + Math.sin(angle)*outer);
+      actx.strokeStyle = '#2e3650';
+      actx.lineWidth = 0.8;
+      actx.stroke();
+    }
+  }
+
+  // ── Needle ───────────────────────────────────────────
+  const needleAngle = arcStart + clampedNorm * arcSpan;
+  const nx = cx + Math.cos(needleAngle) * (radius - 6);
+  const ny = cy + Math.sin(needleAngle) * (radius - 6);
+  // Shadow
   actx.beginPath();
-  actx.moveTo(cx, cy);
-  actx.lineTo(nx, ny);
-  actx.strokeStyle = '#3de88e';
-  actx.lineWidth = 2;
-  actx.stroke();
-  
-  // Center dot
+  actx.moveTo(cx+1, cy+1); actx.lineTo(nx+1, ny+1);
+  actx.strokeStyle = 'rgba(0,0,0,0.4)'; actx.lineWidth = 2.5; actx.lineCap='round'; actx.stroke();
+  // Needle proper
   actx.beginPath();
-  actx.arc(cx, cy, 4, 0, Math.PI * 2);
-  actx.fillStyle = '#3de88e';
-  actx.fill();
-  
-  // Labels
+  actx.moveTo(cx, cy); actx.lineTo(nx, ny);
+  actx.strokeStyle = overRange ? '#ff4a6a' : '#f0f4ff';
+  actx.lineWidth = 2; actx.stroke();
+  // Pivot
+  actx.beginPath(); actx.arc(cx, cy, 4, 0, Math.PI*2);
+  actx.fillStyle = '#3de88e'; actx.fill();
+
+  // Unit label above arc centre
   actx.fillStyle = '#8890b0';
-  actx.font = '10px IBM Plex Sans';
-  actx.textAlign = 'center';
-  actx.fillText('-' + maxVal, cx - radius + 15, cy + 5);
-  actx.fillText('+' + maxVal, cx + radius - 15, cy + 5);
-  actx.fillText(unit, cx, cy - radius - 8);
-  
-  // Show digital value
-  valueDiv.textContent = displayValue + ' ' + displayUnit;
-  rangeDiv.textContent = `Range: ±${maxVal}${unit}`;
-  
-  // Position tooltip near cursor
-  tooltip.style.left = (clientX + 15) + 'px';
-  tooltip.style.top = (clientY + 15) + 'px';
+  actx.font = '9px IBM Plex Mono';
+  actx.textAlign = 'center'; actx.textBaseline = 'bottom';
+  actx.fillText(rangeObj.label, cx, cy - radius + 2);
+
+  // ── Digital readout and range label ─────────────────
+  valueDiv.style.color  = overRange ? '#ff4a6a' : '#3de88e';
+  valueDiv.textContent  = overRange ? 'OL' : (displayValue + ' ' + displayUnit);
+  rangeDiv.textContent  = `Range: ${rangeObj.label}` + (overRange ? '  ⚠ OVER' : '');
+  rangeDiv.style.color  = overRange ? '#ff4a6a' : '#454e6a';
+
+  // Position tooltip
+  const r = canvas.getBoundingClientRect();
+  let tx = clientX + 18, ty = clientY + 12;
+  if(tx + 160 > r.right)  tx = clientX - 175;
+  if(ty + 220 > r.bottom) ty = clientY - 225;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top  = ty + 'px';
   tooltip.style.display = 'block';
 }
 
@@ -1505,73 +2070,14 @@ function setTool(t,btn){
   S.tool=t; 
   document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active')); 
   if(btn) btn.classList.add('active');
-  // Clear wire state when switching tools
-  if(t !== 'wire'){
-    S.wirePts = [];
-    S._wMouse = null;
-  }
+  if(t !== 'wire'){ S.wirePts=[]; S._wMouse=null; }
+  if(t !== 'erase'){ _eraseHover=null; }
+  canvas.style.cursor = t==='pan' ? 'grab' : '';
+  document.getElementById('sb-tool').textContent = t.charAt(0).toUpperCase()+t.slice(1);
   render();
 }
 function setDispMode(m,btn){ S.dispMode=m; document.querySelectorAll('.mode-pill button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
-function setRightTab(n,btn){ 
-  document.querySelectorAll('.rp-tab').forEach(b=>b.classList.remove('active')); 
-  btn.classList.add('active'); 
-  if(n === 'layers') updateLayerList();
-}
-
-function updateLayerList(){
-  const list = document.getElementById('layer-list');
-  if(!list) return;
-  
-  let html = '';
-  // List components
-  S.comps.forEach((c, idx) => {
-    const def = DMAP[c.t];
-    const isSelected = S.sel.has(c.id);
-    const label = def ? def.lbl : c.t;
-    html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-size:10px;${isSelected?'background:rgba(74,158,255,.15);border:1px solid rgba(74,158,255,.3)':'background:var(--bg3);border:1px solid var(--border)'}" onclick="layerSelect(${c.id})">
-      <span style="width:8px;height:8px;border-radius:50%;background:${def?def.col:'#888'}"></span>
-      <span style="flex:1">${label} #${c.id}</span>
-      <span style="color:var(--text3);font-size:9px">${c.t}</span>
-    </div>`;
-  });
-  
-  // List wires
-  S.wires.forEach((w, idx) => {
-    html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-size:10px;background:var(--bg3);border:1px solid var(--border)" onclick="layerSelectWire(${idx})">
-      <span style="width:8px;height:8px;border-radius:50%;background:#4a9eff"></span>
-      <span style="flex:1">Wire #${idx+1}</span>
-      <span style="color:var(--text3);font-size:9px">${w.pts.length} pts</span>
-    </div>`;
-  });
-  
-  list.innerHTML = html || '<div style="color:var(--text3);font-size:10px;padding:8px">No elements</div>';
-}
-
-function layerSelect(id){
-  selectOnly(id);
-  updateLayerList();
-}
-
-function layerSelectWire(idx){
-  // For now, just select the first component to switch to select mode
-  if(S.comps.length > 0) selectOnly(S.comps[0].id);
-  updateLayerList();
-}
-
-function layerSelectAll(){
-  S.comps.forEach(c => S.sel.add(c.id));
-  updateProps();
-  updateLayerList();
-  render();
-}
-
-function layerDeselectAll(){
-  S.sel.clear();
-  updateProps();
-  updateLayerList();
-  render();
-}
+// (Layers panel removed)
 function toggleLogPanel(){ _logPanelOpen=!_logPanelOpen; document.getElementById('log-panel').style.display=_logPanelOpen?'flex':'none'; if(_logPanelOpen) refreshLogPanel(); }
 function logSim(...a){ const m=a.join(' '); SIM_LOG.push(m); if(_logPanelOpen) refreshLogPanel(); }
 function refreshLogPanel(){ document.getElementById('log-output').innerHTML=SIM_LOG.map(l=>`<div>${l}</div>`).join(''); }
@@ -1624,78 +2130,268 @@ function startTutorial(){ document.getElementById('tutoverlay').classList.add('s
 function tutNav(d){ document.getElementById('tutoverlay').classList.remove('show'); }
 
 // ═══════════════════════════════════════════════════
-//  EXAMPLE CURRICULUM LOADING FACTORY
+//  EXAMPLE CIRCUITS  (3 verified IGCSE-grade circuits)
 // ═══════════════════════════════════════════════════
+
+let _exampleIdx = 0; // cycles through 0,1,2
+
+const _EXAMPLE_NAMES = ['Staircase', 'Ladder', 'Lamp Bank'];
+
 function loadExample(){
+  _exampleIdx = (_exampleIdx) % 3;
+  [loadExample1, loadExample2, loadExample3][_exampleIdx]();
+  const btn = document.getElementById('tb-example');
+  if(btn) btn.textContent = `Example: ${_EXAMPLE_NAMES[_exampleIdx]}`;
+  _exampleIdx++;
+}
+
+// ── Helpers ──────────────────────────────────────
+function _clearForExample(){
   S.comps=[]; S.wires=[]; S.sel.clear(); S.nextId=1;
-  const x0=140, y0=100;
-  
-  // Battery at top
-  const bat=addComp('battery',x0+GS*8,y0); bat.props.voltage=9; bat.props.cells=6;
-  
-  // Main switch after battery
-  const mainSw=addComp('switch',x0+GS*14,y0); mainSw.props.closed=true;
-  
-  // Branch 1: Resistor + Ammeter
-  const r1=addComp('resistor',x0+GS*4,y0+GS*5); r1.props.resistance=100; r1.props.label='R1';
-  const a1=addComp('ammeter',x0+GS*4,y0+GS*9); a1.props.label='A1';
-  
-  // Branch 2: Resistor + Switch + Ammeter
-  const r2=addComp('resistor',x0+GS*10,y0+GS*5); r2.props.resistance=200; r2.props.label='R2';
-  const sw2=addComp('switch',x0+GS*10,y0+GS*9); sw2.props.closed=false; sw2.props.label='S2';
-  const a2=addComp('ammeter',x0+GS*10,y0+GS*13); a2.props.label='A2';
-  
-  // Branch 3: Voltmeter (parallel) + Resistor
-  const v1=addComp('voltmeter',x0+GS*16,y0+GS*5); v1.props.label='V1';
-  const r3=addComp('resistor',x0+GS*16,y0+GS*9); r3.props.resistance=150; r3.props.label='R3';
-  const sw3=addComp('switch',x0+GS*16,y0+GS*13); sw3.props.closed=true; sw3.props.label='S3';
-  
-  // Ground at bottom
-  const gnd=addComp('ground',x0+GS*10,y0+GS*17);
-  
-  const W=(pts)=>S.wires.push({pts,sel:false});
-  
-  // Top rail from battery positive to switch
-  W([{x:x0+GS*6,y:y0},{x:x0+GS*8,y:y0}]);
-  W([{x:x0+GS*10,y:y0},{x:x0+GS*14,y:y0}]);
-  W([{x:x0+GS*16,y:y0},{x:x0+GS*18,y:y0}]);
-  
-  // From switch to junction point
-  W([{x:x0+GS*18,y:y0},{x:x0+GS*18,y:y0+GS*4}]);
-  
-  // Horizontal distribution line
-  W([{x:x0+GS*4,y:y0+GS*4},{x:x0+GS*10,y:y0+GS*4}]);
-  W([{x:x0+GS*10,y:y0+GS*4},{x:x0+GS*16,y:y0+GS*4}]);
-  W([{x:x0+GS*16,y:y0+GS*4},{x:x0+GS*18,y:y0+GS*4}]);
-  
-  // Branch 1 connections
-  W([{x:x0+GS*4,y:y0+GS*4},{x:x0+GS*4,y:y0+GS*5}]);
-  W([{x:x0+GS*4,y:y0+GS*7},{x:x0+GS*4,y:y0+GS*9}]);
-  W([{x:x0+GS*4,y:y0+GS*11},{x:x0+GS*4,y:y0+GS*15}]);
-  
-  // Branch 2 connections
-  W([{x:x0+GS*10,y:y0+GS*4},{x:x0+GS*10,y:y0+GS*5}]);
-  W([{x:x0+GS*10,y:y0+GS*7},{x:x0+GS*10,y:y0+GS*9}]);
-  W([{x:x0+GS*10,y:y0+GS*11},{x:x0+GS*10,y:y0+GS*13}]);
-  W([{x:x0+GS*10,y:y0+GS*15},{x:x0+GS*10,y:y0+GS*15}]);
-  
-  // Branch 3 connections
-  W([{x:x0+GS*16,y:y0+GS*4},{x:x0+GS*16,y:y0+GS*5}]);
-  W([{x:x0+GS*16,y:y0+GS*7},{x:x0+GS*16,y:y0+GS*9}]);
-  W([{x:x0+GS*16,y:y0+GS*11},{x:x0+GS*16,y:y0+GS*13}]);
-  W([{x:x0+GS*16,y:y0+GS*15},{x:x0+GS*16,y:y0+GS*15}]);
-  
-  // Bottom return rail
-  W([{x:x0+GS*4,y:y0+GS*15},{x:x0+GS*10,y:y0+GS*15}]);
-  W([{x:x0+GS*10,y:y0+GS*15},{x:x0+GS*16,y:y0+GS*15}]);
-  W([{x:x0+GS*10,y:y0+GS*15},{x:x0+GS*10,y:y0+GS*17}]);
-  
-  // Battery negative to ground
-  W([{x:x0+GS*8,y:y0},{x:x0+GS*8,y:y0-4}]);
-  W([{x:x0+GS*8,y:y0-4},{x:x0+GS*10,y:y0-4}]);
-  W([{x:x0+GS*10,y:y0-4},{x:x0+GS*10,y:y0}]);
-  
+  S._undoStack=[]; S._redoStack=[];
+  stopSimulation();
+}
+function _g(gx,gy,ox,oy){ return {x:ox+gx*GS, y:oy+gy*GS}; }
+function _W(pts){ S.wires.push({pts,sel:false}); }
+function _seg(x1,y1,x2,y2,ox,oy){
+  _W([_g(x1,y1,ox,oy), _g(x2,y2,ox,oy)]);
+}
+function _ac(type,gx,gy,ox,oy,rot,props){
+  const c=addComp(type, ox+gx*GS, oy+gy*GS);
+  if(rot) c.rot=rot;
+  if(props) Object.assign(c.props,props);
+  return c;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CIRCUIT 1 — "Staircase"
+//  12 V battery · master switch S1 · ammeter on main line
+//  Three parallel branches — each with its own switch + resistor + lamp:
+//    Branch A: always live (S1 only), R1 = 100 Ω
+//    Branch B: S2 (open) + R2 = 220 Ω
+//    Branch C: S3 (closed) + R3 = 470 Ω
+//  Toggle S2 / S3 to observe current redistribution.
+// ─────────────────────────────────────────────────────────────────────────────
+function loadExample1(){
+  _clearForExample();
+  const ox=32, oy=48;   // pixel origin
+  const PI2=Math.PI/2;
+
+  // ── Sources & meters on main rail ─────────────
+  _ac('battery', 6,2,ox,oy, 0, {voltage:12,cells:6,intR:1,label:'12V'});
+  _ac('ammeter',11,2,ox,oy, 0, {label:'A'});
+  _ac('switch',  15,2,ox,oy, 0, {closed:true, label:'S1'});
+
+  // ── Branch A (x=20): R1 + L1  (no branch switch — always on when S1 closed) ─
+  _ac('resistor',20, 7,ox,oy, PI2, {resistance:100,  label:'R1'});
+  _ac('lamp',    20,14,ox,oy,  0,  {resistance:60,   label:'L1'});
+
+  // ── Branch B (x=26): S2 + R2 + L2 ────────────
+  _ac('switch',  26, 5,ox,oy, PI2, {closed:false,    label:'S2'});
+  _ac('resistor',26,10,ox,oy, PI2, {resistance:220,  label:'R2'});
+  _ac('lamp',    26,16,ox,oy,  0,  {resistance:60,   label:'L2'});
+
+  // ── Branch C (x=32): S3 + R3 + L3 ────────────
+  _ac('switch',  32, 5,ox,oy, PI2, {closed:true,     label:'S3'});
+  _ac('resistor',32,10,ox,oy, PI2, {resistance:470,  label:'R3'});
+  _ac('lamp',    32,16,ox,oy,  0,  {resistance:60,   label:'L3'});
+
+  // ── Ground ────────────────────────────────────
+  _ac('ground',  20,22,ox,oy);
+
+  // ── Wires ─────────────────────────────────────
+  // Main rail (top, y=2): battery+ → ammeter → S1 → branches
+  _seg( 8,2,10,2,ox,oy);   // bat+ to ammeter
+  _seg(12,2,14,2,ox,oy);   // ammeter to S1
+  _seg(16,2,20,2,ox,oy);   // S1 to branch A top
+  _seg(20,2,26,2,ox,oy);   // branch A to B top
+  _seg(26,2,32,2,ox,oy);   // branch B to C top
+
+  // Return rail (bottom, y=20): all branches → ground
+  _seg( 4,2, 4,20,ox,oy);  // bat− down
+  _seg( 4,20,20,20,ox,oy); // bottom left span
+  _seg(20,20,26,20,ox,oy);
+  _seg(26,20,32,20,ox,oy);
+  _seg(20,20,20,22,ox,oy); // down to ground
+
+  // Branch A internals (x=20): top→R1→L1→bot
+  _seg(20,2, 20,5, ox,oy);   // top rail to R1 top
+  _seg(20,9, 20,12,ox,oy);   // R1 bot to L1 top
+  _seg(20,16,20,20,ox,oy);   // L1 bot to bottom rail
+
+  // Branch B internals (x=26): top→S2→R2→L2→bot
+  _seg(26,2, 26,4, ox,oy);   // top rail to S2 top
+  _seg(26,6, 26,8, ox,oy);   // S2 bot to R2 top
+  _seg(26,12,26,14,ox,oy);   // R2 bot to L2 top
+  _seg(26,18,26,20,ox,oy);   // L2 bot to bottom rail
+
+  // Branch C internals (x=32): top→S3→R3→L3→bot
+  _seg(32,2, 32,4, ox,oy);
+  _seg(32,6, 32,8, ox,oy);
+  _seg(32,12,32,14,ox,oy);
+  _seg(32,18,32,20,ox,oy);
+
   updateSB(); fitView();
+  document.getElementById('simstatus').style.display='none';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CIRCUIT 2 — "Series-Parallel Ladder"
+//  9 V battery · R_series = 150 Ω in the main line (limits total current)
+//  Ammeter reads main-line current.
+//  Two parallel arms after R_series:
+//    Arm 1: S1 (closed) + Lamp L1
+//    Arm 2: S2 (closed) + R2 = 330 Ω + Lamp L2
+//  Voltmeter branch reads voltage across the parallel section.
+//  Observation: opening S1 shifts all current through Arm 2 — L1 goes dark,
+//  L2 brightens slightly because less voltage drops across R_series.
+// ─────────────────────────────────────────────────────────────────────────────
+function loadExample2(){
+  _clearForExample();
+  const ox=32, oy=48;
+  const PI2=Math.PI/2;
+
+  // ── Main rail components ───────────────────────
+  _ac('battery',  6, 2,ox,oy, 0, {voltage:9,cells:4,intR:1,label:'9V'});
+  _ac('ammeter', 11, 2,ox,oy, 0, {label:'A'});
+  _ac('resistor',16, 2,ox,oy, 0, {resistance:150,label:'Rs'});  // series resistor
+
+  // ── Voltmeter across parallel section ─────────
+  _ac('voltmeter',21,11,ox,oy, PI2, {label:'V'});
+
+  // ── Arm 1 (x=27): S1 + L1 ────────────────────
+  _ac('switch',  27, 6,ox,oy, PI2, {closed:true,  label:'S1'});
+  _ac('lamp',    27,14,ox,oy,  0,  {resistance:60, label:'L1'});
+
+  // ── Arm 2 (x=33): S2 + R2 + L2 ───────────────
+  _ac('switch',  33, 5,ox,oy, PI2, {closed:true,  label:'S2'});
+  _ac('resistor',33,10,ox,oy, PI2, {resistance:330,label:'R2'});
+  _ac('lamp',    33,16,ox,oy,  0,  {resistance:60, label:'L2'});
+
+  // ── Ground ────────────────────────────────────
+  _ac('ground',  21,22,ox,oy);
+
+  // ── Wires ─────────────────────────────────────
+  // Main top rail: bat+ → ammeter → Rs → parallel section
+  _seg( 8,2,10,2,ox,oy);    // bat+ to ammeter
+  _seg(12,2,14,2,ox,oy);    // ammeter to Rs
+  _seg(18,2,21,2,ox,oy);    // Rs to junction
+  _seg(21,2,27,2,ox,oy);    // junction to arm 1
+  _seg(27,2,33,2,ox,oy);    // arm 1 to arm 2
+
+  // Return rail: bat− → bottom rail → ground
+  _seg( 4,2, 4,20,ox,oy);   // bat− down
+  _seg( 4,20,21,20,ox,oy);  // bottom rail left
+  _seg(21,20,27,20,ox,oy);
+  _seg(27,20,33,20,ox,oy);
+  _seg(21,20,21,22,ox,oy);  // to ground
+
+  // Voltmeter branch (x=21): top junction → V → bottom junction
+  _seg(21,2, 21,10,ox,oy);  // top to V top terminal
+  _seg(21,12,21,20,ox,oy);  // V bot terminal to bottom rail
+
+  // Arm 1 (x=27): top→S1→L1→bot
+  _seg(27,2, 27,5, ox,oy);
+  _seg(27,7, 27,12,ox,oy);   // S1 bot to L1 top
+  _seg(27,16,27,20,ox,oy);   // L1 bot to bottom
+
+  // Arm 2 (x=33): top→S2→R2→L2→bot
+  _seg(33,2, 33,4, ox,oy);
+  _seg(33,6, 33,8, ox,oy);
+  _seg(33,12,33,14,ox,oy);
+  _seg(33,18,33,20,ox,oy);
+
+  updateSB(); fitView();
+  document.getElementById('simstatus').style.display='none';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CIRCUIT 3 — "Lamp Bank"
+//  6 V battery · master switch S_main · ammeter reads total current
+//  Four independently switched parallel branches:
+//    Branch 1: S1 (closed) + R1 =  100 Ω + L1
+//    Branch 2: S2 (open)   + R2 =  220 Ω + L2
+//    Branch 3: S3 (closed) + R3 =  330 Ω + L3
+//    Branch 4: S4 (open)   + R4 =  470 Ω + L4
+//  Each resistor protects its lamp and sets brightness.
+//  Toggling individual switches demonstrates independent parallel control.
+// ─────────────────────────────────────────────────────────────────────────────
+function loadExample3(){
+  _clearForExample();
+  const ox=32, oy=48;
+  const PI2=Math.PI/2;
+
+  // ── Main rail ─────────────────────────────────
+  _ac('battery',  6, 2,ox,oy, 0, {voltage:6,cells:4,intR:0.5,label:'6V'});
+  _ac('switch',  11, 2,ox,oy, 0, {closed:true, label:'S'});
+  _ac('ammeter', 15, 2,ox,oy, 0, {label:'A'});
+
+  // ── Branch 1 (x=20): S1 + R1 + L1 ────────────
+  _ac('switch',  20, 5,ox,oy, PI2, {closed:true,  label:'S1'});
+  _ac('resistor',20,10,ox,oy, PI2, {resistance:100, label:'R1'});
+  _ac('lamp',    20,16,ox,oy,  0,  {resistance:60,  label:'L1'});
+
+  // ── Branch 2 (x=26): S2 + R2 + L2 ────────────
+  _ac('switch',  26, 5,ox,oy, PI2, {closed:false, label:'S2'});
+  _ac('resistor',26,10,ox,oy, PI2, {resistance:220, label:'R2'});
+  _ac('lamp',    26,16,ox,oy,  0,  {resistance:60,  label:'L2'});
+
+  // ── Branch 3 (x=32): S3 + R3 + L3 ────────────
+  _ac('switch',  32, 5,ox,oy, PI2, {closed:true,  label:'S3'});
+  _ac('resistor',32,10,ox,oy, PI2, {resistance:330, label:'R3'});
+  _ac('lamp',    32,16,ox,oy,  0,  {resistance:60,  label:'L3'});
+
+  // ── Branch 4 (x=38): S4 + R4 + L4 ────────────
+  _ac('switch',  38, 5,ox,oy, PI2, {closed:false, label:'S4'});
+  _ac('resistor',38,10,ox,oy, PI2, {resistance:470, label:'R4'});
+  _ac('lamp',    38,16,ox,oy,  0,  {resistance:60,  label:'L4'});
+
+  // ── Ground ────────────────────────────────────
+  _ac('ground',  20,22,ox,oy);
+
+  // ── Wires ─────────────────────────────────────
+  // Main top rail
+  _seg( 8,2,10,2,ox,oy);    // bat+ to S_main
+  _seg(12,2,14,2,ox,oy);    // S_main to ammeter
+  _seg(16,2,20,2,ox,oy);    // ammeter to branch 1
+  _seg(20,2,26,2,ox,oy);
+  _seg(26,2,32,2,ox,oy);
+  _seg(32,2,38,2,ox,oy);
+
+  // Return rail (bottom y=20)
+  _seg( 4,2, 4,20,ox,oy);   // bat− down
+  _seg( 4,20,20,20,ox,oy);
+  _seg(20,20,26,20,ox,oy);
+  _seg(26,20,32,20,ox,oy);
+  _seg(32,20,38,20,ox,oy);
+  _seg(20,20,20,22,ox,oy);  // to ground
+
+  // Branch 1 internals
+  _seg(20,2, 20,4, ox,oy);
+  _seg(20,6, 20,8, ox,oy);
+  _seg(20,12,20,14,ox,oy);
+  _seg(20,18,20,20,ox,oy);
+
+  // Branch 2 internals
+  _seg(26,2, 26,4, ox,oy);
+  _seg(26,6, 26,8, ox,oy);
+  _seg(26,12,26,14,ox,oy);
+  _seg(26,18,26,20,ox,oy);
+
+  // Branch 3 internals
+  _seg(32,2, 32,4, ox,oy);
+  _seg(32,6, 32,8, ox,oy);
+  _seg(32,12,32,14,ox,oy);
+  _seg(32,18,32,20,ox,oy);
+
+  // Branch 4 internals
+  _seg(38,2, 38,4, ox,oy);
+  _seg(38,6, 38,8, ox,oy);
+  _seg(38,12,38,14,ox,oy);
+  _seg(38,18,38,20,ox,oy);
+
+  updateSB(); fitView();
+  document.getElementById('simstatus').style.display='none';
 }
 </script>
 </body>
