@@ -2112,9 +2112,9 @@ function drawComps(){
   S.comps.forEach(c=>{
     const def=DMAP[c.t]; if(!def)return;
     ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(c.rot||0);
-    // Apply flip transformation if component is flipped
     if(c._flip){ ctx.scale(-1, 1); }
-    drawComp(ctx,c,def,S.sel.has(c.id),S.hover===c.id,S.animT); ctx.restore();
+    drawComp(ctx,c,def,S.sel.has(c.id),S.hover===c.id,S.animT);
+    ctx.restore();
   });
 }
 
@@ -2672,7 +2672,14 @@ function onMD(e){
     }
     // Fall through — still select the component normally
   }
-  if(c){ S.sel.clear(); S.sel.add(c.id); S.drag=true; S.dragStart={x:w.x,y:w.y}; S.dragOff.set(c.id,{ox:c.x-w.x,oy:c.y-w.y}); }
+  if(c){
+    if(c._locked){
+      // Locked — select only, no drag
+      S.sel.clear(); S.sel.add(c.id);
+      updateProps(); render(); return;
+    }
+    S.sel.clear(); S.sel.add(c.id); S.drag=true; S.dragStart={x:w.x,y:w.y}; S.dragOff.set(c.id,{ox:c.x-w.x,oy:c.y-w.y});
+  }
   else { S.sel.clear(); } updateProps(); render();
 }
 function onMM(e){
@@ -2817,7 +2824,7 @@ function onMM(e){
     hideMeterTooltip();
   }
 
-  if(S.drag){ S.sel.forEach(id=>{ const c=S.comps.find(x=>x.id===id); const o=S.dragOff.get(id); if(c&&o){ c.x=snap(w.x+o.ox); c.y=snap(w.y+o.oy); } }); render(); }
+  if(S.drag){ S.sel.forEach(id=>{ const c=S.comps.find(x=>x.id===id); const o=S.dragOff.get(id); if(c&&o&&!c._locked){ c.x=snap(w.x+o.ox); c.y=snap(w.y+o.oy); } }); render(); }
   if(S.tool==='wire'){
     let sx = snap(w.x), sy = snap(w.y);
     let snappedToTerminal = false;
@@ -3120,7 +3127,7 @@ function onKey(e){
   if(e.key==='i'||e.key==='I') setTool('inspect', document.getElementById('tb-inspect'));
   if(e.key==='p'||e.key==='P') setTool('pan',     document.getElementById('tb-pan'));
 
-  // Arrow nudge — moves ALL selected, shift = 4× grid
+  // Arrow nudge — moves ALL selected, shift = 4× grid; locked components are skipped
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
     e.preventDefault();
     if(S.sel.size){
@@ -3128,6 +3135,7 @@ function onKey(e){
       const step = e.shiftKey ? 4 : 1;
       S.sel.forEach(id=>{
         const c = S.comps.find(x=>x.id===id); if(!c) return;
+        if(c._locked) return;   // honour lock
         if(e.key==='ArrowUp')    c.y -= step*GS;
         if(e.key==='ArrowDown')  c.y += step*GS;
         if(e.key==='ArrowLeft')  c.x -= step*GS;
@@ -3179,7 +3187,19 @@ function fitView(){ recenterView(); }
 function updateProps(){
   const body=document.getElementById('propbody'); if(!S.sel.size){ body.innerHTML='<div style="color:var(--text3)">Select a component.</div>'; return; }
   const c=S.comps.find(x=>x.id===[...S.sel][0]); if(!c)return;
-  let h=`<div style="font-size:11px;font-weight:600;margin-bottom:10px">${DMAP[c.t].lbl} #${c.id}</div>`;
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <span style="font-size:11px;font-weight:600">${DMAP[c.t].lbl} #${c.id}</span>
+    <button onclick="toggleCompLock(${c.id},this)" title="${c._locked?'Unlock position':'Lock position'}"
+      style="background:${c._locked?'rgba(74,158,255,.15)':'transparent'};
+      border:1px solid ${c._locked?'var(--accent)':'var(--border)'};
+      border-radius:5px;cursor:pointer;font-size:13px;padding:2px 7px;
+      color:${c._locked?'var(--accent)':'var(--text3)'};transition:all .14s;line-height:1.4"
+    >${c._locked?'🔒':'🔓'}</button>
+  </div>`;
+  if(c._locked){
+    h+=`<div class="pr" style="font-size:10px;color:var(--accent);background:rgba(74,158,255,.07);border:1px solid rgba(74,158,255,.2);border-radius:5px;padding:5px 8px;margin-bottom:8px">
+      Position locked — component cannot be moved.</div>`;
+  }
   if(S.simOn){
     h+=`<div class="pr"><div class="pl">Potential drop</div><div class="pval">${Math.abs(c._simV||0).toFixed(3)}V</div></div>`;
     h+=`<div class="pr"><div class="pl">Current</div><div class="pval">${Math.abs(c._simI||0).toExponential(3)}A</div></div>`;
@@ -3443,6 +3463,12 @@ function replaceFuse(id){
   updateProps(); render();
 }
 
+function toggleCompLock(id, btn){
+  const c = S.comps.find(x=>x.id===id); if(!c) return;
+  c._locked = !c._locked;
+  updateProps(); render();
+}
+
 // Render the meter face into an arbitrary canvas element (used by props panel)
 function renderMeterFaceOnCanvas(comp, canvasEl){
   if(!canvasEl) return;
@@ -3695,42 +3721,70 @@ function hideMeterTooltip(){
 const _modalInteract = { mode:null, id:null, ox:0, oy:0, startScale:1, startMX:0, startMY:0 };
 
 (function initModalWindowHandlers(){
-  window.addEventListener('mousemove', ev=>{
+  // ── Shared move logic (used by both mouse and touch) ────────────────
+  function onMove(clientX, clientY){
     const s = _modalInteract;
     if(!s.mode) return;
     const state = _pinnedMeters.get(s.id);
     if(!state) return;
     const el = state.el;
-
     if(s.mode === 'drag'){
-      el.style.left = (ev.clientX - s.ox) + 'px';
-      el.style.top  = (ev.clientY - s.oy) + 'px';
-
+      el.style.left = (clientX - s.ox) + 'px';
+      el.style.top  = (clientY - s.oy) + 'px';
     } else if(s.mode === 'resize'){
-      // Distance from drag-start drives scale — move right/down = bigger
-      const dx = ev.clientX - s.startMX;
-      const dy = ev.clientY - s.startMY;
-      const delta = (dx + dy) / 180;                        // pixels → scale units
+      const dx = clientX - s.startMX;
+      const dy = clientY - s.startMY;
+      const delta = (dx + dy) / 180;
       const newScale = Math.max(0.55, Math.min(2.5, s.startScale + delta));
       state.scale = newScale;
       el.style.transform = `scale(${newScale})`;
       el.style.transformOrigin = 'top left';
     }
-  });
-
-  window.addEventListener('mouseup', ()=>{
+  }
+  function onEnd(){
     if(!_modalInteract.mode) return;
     const state = _pinnedMeters.get(_modalInteract.id);
     if(state){
-      if(_modalInteract.mode === 'drag'){
-        const h = state.el.querySelector('.pm-drag-handle');
-        if(h) h.style.cursor = 'grab';
-      }
+      const h = state.el.querySelector('.pm-drag-handle');
+      if(h) h.style.cursor = 'grab';
     }
     _modalInteract.mode = null;
     _modalInteract.id   = null;
-  });
+  }
+
+  // ── Mouse ────────────────────────────────────────────────────────────
+  window.addEventListener('mousemove', ev=> onMove(ev.clientX, ev.clientY));
+  window.addEventListener('mouseup', onEnd);
+
+  // ── Touch (iPad / mobile) ────────────────────────────────────────────
+  // Use window-level touch handlers so drag works even if finger slides off the handle
+  window.addEventListener('touchmove', ev=>{
+    if(!_modalInteract.mode) return;
+    ev.preventDefault();
+    const t = ev.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: false });
+  window.addEventListener('touchend',  onEnd, { passive: true });
+  window.addEventListener('touchcancel', onEnd, { passive: true });
 })();
+
+function _startModalDrag(compId, clientX, clientY){
+  const state = _pinnedMeters.get(compId);
+  if(!state) return;
+  _modalInteract.mode = 'drag';
+  _modalInteract.id   = compId;
+  _modalInteract.ox   = clientX - state.el.offsetLeft;
+  _modalInteract.oy   = clientY - state.el.offsetTop;
+}
+function _startModalResize(compId, clientX, clientY){
+  const state = _pinnedMeters.get(compId);
+  if(!state) return;
+  _modalInteract.mode       = 'resize';
+  _modalInteract.id         = compId;
+  _modalInteract.startMX    = clientX;
+  _modalInteract.startMY    = clientY;
+  _modalInteract.startScale = state.scale;
+}
 
 function buildMeterModal(comp, x, y){
   const isAmmeter = comp.t === 'ammeter';
@@ -3758,10 +3812,16 @@ function buildMeterModal(comp, x, y){
           color:${accentCol};font-family:'IBM Plex Mono';white-space:nowrap;overflow:hidden;
           text-overflow:ellipsis;pointer-events:none"></div>
       </div>
-      <button class="pm-close" style="background:none;border:none;color:#3a4460;font-size:15px;
-        cursor:pointer;padding:0;line-height:1;flex-shrink:0;transition:color .15s"
-        onmouseover="this.style.color='#ff4a6a'" onmouseout="this.style.color='#3a4460'"
-        onclick="removePinnedMeter(${comp.id})">×</button>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="pm-lock-btn" title="Lock position"
+          style="background:none;border:none;font-size:13px;cursor:pointer;
+          padding:0 2px;line-height:1;opacity:.45;transition:opacity .15s;color:${accentCol}"
+          onclick="toggleModalLock(${comp.id},this)">🔓</button>
+        <button class="pm-close" style="background:none;border:none;color:#3a4460;font-size:15px;
+          cursor:pointer;padding:0;line-height:1;flex-shrink:0;transition:color .15s"
+          onmouseover="this.style.color='#ff4a6a'" onmouseout="this.style.color='#3a4460'"
+          onclick="removePinnedMeter(${comp.id})">×</button>
+      </div>
     </div>
 
     <div style="padding:6px 12px 8px">
@@ -3777,7 +3837,7 @@ function buildMeterModal(comp, x, y){
 
     <div class="pm-resize-handle" title="Drag to resize" style="
       position:absolute; bottom:0; right:0;
-      width:16px; height:16px; cursor:nwse-resize;
+      width:20px; height:20px; cursor:nwse-resize;
       display:flex; align-items:flex-end; justify-content:flex-end;
       padding:3px; border-radius:0 0 9px 0; opacity:.45; transition:opacity .15s"
       onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.45'">
@@ -3788,33 +3848,58 @@ function buildMeterModal(comp, x, y){
       </svg>
     </div>`;
 
-  // ── Drag via handle ───────────────────────────────────
   const handle = el.querySelector('.pm-drag-handle');
+  const resizeHandle = el.querySelector('.pm-resize-handle');
+
+  // ── Mouse drag ────────────────────────────────────────────────────────
   handle.addEventListener('mousedown', ev=>{
     if(ev.button !== 0) return;
-    _modalInteract.mode = 'drag';
-    _modalInteract.id   = comp.id;
-    _modalInteract.ox   = ev.clientX - el.offsetLeft;
-    _modalInteract.oy   = ev.clientY - el.offsetTop;
+    const state = _pinnedMeters.get(comp.id);
+    if(state && state.locked) return;
+    _startModalDrag(comp.id, ev.clientX, ev.clientY);
     handle.style.cursor = 'grabbing';
     ev.preventDefault(); ev.stopPropagation();
   });
 
-  // ── Resize via corner handle ──────────────────────────
-  const resizeHandle = el.querySelector('.pm-resize-handle');
+  // ── Mouse resize ──────────────────────────────────────────────────────
   resizeHandle.addEventListener('mousedown', ev=>{
     if(ev.button !== 0) return;
-    const state = _pinnedMeters.get(comp.id);
-    _modalInteract.mode       = 'resize';
-    _modalInteract.id         = comp.id;
-    _modalInteract.startMX    = ev.clientX;
-    _modalInteract.startMY    = ev.clientY;
-    _modalInteract.startScale = state ? state.scale : 1;
+    _startModalResize(comp.id, ev.clientX, ev.clientY);
     ev.preventDefault(); ev.stopPropagation();
   });
 
+  // ── Touch drag (whole header — larger target for iPad) ────────────────
+  // On iPad the grab cursor hint is invisible, so the whole header is the drag zone
+  handle.addEventListener('touchstart', ev=>{
+    const state = _pinnedMeters.get(comp.id);
+    if(state && state.locked) return;
+    if(ev.touches.length !== 1) return;
+    const t = ev.touches[0];
+    _startModalDrag(comp.id, t.clientX, t.clientY);
+    handle.style.cursor = 'grabbing';
+    ev.preventDefault(); ev.stopPropagation();
+  }, { passive: false });
+
+  // ── Touch resize (bottom-right corner) ───────────────────────────────
+  resizeHandle.addEventListener('touchstart', ev=>{
+    if(ev.touches.length !== 1) return;
+    const t = ev.touches[0];
+    _startModalResize(comp.id, t.clientX, t.clientY);
+    ev.preventDefault(); ev.stopPropagation();
+  }, { passive: false });
+
   document.body.appendChild(el);
   return el;
+}
+
+function toggleModalLock(compId, btn){
+  const state = _pinnedMeters.get(compId);
+  if(!state) return;
+  state.locked = !state.locked;
+  btn.textContent = state.locked ? '🔒' : '🔓';
+  btn.style.opacity = state.locked ? '1' : '.45';
+  const handle = state.el.querySelector('.pm-drag-handle');
+  if(handle) handle.style.cursor = state.locked ? 'default' : 'grab';
 }
 
 function pinMeter(comp, clientX, clientY){
