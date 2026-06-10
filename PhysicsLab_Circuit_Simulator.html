@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Circuit Simulator — PhysicsLab Pro</title>
+<title>Circuit Lab Pro — PhysicsLab</title>
+<!-- Circuit tree favicon (inline SVG) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230d0f14' rx='6'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='0' y2='0'%3E%3Cstop offset='0' stop-color='%23ffb830'/%3E%3Cstop offset='1' stop-color='%2330e8d8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg stroke='url(%23g)' stroke-width='1.2' fill='none' stroke-linecap='round'%3E%3Cline x1='16' y1='30' x2='16' y2='18'/%3E%3Cline x1='16' y1='22' x2='10' y2='22'/%3E%3Cline x1='16' y1='22' x2='22' y2='22'/%3E%3Cline x1='10' y1='22' x2='10' y2='16'/%3E%3Cline x1='22' y1='22' x2='22' y2='16'/%3E%3Cline x1='16' y1='18' x2='16' y2='8'/%3E%3Cline x1='16' y1='12' x2='8' y2='8'/%3E%3Cline x1='16' y1='12' x2='24' y2='8'/%3E%3Cline x1='16' y1='8' x2='12' y2='4'/%3E%3Cline x1='16' y1='8' x2='20' y2='4'/%3E%3Ccircle cx='12' cy='4' r='1.2' fill='url(%23g)'/%3E%3Ccircle cx='20' cy='4' r='1.2' fill='url(%23g)'/%3E%3Ccircle cx='8' cy='8' r='1.2' fill='url(%23g)'/%3E%3Ccircle cx='24' cy='8' r='1.2' fill='url(%23g)'/%3E%3Ccircle cx='10' cy='16' r='1.2' fill='url(%23g)'/%3E%3Ccircle cx='22' cy='16' r='1.2' fill='url(%23g)'/%3E%3Ccircle cx='16' cy='30' r='1.5' fill='url(%23g)'/%3E%3C/g%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -14,6 +16,18 @@
   --green:#3de88e;--amber:#ffb830;--red:#ff4a6a;--purple:#b87aff;--cyan:#30e8d8;
   --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
   --gs:16px;
+  /* UI scale: 1.0 = laptop default, 1.4 = tablet, 1.7 = large touch */
+  --us:1;
+  --tb-fs:calc(11px * var(--us));
+  --tb-pad:calc(4px * var(--us)) calc(7px * var(--us));
+  --tb-icon-pad:calc(5px * var(--us)) calc(8px * var(--us));
+  --tb-icon-fs:calc(14px * var(--us));
+  --tb-h:calc(44px * var(--us));
+  --pal-w:calc(180px * var(--us));
+  --rp-w:calc(210px * var(--us));
+  --sbar-h:calc(22px * var(--us));
+  --pi-fs:calc(11px * var(--us));
+  --pi-pad:calc(4px * var(--us)) calc(6px * var(--us));
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -24,94 +38,103 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
 /* ── TOP BAR ── */
 .topbar{
-  height:44px;background:var(--bg2);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 8px;gap:3px;flex-shrink:0;z-index:100;
+  height:var(--tb-h);background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 8px;gap:calc(3px * var(--us));flex-shrink:0;z-index:100;
   overflow:hidden;
 }
 .brand{display:flex;align-items:center;gap:7px;padding-right:10px;border-right:1px solid var(--border);margin-right:4px;flex-shrink:0}
-.brand-logo{width:24px;height:24px;border-radius:5px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:#fff}
-.brand-name{font-size:12px;font-weight:600;letter-spacing:-.2px}
+.brand-logo{
+  width:calc(28px * var(--us));height:calc(28px * var(--us));border-radius:5px;
+  background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.brand-logo svg{width:100%;height:100%}
+.brand-name{font-size:calc(12px * var(--us));font-weight:600;letter-spacing:-.2px}
 .brand-name span{color:var(--acc2)}
-.sep{width:1px;height:20px;background:var(--border);margin:0 3px;flex-shrink:0}
-/* Compact tool button — icon + optional short label */
-.tb{display:flex;align-items:center;gap:4px;padding:4px 7px;border-radius:6px;border:none;background:transparent;color:var(--text2);font-family:var(--font);font-size:11px;cursor:pointer;transition:all .14s;white-space:nowrap;flex-shrink:0}
+.sep{width:1px;height:calc(20px * var(--us));background:var(--border);margin:calc(0px) calc(3px * var(--us));flex-shrink:0}
+.tb{
+  display:flex;align-items:center;gap:4px;
+  padding:var(--tb-pad);
+  border-radius:calc(6px * var(--us));border:none;background:transparent;
+  color:var(--text2);font-family:var(--font);font-size:var(--tb-fs);
+  cursor:pointer;transition:all .14s;white-space:nowrap;flex-shrink:0;
+  min-height:calc(28px * var(--us));
+}
 .tb:hover{background:var(--bg3);color:var(--text)}
 .tb.active{background:rgba(74,158,255,.15);color:var(--accent);border:1px solid rgba(74,158,255,.3)}
 .tb.green{color:var(--green)} .tb.amber{color:var(--amber)}
-/* Icon-only tool buttons (tools row) */
-.tb.icon{padding:5px 8px;font-size:14px}
-.tb-right{margin-left:auto;display:flex;align-items:center;gap:3px;flex-shrink:0}
-.mode-pill{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px;flex-shrink:0}
-.mode-pill button{padding:3px 9px;border:none;border-radius:4px;font-size:11px;font-family:var(--font);font-weight:500;cursor:pointer;transition:all .14s;color:var(--text3);background:transparent}
+.tb.icon{padding:var(--tb-icon-pad);font-size:var(--tb-icon-fs)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:calc(3px * var(--us));flex-shrink:0}
+.mode-pill{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:calc(6px * var(--us));padding:2px;flex-shrink:0}
+.mode-pill button{
+  padding:calc(3px * var(--us)) calc(9px * var(--us));border:none;
+  border-radius:calc(4px * var(--us));font-size:calc(11px * var(--us));
+  font-family:var(--font);font-weight:500;cursor:pointer;transition:all .14s;
+  color:var(--text3);background:transparent;min-height:calc(24px * var(--us));
+}
 .mode-pill button.on{background:var(--accent);color:#fff}
-/* Toolbar group: visually groups related buttons */
 .tb-group{display:flex;align-items:center;gap:1px;flex-shrink:0}
-/* Overflow dropdown */
 .tb-overflow{position:relative;flex-shrink:0}
 .tb-overflow-menu{
   position:absolute;top:calc(100% + 6px);right:0;z-index:500;
   background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
-  padding:4px;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+  padding:4px;min-width:calc(170px * var(--us));box-shadow:0 8px 24px rgba(0,0,0,.5);
   display:none;flex-direction:column;gap:1px;
 }
 .tb-overflow-menu.open{display:flex}
 .tb-overflow-menu .tb{width:100%;justify-content:flex-start;border-radius:5px}
 
+/* Auto-scale for coarse-pointer devices (iPad/touch) on first load */
+@media (pointer: coarse) {
+  :root { --us: 1.4; }
+}
+
 /* ── MAIN LAYOUT ── */
 .main{display:flex;flex:1;overflow:hidden}
 
 /* ── PALETTE ── */
-.palette{
-  width:180px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;
-}
-.pal-search{padding:8px 8px 4px}
-.pal-search input{
-  width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;
-  color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;
-}
+.palette{width:var(--pal-w);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.pal-search{padding:calc(8px * var(--us)) calc(8px * var(--us)) 4px}
+.pal-search input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:calc(11px * var(--us));padding:calc(5px * var(--us)) 8px;outline:none}
 .pal-search input:focus{border-color:var(--accent)}
 .pal-scroll{flex:1;overflow-y:auto;padding:2px 6px 12px}
-.pg-title{font-size:9px;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);padding:7px 6px 3px;font-weight:500}
-.pi{
-  display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:5px;
-  cursor:grab;border:1px solid transparent;margin-bottom:1px;transition:all .12s;
-}
+.pg-title{font-size:calc(9px * var(--us));text-transform:uppercase;letter-spacing:.9px;color:var(--text3);padding:7px 6px 3px;font-weight:500}
+.pi{display:flex;align-items:center;gap:8px;padding:var(--pi-pad);border-radius:5px;cursor:grab;border:1px solid transparent;margin-bottom:1px;transition:all .12s;min-height:calc(32px * var(--us))}
 .pi:hover{background:var(--bg3);border-color:var(--border)}
 .pi.sel{background:rgba(74,158,255,.1);border-color:rgba(74,158,255,.35)}
-.pi-icon{width:44px;height:26px;flex-shrink:0}
+.pi-icon{width:calc(44px * var(--us));height:calc(28px * var(--us));flex-shrink:0}
 .pi-icon canvas{display:block}
-.pi-label{font-size:11px;color:var(--text2);line-height:1.2}
+.pi-label{font-size:var(--pi-fs);color:var(--text2);line-height:1.2}
 
 /* ── CANVAS WRAP ── */
 .cwrap{flex:1;position:relative;overflow:hidden}
 #mc{display:block;cursor:crosshair;touch-action:none;-webkit-user-select:none;user-select:none;}
 
 /* ── RIGHT PANEL ── */
-.right-panel{width:218px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-/* layers tab removed */
+.right-panel{width:var(--rp-w);flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 
 /* ── PROPERTIES ── */
-.props{
-  width:210px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden;
-}
-.ph{padding:10px 12px 8px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:500}
-.pb{flex:1;overflow-y:auto;padding:10px 12px}
-.pr{margin-bottom:9px}
-.pl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-.pin{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 8px;outline:none}
+.props{width:var(--rp-w);flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.ph{padding:calc(10px * var(--us)) 12px 8px;border-bottom:1px solid var(--border);font-size:calc(10px * var(--us));text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:500}
+.pb{flex:1;overflow-y:auto;padding:calc(10px * var(--us)) 12px}
+.pr{margin-bottom:calc(9px * var(--us))}
+.pl{font-size:calc(10px * var(--us));color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.pin{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:calc(12px * var(--us));padding:calc(5px * var(--us)) 8px;outline:none}
 .pin:focus{border-color:var(--accent)}
-.psel{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;outline:none;cursor:pointer}
+.psel{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:calc(11px * var(--us));padding:calc(5px * var(--us)) 8px;outline:none;cursor:pointer}
 .ptog{display:flex;gap:3px}
-.ptb{padding:3px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .13s}
+.ptb{padding:calc(3px * var(--us)) calc(9px * var(--us));border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:calc(11px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s;min-height:calc(26px * var(--us))}
 .ptb:hover{border-color:var(--bord2);color:var(--text2)}
 .ptb.on{background:rgba(74,158,255,.15);border-color:var(--accent);color:var(--acc2)}
 .pdiv{border:none;border-top:1px solid var(--border);margin:7px 0}
-.pval{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--green)}
+.pval{font-family:var(--mono);font-size:calc(14px * var(--us));font-weight:600;color:var(--green)}
 .pval.over{color:var(--red)}
-.sim-status{margin:8px 10px;padding:7px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);background:rgba(61,232,142,.07);border:1px solid rgba(61,232,142,.2);color:var(--green);display:none}
+.sim-status{margin:8px 10px;padding:7px 10px;border-radius:6px;font-size:calc(11px * var(--us));font-family:var(--mono);background:rgba(61,232,142,.07);border:1px solid rgba(61,232,142,.2);color:var(--green);display:none}
 .sim-status.err{background:rgba(255,74,106,.07);border-color:rgba(255,74,106,.2);color:var(--red)}
+
+/* ── STATUS BAR ── */
+.sbar{height:var(--sbar-h);background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:14px;flex-shrink:0}
+.si{font-size:calc(10px * var(--us));font-family:var(--mono);color:var(--text3)}
+.si span{color:var(--text2)}
 
 /* ── LAYERS ── */
 .layer-item{
@@ -241,7 +264,38 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
 <div class="topbar">
   <div class="brand">
-    <div class="brand-logo">C</div>
+    <div class="brand-logo">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="tree-g" x1="16" y1="32" x2="16" y2="2" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffb830"/>
+            <stop offset="1" stop-color="#30e8d8"/>
+          </linearGradient>
+        </defs>
+        <!-- trunk -->
+        <line x1="16" y1="30" x2="16" y2="18" stroke="url(#tree-g)" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- main branches -->
+        <line x1="16" y1="22" x2="9" y2="22" stroke="url(#tree-g)" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="16" y1="22" x2="23" y2="22" stroke="url(#tree-g)" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="9" y1="22" x2="9" y2="15" stroke="url(#tree-g)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="23" y1="22" x2="23" y2="15" stroke="url(#tree-g)" stroke-width="1.2" stroke-linecap="round"/>
+        <!-- upper trunk -->
+        <line x1="16" y1="18" x2="16" y2="8" stroke="url(#tree-g)" stroke-width="1.3" stroke-linecap="round"/>
+        <!-- upper branches -->
+        <line x1="16" y1="12" x2="8" y2="8" stroke="url(#tree-g)" stroke-width="1.1" stroke-linecap="round"/>
+        <line x1="16" y1="12" x2="24" y2="8" stroke="url(#tree-g)" stroke-width="1.1" stroke-linecap="round"/>
+        <line x1="16" y1="8"  x2="12" y2="4" stroke="url(#tree-g)" stroke-width="1.0" stroke-linecap="round"/>
+        <line x1="16" y1="8"  x2="20" y2="4" stroke="url(#tree-g)" stroke-width="1.0" stroke-linecap="round"/>
+        <!-- terminal pads -->
+        <circle cx="12"  cy="4"  r="1.3" fill="url(#tree-g)"/>
+        <circle cx="20"  cy="4"  r="1.3" fill="url(#tree-g)"/>
+        <circle cx="8"   cy="8"  r="1.3" fill="url(#tree-g)"/>
+        <circle cx="24"  cy="8"  r="1.3" fill="url(#tree-g)"/>
+        <circle cx="9"   cy="15" r="1.3" fill="url(#tree-g)"/>
+        <circle cx="23"  cy="15" r="1.3" fill="url(#tree-g)"/>
+        <circle cx="16"  cy="30" r="1.6" fill="url(#tree-g)"/>
+      </svg>
+    </div>
     <span class="brand-name">Circuit <span>Lab Pro</span></span>
   </div>
 
@@ -343,8 +397,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     <div class="props" id="rpanel-props" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
       <div class="pb" id="propbody" style="flex:1;overflow-y:auto"><div style="color:var(--text3);font-size:11px;margin-top:6px">Select a component.</div></div>
       <div class="sim-status" id="simstatus"></div>
-      <div style="padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0">
-        <button onclick="recenterView()" style="width:100%;padding:6px 0;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--accent);font-family:var(--font);font-size:11px;font-weight:500;cursor:pointer;letter-spacing:.2px;transition:all .14s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">⊕ Recenter View</button>
+      <div style="padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+        <!-- UI Scale -->
+        <div>
+          <div style="font-size:calc(9px * var(--us));text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-family:var(--mono);margin-bottom:5px">UI Scale</div>
+          <div style="display:flex;gap:3px">
+            <button onclick="setUIScale(1.0)"   id="us-1"   style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="Default (laptop)">1×</button>
+            <button onclick="setUIScale(1.3)"   id="us-13"  style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="Medium (tablet)">1.3×</button>
+            <button onclick="setUIScale(1.6)"   id="us-16"  style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="Large (iPad)">1.6×</button>
+            <button onclick="setUIScale(2.0)"   id="us-20"  style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="XL (accessibility)">2×</button>
+          </div>
+        </div>
+        <button onclick="recenterView()" style="width:100%;padding:calc(6px * var(--us)) 0;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--accent);font-family:var(--font);font-size:calc(11px * var(--us));font-weight:500;cursor:pointer;letter-spacing:.2px;transition:all .14s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">⊕ Recenter View</button>
       </div>
     </div>
   </div>
@@ -1021,6 +1085,20 @@ window.addEventListener('load',()=>{
   canvas=document.getElementById('mc');
   ctx=canvas.getContext('2d');
   wrap=document.getElementById('cwrap');
+
+  // Restore or auto-detect UI scale
+  try{
+    const saved = localStorage.getItem('cl_uiscale');
+    if(saved){
+      setUIScale(parseFloat(saved));
+    } else if(window.matchMedia('(pointer: coarse)').matches){
+      // Touch device: default to 1.6× for comfortable tap targets
+      setUIScale(1.6);
+    } else {
+      setUIScale(1.0);
+    }
+  } catch(e){ setUIScale(1.0); }
+
   resizeCv(); window.addEventListener('resize',resizeCv);
   buildPalette();
   bindEvents();
@@ -1029,7 +1107,7 @@ window.addEventListener('load',()=>{
   setTool('select',document.getElementById('tb-select'));
   rafId=requestAnimationFrame(loop);
   loadExample();
-  updateUndoRedoButtons(); // Initialize undo/redo button states
+  updateUndoRedoButtons();
 });
 
 function resizeCv(){
@@ -2777,6 +2855,23 @@ function adjustZoom(dir){
     S.zoom = prev || ZOOM_STEPS[0];
   }
   render();
+}
+
+function setUIScale(s){
+  document.documentElement.style.setProperty('--us', s);
+  // Highlight active button
+  ['1','13','16','20'].forEach(k=>{
+    const el = document.getElementById('us-'+k);
+    if(!el) return;
+    const isActive = Math.abs(parseFloat(k.length===1?k:k[0]+'.'+k[1]) - s) < 0.05;
+    el.style.background    = isActive ? 'rgba(74,158,255,.2)' : 'var(--bg3)';
+    el.style.borderColor   = isActive ? 'var(--accent)'       : 'var(--border)';
+    el.style.color         = isActive ? 'var(--accent)'       : 'var(--text3)';
+  });
+  // Save preference
+  try{ localStorage.setItem('cl_uiscale', s); } catch(e){}
+  // Rebuild palette icon sizes
+  buildPalette();
 }
 
 function toggleOverflow(btn){
