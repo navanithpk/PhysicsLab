@@ -392,6 +392,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     <button class="tb tool" id="tb-inspect" onclick="setTool('inspect',this)" title="Inspect [I]"><span class="ti">🔍</span><span class="tl">Inspect</span></button>
     <button class="tb tool" id="tb-pan"     onclick="setTool('pan',this)"     title="Pan [P]"><span class="ti">✥</span><span class="tl">Pan</span></button>
     <button class="tb tool" id="tb-text"    onclick="setTool('text',this)"    title="Text [T]"><span class="ti">T</span><span class="tl">Text</span></button>
+    <button class="tb tool" id="tb-fs" onclick="toggleFullscreen()" title="Fullscreen [F11]"><span class="ti" id="fs-icon">⛶</span><span class="tl">Full</span></button>
   </div>
 
   <!-- Clear — prominent, far right of tools -->
@@ -2331,10 +2332,85 @@ function drawElectronFlow(){
 
 function drawTexts(){
   S.texts.forEach(t=>{
-    ctx.save(); ctx.font='13px IBM Plex Mono';
+    ctx.save();
+    const fontSize = t.size || 13;
+    ctx.font = `${fontSize}px IBM Plex Mono`;
     ctx.fillStyle = _exportBW ? '#000000' : (t.col||'#d8dff0');
-    ctx.fillText(t.text,t.x,t.y); ctx.restore();
+    ctx.fillText(t.text, t.x, t.y);
+    // Selection underline
+    if(S.tool==='text'){
+      const w2 = ctx.measureText(t.text).width;
+      ctx.strokeStyle = _exportBW ? '#000' : 'rgba(74,158,255,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(t.x, t.y+3); ctx.lineTo(t.x+w2, t.y+3); ctx.stroke();
+    }
+    ctx.restore();
   });
+}
+
+// ── Text tool implementation ──────────────────────────────────────────────
+let _textEditing = null; // { input, worldX, worldY, existing }
+
+function spawnTextInput(clientX, clientY, worldX, worldY, existing){
+  // Remove any existing input
+  if(_textEditing){ _textEditing.input.remove(); _textEditing = null; }
+
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.value = existing ? existing.text : '';
+  inp.style.cssText = `
+    position:fixed; z-index:950;
+    left:${clientX}px; top:${clientY - 10}px;
+    background:rgba(13,15,20,0.92); border:1px solid var(--accent);
+    border-radius:4px; color:#d8dff0; font:13px 'IBM Plex Mono',monospace;
+    padding:3px 6px; outline:none; min-width:80px;
+    box-shadow:0 4px 16px rgba(0,0,0,.6);`;
+  inp.placeholder = 'Type label…';
+  document.body.appendChild(inp);
+  inp.focus(); inp.select();
+  _textEditing = { input: inp, worldX, worldY, existing };
+
+  // Commit on Enter or blur
+  function commit(){
+    if(!_textEditing) return;
+    const val = inp.value.trim();
+    if(val){
+      snapshot();
+      if(existing){
+        existing.text = val;
+      } else {
+        S.texts.push({ text: val, x: worldX, y: worldY, col: '#d8dff0' });
+      }
+    } else if(existing){
+      // Empty → delete existing label
+      snapshot();
+      S.texts = S.texts.filter(t => t !== existing);
+    }
+    inp.remove();
+    _textEditing = null;
+    render();
+  }
+
+  inp.addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){ e.preventDefault(); commit(); }
+    if(e.key === 'Escape'){ inp.remove(); _textEditing = null; render(); }
+    e.stopPropagation(); // don't trigger canvas shortcuts while typing
+  });
+  inp.addEventListener('blur', ()=>{ setTimeout(commit, 80); }); // slight delay avoids race with Escape
+}
+
+// Double-click any text in text mode to edit it
+function onDbl(e){
+  const w=sw(e.clientX,e.clientY); const c=compAt(w.x,w.y);
+  if(c&&(c.t==='switch'||c.t==='relay_switch')){ c.props.closed=!c.props.closed; if(S.simOn) runSimulation(); updateProps(); return; }
+  if(S.tool==='text'){
+    for(const t of S.texts){
+      if(Math.abs(w.x - t.x) < 60 && Math.abs(w.y - t.y) < 14){
+        spawnTextInput(e.clientX, e.clientY, t.x, t.y, t);
+        return;
+      }
+    }
+  }
 }
 function drawOpenCircuit(){
   if(!_openCircuitPt)return; ctx.save(); ctx.strokeStyle='#ff4a6a'; ctx.lineWidth=2;
@@ -2860,6 +2936,18 @@ function onMD(e){
     render(); return;
   }
 
+  // ── Text tool: click to place or edit a text label ────────────────────
+  if(S.tool === 'text'){
+    const w2 = sw(e.clientX, e.clientY);
+    let editTarget = null;
+    for(const t of S.texts){
+      if(Math.abs(w2.x - t.x) < 60 && Math.abs(w2.y - t.y) < 14){ editTarget = t; break; }
+    }
+    spawnTextInput(e.clientX, e.clientY, w2.x, w2.y, editTarget);
+    return;
+  }
+
+
   if(S.tool==='wire'){
     let sx = snap(w.x), sy = snap(w.y);
     let snappedToTerminal = false;
@@ -3115,6 +3203,25 @@ function setUIScale(s){
   buildPalette();
 }
 
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(()=>{});
+  } else {
+    document.exitFullscreen().catch(()=>{});
+  }
+}
+document.addEventListener('fullscreenchange', ()=>{
+  const icon = document.getElementById('fs-icon');
+  if(icon) icon.textContent = document.fullscreenElement ? '⛶' : '⛶';
+  const btn = document.getElementById('tb-fs');
+  if(btn){
+    btn.querySelector('.tl').textContent = document.fullscreenElement ? 'Exit' : 'Full';
+    btn.style.color = document.fullscreenElement ? 'var(--accent)' : '';
+  }
+  // Recalculate canvas size after fullscreen change
+  setTimeout(resizeCv, 100);
+});
+
 function toggleOverflow(btn){
   const menu = document.getElementById('overflow-menu');
   const isOpen = menu.classList.contains('open');
@@ -3242,10 +3349,6 @@ function onTouchEnd(e){
     const fake = { clientX: lastT.clientX, clientY: lastT.clientY, button: 0 };
     onMU(fake);
   }
-}
-function onDbl(e){
-  const w=sw(e.clientX,e.clientY); const c=compAt(w.x,w.y);
-  if(c&&(c.t==='switch'||c.t==='relay_switch')){ c.props.closed=!c.props.closed; if(S.simOn) runSimulation(); updateProps(); }
 }
 function onCtxMenu(e){ 
   e.preventDefault(); 
