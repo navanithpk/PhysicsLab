@@ -139,7 +139,37 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 .cwrap{flex:1;position:relative;overflow:hidden}
 #mc{display:block;cursor:crosshair;touch-action:none;-webkit-user-select:none;user-select:none;}
 
-/* ── RIGHT PANEL ── */
+/* ── RIGHT PANEL ACTION GRID ── */
+.rp-section{padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rp-section-title{font-size:calc(8px * var(--us));text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-family:var(--mono);margin-bottom:6px}
+.rp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.rp-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:calc(6px * var(--us)) 4px;
+  border-radius:6px;border:1px solid var(--border);background:var(--bg3);
+  color:var(--text2);font-family:var(--font);font-size:calc(9px * var(--us));
+  cursor:pointer;transition:all .14s;min-height:calc(44px * var(--us));
+}
+.rp-btn:hover{background:var(--bg4);border-color:var(--bord2);color:var(--text)}
+.rp-btn.active{background:rgba(74,158,255,.12);border-color:rgba(74,158,255,.4);color:var(--accent)}
+.rp-btn .ri{font-size:calc(16px * var(--us));line-height:1}
+.rp-btn .rl{font-size:calc(8px * var(--us));line-height:1;color:var(--text3);font-family:var(--mono);letter-spacing:.2px;text-transform:uppercase}
+.rp-btn.green .ri,.rp-btn.green .rl{color:var(--green)}
+.rp-btn.green:hover{border-color:rgba(61,232,142,.4);background:rgba(61,232,142,.08)}
+.rp-btn.amber .ri,.rp-btn.amber .rl{color:var(--amber)}
+.rp-btn.amber:hover{border-color:rgba(255,184,48,.4);background:rgba(255,184,48,.08)}
+.rp-btn.red .ri,.rp-btn.red .rl{color:var(--red)}
+.rp-btn.red:hover{border-color:rgba(255,74,106,.4);background:rgba(255,74,106,.08)}
+.rp-btn.cyan .ri,.rp-btn.cyan .rl{color:var(--cyan)}
+.rp-btn.purple .ri,.rp-btn.purple .rl{color:var(--purple)}
+.rp-btn.sim-stopped .ri,.rp-btn.sim-stopped .rl{color:var(--amber)}
+.rp-btn.sim-stopped{border-color:rgba(255,184,48,.35);background:rgba(255,184,48,.07)}
+@keyframes sim-pulse{
+  0%,100%{opacity:1;background:rgba(61,232,142,.12);border-color:rgba(61,232,142,.4)}
+  50%    {opacity:.7;background:rgba(61,232,142,.26);border-color:rgba(61,232,142,.75)}
+}
+.rp-btn.running{animation:sim-pulse 1.4s ease-in-out infinite}
+.rp-sim{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px}
 .right-panel{width:var(--rp-w);flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 
 /* ── PROPERTIES ── */
@@ -294,9 +324,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
 <div class="topbar">
 
-  <!-- ── PhysicsLab back navigation ── -->
+  <!-- PhysicsLab back -->
   <a href="index.html" class="physicslab-back" title="Back to PhysicsLab">
-    <svg class="pl-icon" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg class="pl-icon" viewBox="0 0 22 22" fill="none">
       <defs><linearGradient id="pl-g" x1="11" y1="22" x2="11" y2="1" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#ffb830"/><stop offset="1" stop-color="#30e8d8"/>
       </linearGradient></defs>
@@ -320,10 +350,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     </div>
   </a>
 
-  <!-- ── Circuit Lab Pro brand ── -->
+  <!-- Brand -->
   <div class="brand">
     <div class="brand-logo">
-      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 32 32" fill="none">
         <defs><linearGradient id="tree-g" x1="16" y1="32" x2="16" y2="2" gradientUnits="userSpaceOnUse">
           <stop offset="0" stop-color="#ffb830"/><stop offset="1" stop-color="#30e8d8"/>
         </linearGradient></defs>
@@ -352,90 +382,36 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     </div>
   </div>
 
-  <!-- ── Tool group — icon + label stacked ── -->
+  <!-- Tool group -->
   <div class="tb-group" id="tool-group">
-    <button class="tb tool" id="tb-select"  onclick="setTool('select',this)"  title="Select / Move [V]"><span class="ti">⬚</span><span class="tl">Select</span></button>
-    <button class="tb tool" id="tb-wire"    onclick="setTool('wire',this)"    title="Draw wire [W]"><span class="ti">╱</span><span class="tl">Wire</span></button>
-    <button class="tb tool" id="tb-erase"   onclick="setTool('erase',this)"   title="Eraser [E]"><span class="ti">⌫</span><span class="tl">Erase</span></button>
+    <button class="tb tool" id="tb-select"  onclick="setTool('select',this)"  title="Select [V]"><span class="ti">⬚</span><span class="tl">Select</span></button>
+    <button class="tb tool" id="tb-wire"    onclick="setTool('wire',this)"    title="Wire [W]"><span class="ti">╱</span><span class="tl">Wire</span></button>
+    <button class="tb tool" id="tb-erase"   onclick="setTool('erase',this)"   title="Erase [E]"><span class="ti">⌫</span><span class="tl">Erase</span></button>
     <button class="tb tool" id="tb-razor"   onclick="setTool('razor',this)"   title="Razor [R]"><span class="ti">✂</span><span class="tl">Razor</span></button>
     <button class="tb tool" id="tb-solder"  onclick="setTool('solder',this)"  title="Solder [S]"><span class="ti">⬡</span><span class="tl">Solder</span></button>
-    <button class="tb tool" id="tb-inspect" onclick="setTool('inspect',this)" title="Inspect unions [I]"><span class="ti">🔍</span><span class="tl">Inspect</span></button>
+    <button class="tb tool" id="tb-inspect" onclick="setTool('inspect',this)" title="Inspect [I]"><span class="ti">🔍</span><span class="tl">Inspect</span></button>
     <button class="tb tool" id="tb-pan"     onclick="setTool('pan',this)"     title="Pan [P]"><span class="ti">✥</span><span class="tl">Pan</span></button>
-    <button class="tb tool" id="tb-text"    onclick="setTool('text',this)"    title="Text label [T]"><span class="ti">T</span><span class="tl">Text</span></button>
+    <button class="tb tool" id="tb-text"    onclick="setTool('text',this)"    title="Text [T]"><span class="ti">T</span><span class="tl">Text</span></button>
   </div>
 
-  <div class="sep"></div>
-
-  <!-- ── Edit group ── -->
-  <div class="tb-group">
-    <button class="tb" id="tb-undo" onclick="undo()"  title="Undo [Ctrl+Z]" style="opacity:.35">↩</button>
-    <button class="tb" id="tb-redo" onclick="redo()"  title="Redo [Ctrl+Y]" style="opacity:.35">↪</button>
-  </div>
-
-  <div class="sep"></div>
-
-  <!-- ── Modify group ── -->
-  <div class="tb-group">
-    <button class="tb" onclick="rotateSelected()" title="Rotate 90° [Enter]">↻ Rotate</button>
-    <button class="tb" onclick="deleteSelected()" title="Delete [Del]" style="color:var(--red)">⌦ Delete</button>
-  </div>
-
-  <div class="sep"></div>
-
-  <!-- ── Simulate group ── -->
-  <div class="tb-group">
-    <button class="tb green" onclick="runSimulation()"  title="Simulate [Space]">▶ Run</button>
-    <button class="tb amber" onclick="stopSimulation()" title="Stop simulation">■ Stop</button>
-  </div>
-
-  <div class="sep"></div>
-
-  <!-- ── File group ── -->
-  <div class="tb-group">
-    <button class="tb" onclick="saveCircuit()" title="Save circuit" style="color:var(--cyan)">⬇ Save</button>
-    <button class="tb" onclick="loadCircuit()" title="Load circuit" style="color:var(--cyan)">⬆ Load</button>
-    <button class="tb" onclick="exportPNG()"   title="Export PNG">⤓ Export</button>
-  </div>
-
-  <div class="sep"></div>
-
-  <!-- ── Clear canvas — prominent dustbin ── -->
-  <button class="tb-clear" onclick="clearCanvas()" title="Clear all components and wires">
-    <svg width="13" height="14" viewBox="0 0 13 14" fill="none">
-      <rect x="1" y="3" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-      <line x1="4.5" y1="3"  x2="4.5" y2="2"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="8.5" y1="3"  x2="8.5" y2="2"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="4.5" y1="2"  x2="8.5" y2="2"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="4.5" y1="6"  x2="4.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="6.5" y1="6"  x2="6.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="8.5" y1="6"  x2="8.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="0"   y1="3"  x2="13"  y2="3"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-    </svg>
-    Clear
-  </button>
-
-  <!-- ── Right side ── -->
+  <!-- Clear — prominent, far right of tools -->
   <div class="tb-right">
-    <button class="tb" onclick="fitView()" title="Fit view to circuit" style="color:var(--cyan)">⊡ Fit</button>
-    <div class="sep"></div>
-    <div class="mode-pill" title="Meter display mode">
-      <button id="md-hover" class="on" onclick="setMeterMode('hover',this)">Hover</button>
-      <button id="md-pin"   onclick="setMeterMode('pin',this)">Pin</button>
-    </div>
-    <div class="sep"></div>
-    <button class="tb" onclick="openLCR()"       title="LCR Circuit Explorer" style="color:var(--cyan)">⚡ LCR</button>
-    <button class="tb" onclick="startTutorial()" title="Tutorial"              style="color:var(--purple)">? Help</button>
-    <button class="tb" onclick="loadExample()"   id="tb-example" title="Load example circuit">eg</button>
-    <div class="sep"></div>
-    <div class="tb-overflow">
-      <button class="tb" onclick="toggleOverflow(this)" title="More options">⋯</button>
-      <div class="tb-overflow-menu" id="overflow-menu">
-        <button class="tb" onclick="exportDebugLog()" style="color:var(--purple)">⬇ Debug JSON</button>
-        <button class="tb" onclick="toggleLogPanel()" style="color:var(--purple)" id="tb-log">☰ Sim Logs</button>
-      </div>
-    </div>
+    <button class="tb-clear" onclick="clearCanvas()" title="Clear all components and wires">
+      <svg width="13" height="14" viewBox="0 0 13 14" fill="none">
+        <rect x="1" y="3" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+        <line x1="4.5" y1="3"  x2="4.5" y2="2"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="8.5" y1="3"  x2="8.5" y2="2"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="4.5" y1="2"  x2="8.5" y2="2"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="4.5" y1="6"  x2="4.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="6.5" y1="6"  x2="6.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="8.5" y1="6"  x2="8.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="0"   y1="3"  x2="13"  y2="3"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      Clear
+    </button>
   </div>
 </div>
+
 
 <div id="log-panel" style="display:none;position:fixed;bottom:24px;right:16px;z-index:900;width:520px;max-height:340px;background:#0d0f14;border:1px solid rgba(184,122,255,.35);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.7);overflow:hidden;flex-direction:column;">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid rgba(184,122,255,.2);flex-shrink:0">
@@ -458,27 +434,134 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     <canvas id="mc"></canvas>
   </div>
 
-  <div class="right-panel">
-    <div style="padding:8px 12px 6px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:500;flex-shrink:0">Properties</div>
+    <div class="right-panel">
 
-    <div class="props" id="rpanel-props" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-      <div class="pb" id="propbody" style="flex:1;overflow-y:auto"><div style="color:var(--text3);font-size:11px;margin-top:6px">Select a component.</div></div>
-      <div class="sim-status" id="simstatus"></div>
-      <div style="padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:6px">
-        <!-- UI Scale -->
-        <div>
-          <div style="font-size:calc(9px * var(--us));text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-family:var(--mono);margin-bottom:5px">UI Scale</div>
-          <div style="display:flex;gap:3px">
-            <button onclick="setUIScale(1.0)"   id="us-1"   style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="Default (laptop)">1×</button>
-            <button onclick="setUIScale(1.3)"   id="us-13"  style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="Medium (tablet)">1.3×</button>
-            <button onclick="setUIScale(1.6)"   id="us-16"  style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="Large (iPad)">1.6×</button>
-            <button onclick="setUIScale(2.0)"   id="us-20"  style="flex:1;padding:calc(4px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s" title="XL (accessibility)">2×</button>
-          </div>
-        </div>
-        <button onclick="recenterView()" style="width:100%;padding:calc(6px * var(--us)) 0;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--accent);font-family:var(--font);font-size:calc(11px * var(--us));font-weight:500;cursor:pointer;letter-spacing:.2px;transition:all .14s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">⊕ Recenter View</button>
-      </div>
+    <!-- ── Tab bar ── -->
+    <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2)">
+      <button id="rp-tab-actions" onclick="switchRPTab('actions')"
+        style="flex:1;padding:calc(8px * var(--us)) 4px;border:none;background:transparent;
+        color:var(--accent);font-family:var(--font);font-size:calc(11px * var(--us));
+        font-weight:500;cursor:pointer;border-bottom:2px solid var(--accent);transition:all .14s">
+        Actions
+      </button>
+      <button id="rp-tab-props" onclick="switchRPTab('props')"
+        style="flex:1;padding:calc(8px * var(--us)) 4px;border:none;background:transparent;
+        color:var(--text3);font-family:var(--font);font-size:calc(11px * var(--us));
+        font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .14s">
+        Properties
+      </button>
     </div>
-  </div>
+
+    <!-- ── Actions tab ── -->
+    <div id="rp-pane-actions" style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+
+      <div class="rp-section">
+        <div class="rp-section-title">Simulate</div>
+        <div class="rp-sim">
+          <button class="rp-btn green" id="btn-run"  onclick="runSimulation()" title="Run simulation [Space]">
+            <span class="ri">▶</span><span class="rl">Run</span>
+          </button>
+          <button class="rp-btn amber" id="btn-stop" onclick="stopSimulation()" title="Stop simulation">
+            <span class="ri">■</span><span class="rl">Stop</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">Edit</div>
+        <div class="rp-grid">
+          <button class="rp-btn" id="tb-undo" onclick="undo()" title="Undo [Ctrl+Z]" style="opacity:.35">
+            <span class="ri">↩</span><span class="rl">Undo</span>
+          </button>
+          <button class="rp-btn" id="tb-redo" onclick="redo()" title="Redo [Ctrl+Y]" style="opacity:.35">
+            <span class="ri">↪</span><span class="rl">Redo</span>
+          </button>
+          <button class="rp-btn" onclick="rotateSelected()" title="Rotate 90° [Enter]">
+            <span class="ri">↻</span><span class="rl">Rotate</span>
+          </button>
+          <button class="rp-btn red" onclick="deleteSelected()" title="Delete [Del]">
+            <span class="ri">⌦</span><span class="rl">Delete</span>
+          </button>
+          <button class="rp-btn" onclick="fitView()" title="Fit view" style="grid-column:span 2">
+            <span class="ri">⊡</span><span class="rl">Fit View</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">File</div>
+        <div class="rp-grid">
+          <button class="rp-btn cyan" onclick="saveCircuit()" title="Save circuit">
+            <span class="ri">⬇</span><span class="rl">Save</span>
+          </button>
+          <button class="rp-btn cyan" onclick="loadCircuit()" title="Load circuit">
+            <span class="ri">⬆</span><span class="rl">Load</span>
+          </button>
+          <button class="rp-btn" onclick="exportPNG()" title="Export PNG">
+            <span class="ri">⤓</span><span class="rl">Export</span>
+          </button>
+          <button class="rp-btn cyan" onclick="openLCR()" title="LCR Explorer">
+            <span class="ri">⚡</span><span class="rl">LCR</span>
+          </button>
+          <button class="rp-btn purple" onclick="startTutorial()" title="Tutorial">
+            <span class="ri">?</span><span class="rl">Help</span>
+          </button>
+          <button class="rp-btn" onclick="loadExample()" id="tb-example" title="Load example">
+            <span class="ri">⊞</span><span class="rl">Example</span>
+          </button>
+          <button class="rp-btn purple" onclick="exportDebugLog()" title="Debug JSON">
+            <span class="ri">⬇</span><span class="rl">Debug</span>
+          </button>
+          <button class="rp-btn purple" onclick="toggleLogPanel()" id="tb-log" title="Simulation logs" style="grid-column:span 2">
+            <span class="ri">☰</span><span class="rl">Sim Logs</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">Meters</div>
+        <div class="mode-pill" style="width:100%;box-sizing:border-box">
+          <button id="md-hover" class="on" onclick="setMeterMode('hover',this)" style="flex:1;text-align:center">Hover</button>
+          <button id="md-pin"   onclick="setMeterMode('pin',this)" style="flex:1;text-align:center">Pin</button>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-section-title">UI Scale</div>
+        <div style="display:flex;gap:3px">
+          <button onclick="setUIScale(1.0)"  id="us-1"  style="flex:1;padding:calc(5px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s">1×</button>
+          <button onclick="setUIScale(1.3)"  id="us-13" style="flex:1;padding:calc(5px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s">1.3×</button>
+          <button onclick="setUIScale(1.6)"  id="us-16" style="flex:1;padding:calc(5px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s">1.6×</button>
+          <button onclick="setUIScale(2.0)"  id="us-20" style="flex:1;padding:calc(5px * var(--us)) 0;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:calc(10px * var(--us));font-family:var(--mono);cursor:pointer;transition:all .13s">2×</button>
+        </div>
+      </div>
+
+    </div><!-- /actions pane -->
+
+    <!-- ── Properties tab ── -->
+    <div id="rp-pane-props" style="flex:1;display:none;flex-direction:column;overflow:hidden">
+      <div class="pb" id="propbody" style="flex:1;overflow-y:auto;padding:10px 12px">
+        <div style="color:var(--text3);font-size:11px;margin-top:6px">Select a component.</div>
+      </div>
+      <div class="sim-status" id="simstatus"></div>
+      <div style="padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:5px">
+        <button onclick="recenterView()"
+          style="width:100%;padding:calc(6px * var(--us)) 0;border-radius:5px;border:1px solid var(--border);
+          background:var(--bg3);color:var(--accent);font-family:var(--font);font-size:calc(11px * var(--us));
+          font-weight:500;cursor:pointer;transition:all .14s"
+          onmouseover="this.style.background='var(--bg4)'"
+          onmouseout="this.style.background='var(--bg3)'">⊕ Recenter View</button>
+        <button onclick="switchRPTab('actions')"
+          style="width:100%;padding:calc(5px * var(--us)) 0;border-radius:5px;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-family:var(--font);font-size:calc(10px * var(--us));
+          cursor:pointer;transition:all .14s"
+          onmouseover="this.style.color='var(--text)'"
+          onmouseout="this.style.color='var(--text3)'">← Back to Actions</button>
+      </div>
+    </div><!-- /props pane -->
+
+  </div><!-- /right-panel -->
+
 </div>
 
 <div class="sbar">
@@ -2347,6 +2430,32 @@ function drawCROProbeMode(){
 // ═══════════════════════════════════════════════════
 //  SIMULATION MANAGEMENT CONTROLLER
 // ═══════════════════════════════════════════════════
+function updateSimButtons(running, error){
+  const rBtn = document.getElementById('btn-run');
+  const sBtn = document.getElementById('btn-stop');
+  if(!rBtn || !sBtn) return;
+
+  if(running){
+    // Run → pulsing "Running"
+    rBtn.className = 'rp-btn running';
+    rBtn.querySelector('.ri').textContent = '●';
+    rBtn.querySelector('.rl').textContent = 'Running';
+    // Stop → normal ready state
+    sBtn.className = 'rp-btn amber';
+    sBtn.querySelector('.ri').textContent = '■';
+    sBtn.querySelector('.rl').textContent = 'Stop';
+  } else {
+    // Run → restored
+    rBtn.className = 'rp-btn green';
+    rBtn.querySelector('.ri').textContent = '▶';
+    rBtn.querySelector('.rl').textContent = 'Run';
+    // Stop → "Stopped" / "Error" confirmation
+    sBtn.className = 'rp-btn sim-stopped';
+    sBtn.querySelector('.ri').textContent = '◼';
+    sBtn.querySelector('.rl').textContent = error ? 'Error' : 'Stopped';
+  }
+}
+
 function runSimulation() {
   SIM_LOG = [];
   const statusDisplay = document.getElementById('simstatus');
@@ -2390,6 +2499,7 @@ function runSimulation() {
     statusDisplay.className = 'sim-status';
     statusDisplay.textContent = 'Engine Solved ✓';
     document.getElementById('sb-sim').textContent = 'Running';
+    updateSimButtons(true);
 
     updateProps();
     refreshLogPanel();
@@ -2400,6 +2510,7 @@ function runSimulation() {
     statusDisplay.textContent = '⚠ ' + err.message;
     S.simOn = false;
     document.getElementById('sb-sim').textContent = 'Error';
+    updateSimButtons(false, true);
     refreshLogPanel();
   }
   render();
@@ -2414,7 +2525,9 @@ function stopSimulation(){
     if(c.t==='fuse' && !c._blown) c._heatJ = 0;
   });
   document.getElementById('simstatus').style.display='none';
-  document.getElementById('sb-sim').textContent='Idle'; render();
+  document.getElementById('sb-sim').textContent='Idle';
+  updateSimButtons(false);
+  render();
 }
 
 // ═══════════════════════════════════════════════════
@@ -2459,7 +2572,61 @@ function flipSelected(){
   });
   if(S.simOn) runSimulation(); render();
 }
-function clearCanvas(){ if(confirm('Clear workspace?')){ snapshot(); S.comps=[]; S.wires=[]; S.sel.clear(); stopSimulation(); updateSB(); render(); } }
+function clearCanvas(){ showClearModal(); }
+
+function showClearModal(){
+  let m = document.getElementById('clear-modal');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'clear-modal';
+    m.style.cssText=`position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.72);
+      display:flex;align-items:center;justify-content:center`;
+    m.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--bord2);border-radius:12px;
+      padding:24px;width:320px;box-shadow:0 16px 48px rgba(0,0,0,.7)">
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">Clear canvas?</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">
+        All components and wires will be removed. This cannot be undone.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('clear-modal').style.display='none'"
+          style="padding:7px 18px;border-radius:6px;border:1px solid var(--border);
+          background:var(--bg3);color:var(--text2);font-family:var(--font);font-size:13px;cursor:pointer">
+          Cancel</button>
+        <button onclick="doClearCanvas()"
+          style="padding:7px 18px;border-radius:6px;border:1px solid rgba(255,74,106,.4);
+          background:rgba(255,74,106,.15);color:var(--red);font-family:var(--font);font-size:13px;
+          font-weight:500;cursor:pointer">
+          Clear</button>
+      </div>
+    </div>`;
+    document.body.appendChild(m);
+    // Close on backdrop click
+    m.addEventListener('click', e=>{ if(e.target===m) m.style.display='none'; });
+  }
+  m.style.display = 'flex';
+}
+function doClearCanvas(){
+  document.getElementById('clear-modal').style.display='none';
+  snapshot(); S.comps=[]; S.wires=[]; S.sel.clear();
+  stopSimulation(); updateSB(); render();
+}
+
+function switchRPTab(tab){
+  const actions = document.getElementById('rp-pane-actions');
+  const props   = document.getElementById('rp-pane-props');
+  const tA = document.getElementById('rp-tab-actions');
+  const tP = document.getElementById('rp-tab-props');
+  if(!actions||!props||!tA||!tP) return;
+
+  const isActions = tab === 'actions';
+  actions.style.display = isActions ? 'flex'  : 'none';
+  props.style.display   = isActions ? 'none'  : 'flex';
+  tA.style.color        = isActions ? 'var(--accent)' : 'var(--text3)';
+  tP.style.color        = isActions ? 'var(--text3)'  : 'var(--accent)';
+  tA.style.borderBottom = isActions ? '2px solid var(--accent)' : '2px solid transparent';
+  tP.style.borderBottom = isActions ? '2px solid transparent'   : '2px solid var(--accent)';
+  // Properties pane needs flex-direction:column
+  props.style.flexDirection = 'column';
+}
 
 function bindEvents(){
   canvas.addEventListener('mousedown',onMD); 
@@ -3252,7 +3419,13 @@ function fitView(){ recenterView(); }
 //  UX PANELS MANAGEMENT STORES
 // ═══════════════════════════════════════════════════
 function updateProps(){
-  const body=document.getElementById('propbody'); if(!S.sel.size){ body.innerHTML='<div style="color:var(--text3)">Select a component.</div>'; return; }
+  const body=document.getElementById('propbody');
+  if(!S.sel.size){
+    body.innerHTML='<div style="color:var(--text3)">Select a component.</div>';
+    return;
+  }
+  // Auto-switch to Properties tab whenever a component is selected
+  switchRPTab('props');
   const c=S.comps.find(x=>x.id===[...S.sel][0]); if(!c)return;
   let h=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
     <span style="font-size:11px;font-weight:600">${DMAP[c.t].lbl} #${c.id}</span>
@@ -3629,7 +3802,7 @@ function togglePinFromProps(compId){
     removePinnedMeter(compId);
   } else {
     // Pin near the right panel
-    const rp = document.getElementById('rpanel-props');
+    const rp = document.getElementById('rp-pane-props');
     const rect = rp ? rp.getBoundingClientRect() : {left:window.innerWidth-250, top:100};
     pinMeter(c, rect.left - 200, rect.top + 40);
   }
