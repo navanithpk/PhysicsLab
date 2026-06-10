@@ -24,23 +24,38 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
 /* ── TOP BAR ── */
 .topbar{
-  height:46px;background:var(--bg2);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 10px;gap:2px;flex-shrink:0;z-index:100;
+  height:44px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 8px;gap:3px;flex-shrink:0;z-index:100;
+  overflow:hidden;
 }
-.brand{display:flex;align-items:center;gap:8px;padding-right:12px;border-right:1px solid var(--border);margin-right:6px}
-.brand-logo{width:26px;height:26px;border-radius:5px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;color:#fff}
-.brand-name{font-size:13px;font-weight:600;letter-spacing:-.2px}
+.brand{display:flex;align-items:center;gap:7px;padding-right:10px;border-right:1px solid var(--border);margin-right:4px;flex-shrink:0}
+.brand-logo{width:24px;height:24px;border-radius:5px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:#fff}
+.brand-name{font-size:12px;font-weight:600;letter-spacing:-.2px}
 .brand-name span{color:var(--acc2)}
-.sep{width:1px;height:22px;background:var(--border);margin:0 4px}
-.tb{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;background:transparent;color:var(--text2);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .14s;white-space:nowrap}
+.sep{width:1px;height:20px;background:var(--border);margin:0 3px;flex-shrink:0}
+/* Compact tool button — icon + optional short label */
+.tb{display:flex;align-items:center;gap:4px;padding:4px 7px;border-radius:6px;border:none;background:transparent;color:var(--text2);font-family:var(--font);font-size:11px;cursor:pointer;transition:all .14s;white-space:nowrap;flex-shrink:0}
 .tb:hover{background:var(--bg3);color:var(--text)}
 .tb.active{background:rgba(74,158,255,.15);color:var(--accent);border:1px solid rgba(74,158,255,.3)}
-.tb.green{color:var(--green)}
-.tb.amber{color:var(--amber)}
-.tb-right{margin-left:auto;display:flex;align-items:center;gap:4px}
-.mode-pill{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px}
-.mode-pill button{padding:3px 10px;border:none;border-radius:4px;font-size:11px;font-family:var(--font);font-weight:500;cursor:pointer;transition:all .14s;color:var(--text3);background:transparent}
+.tb.green{color:var(--green)} .tb.amber{color:var(--amber)}
+/* Icon-only tool buttons (tools row) */
+.tb.icon{padding:5px 8px;font-size:14px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:3px;flex-shrink:0}
+.mode-pill{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:2px;flex-shrink:0}
+.mode-pill button{padding:3px 9px;border:none;border-radius:4px;font-size:11px;font-family:var(--font);font-weight:500;cursor:pointer;transition:all .14s;color:var(--text3);background:transparent}
 .mode-pill button.on{background:var(--accent);color:#fff}
+/* Toolbar group: visually groups related buttons */
+.tb-group{display:flex;align-items:center;gap:1px;flex-shrink:0}
+/* Overflow dropdown */
+.tb-overflow{position:relative;flex-shrink:0}
+.tb-overflow-menu{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:500;
+  background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
+  padding:4px;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+  display:none;flex-direction:column;gap:1px;
+}
+.tb-overflow-menu.open{display:flex}
+.tb-overflow-menu .tb{width:100%;justify-content:flex-start;border-radius:5px}
 
 /* ── MAIN LAYOUT ── */
 .main{display:flex;flex:1;overflow:hidden}
@@ -230,41 +245,74 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     <span class="brand-name">Circuit <span>Lab Pro</span></span>
   </div>
 
-  <button class="tb" id="tb-select" onclick="setTool('select',this)" title="Select / Move [V]">Select</button>
-  <button class="tb" id="tb-wire" onclick="setTool('wire',this)" title="Draw wire [W]">Wire</button>
-  <button class="tb" id="tb-erase" onclick="setTool('erase',this)" title="Erase [E]">Eraser</button>
-  <button class="tb" id="tb-razor" onclick="setTool('razor',this)" title="Razor — cut wire at point [R]">Razor</button>
-  <button class="tb" id="tb-pan" onclick="setTool('pan',this)" title="Pan canvas [P]">Pan</button>
-  <div class="sep"></div>
-  <button class="tb" id="tb-undo" onclick="undo()" title="Undo [Ctrl+Z]" style="opacity:.35">Undo</button>
-  <button class="tb" id="tb-redo" onclick="redo()" title="Redo [Ctrl+Y]" style="opacity:.35">Redo</button>
-  <div class="sep"></div>
-  <button class="tb" onclick="saveCircuit()" style="color:var(--cyan)">Save</button>
-  <button class="tb" onclick="loadCircuit()" style="color:var(--cyan)">Load</button>
-  <div class="sep"></div>
-  <button class="tb" id="tb-text" onclick="setTool('text',this)" title="Text label [T]">Text</button>
-  <button class="tb" onclick="rotateSelected()" title="Rotate 90° [Enter]">Rotate</button>
-  <button class="tb" onclick="deleteSelected()" title="Delete [Del]">Delete</button>
-  <div class="sep"></div>
-  <button class="tb green" onclick="runSimulation()" title="Simulate [Space]">Simulate</button>
-  <button class="tb amber" onclick="stopSimulation()">Stop</button>
-  <div class="sep"></div>
-  <button class="tb" onclick="clearCanvas()">Clear</button>
-  <button class="tb" id="tb-example" onclick="loadExample()" title="Cycle through 3 example circuits [1: Staircase · 2: Ladder · 3: Lamp Bank]">Example</button>
+  <!-- ── Tool group ── -->
+  <div class="tb-group" id="tool-group">
+    <button class="tb icon" id="tb-select"  onclick="setTool('select',this)"  title="Select / Move [V]">⬚</button>
+    <button class="tb icon" id="tb-wire"    onclick="setTool('wire',this)"    title="Draw wire [W]">╱</button>
+    <button class="tb icon" id="tb-erase"   onclick="setTool('erase',this)"   title="Eraser [E]">⌫</button>
+    <button class="tb icon" id="tb-razor"   onclick="setTool('razor',this)"   title="Razor [R]">✂</button>
+    <button class="tb icon" id="tb-solder"  onclick="setTool('solder',this)"  title="Solder [S]">⬡</button>
+    <button class="tb icon" id="tb-inspect" onclick="setTool('inspect',this)" title="Inspect unions [I]">🔍</button>
+    <button class="tb icon" id="tb-pan"     onclick="setTool('pan',this)"     title="Pan [P]">✥</button>
+    <button class="tb icon" id="tb-text"    onclick="setTool('text',this)"    title="Text label [T]">T</button>
+  </div>
 
+  <div class="sep"></div>
+
+  <!-- ── Edit group ── -->
+  <div class="tb-group">
+    <button class="tb" id="tb-undo" onclick="undo()"  title="Undo [Ctrl+Z]" style="opacity:.35">↩</button>
+    <button class="tb" id="tb-redo" onclick="redo()"  title="Redo [Ctrl+Y]" style="opacity:.35">↪</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ── Modify group ── -->
+  <div class="tb-group">
+    <button class="tb" onclick="rotateSelected()"  title="Rotate 90° [Enter]">↻</button>
+    <button class="tb" onclick="deleteSelected()"  title="Delete [Del]" style="color:var(--red)">⌦</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ── Simulate group ── -->
+  <div class="tb-group">
+    <button class="tb green" onclick="runSimulation()"  title="Simulate [Space]">▶ Run</button>
+    <button class="tb amber" onclick="stopSimulation()" title="Stop simulation">■ Stop</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- ── File group ── -->
+  <div class="tb-group">
+    <button class="tb" onclick="saveCircuit()" title="Save circuit" style="color:var(--cyan)">⬇</button>
+    <button class="tb" onclick="loadCircuit()" title="Load circuit" style="color:var(--cyan)">⬆</button>
+    <button class="tb" onclick="exportPNG()"   title="Export PNG">⤓</button>
+  </div>
+
+  <!-- ── Right side ── -->
   <div class="tb-right">
-    <button class="tb" onclick="fitView()" style="color:var(--cyan)">Fit View</button>
+    <button class="tb" onclick="fitView()" title="Fit view to circuit" style="color:var(--cyan)">⊡</button>
     <div class="sep"></div>
     <div class="mode-pill" title="Meter display mode">
       <button id="md-hover" class="on" onclick="setMeterMode('hover',this)">Hover</button>
       <button id="md-pin"   onclick="setMeterMode('pin',this)">Pin</button>
     </div>
     <div class="sep"></div>
-    <button class="tb" onclick="startTutorial()" style="color:var(--purple)">? Tutorial</button>
-    <button class="tb" onclick="openLCR()" style="color:var(--cyan)">⚡ LCR Explorer</button>
-    <button class="tb" onclick="exportPNG()">Export</button>
-    <button class="tb" onclick="exportDebugLog()" style="color:var(--purple)">⬇ Debug JSON</button>
-    <button class="tb" id="tb-log" onclick="toggleLogPanel()" style="color:var(--purple)">☰ Logs</button>
+    <button class="tb" onclick="openLCR()"       title="LCR Circuit Explorer" style="color:var(--cyan)">⚡</button>
+    <button class="tb" onclick="startTutorial()" title="Tutorial" style="color:var(--purple)">?</button>
+    <button class="tb" onclick="loadExample()"   title="Load example circuit" id="tb-example">eg</button>
+    <button class="tb" onclick="clearCanvas()"   title="Clear canvas" style="color:var(--amber)">✕</button>
+
+    <!-- Overflow: debug/logs tucked away -->
+    <div class="sep"></div>
+    <div class="tb-overflow">
+      <button class="tb" onclick="toggleOverflow(this)" title="More options">⋯</button>
+      <div class="tb-overflow-menu" id="overflow-menu">
+        <button class="tb" onclick="exportDebugLog()" style="color:var(--purple)">⬇ Debug JSON</button>
+        <button class="tb" onclick="toggleLogPanel()" style="color:var(--purple)" id="tb-log">☰ Sim Logs</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -308,7 +356,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
   <div class="si">Wires: <span id="sb-w">0</span></div>
   <div class="si" id="sb-xy">x:0 y:0</div>
   <div class="si" style="margin-left:auto" id="sb-sim">Idle</div>
-  <div class="si">Zoom: <span id="sb-zoom">100%</span></div>
+  <div class="si" style="display:flex;align-items:center;gap:4px">
+    <button onclick="adjustZoom(-1)" title="Zoom out"
+      style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 2px;line-height:1">−</button>
+    <span id="sb-zoom" style="min-width:36px;text-align:center">100%</span>
+    <button onclick="adjustZoom(1)" title="Zoom in"
+      style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 2px;line-height:1">+</button>
+    <button onclick="S.zoom=1;render()" title="Reset zoom to 100%"
+      style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:9px;padding:0 2px;line-height:1;font-family:var(--mono)">⊙</button>
+  </div>
 </div>
 
 <div class="ctx" id="ctxmenu">
@@ -956,8 +1012,10 @@ let _croProbeMode = null;  // { compId, probeIdx:0|1 }
 // In erase mode the cursor acts as a hover-eraser: whatever wire segment or
 // component is under the cursor is highlighted, and a click deletes just that
 // one item (not a radius sweep).
-let _eraseHover = null;  // { type:'wire'|'comp', idx, segIdx } — what's highlighted
-let _razorHover = null;  // { wireIdx, segIdx, t, px, py, ax, ay, bx, by } — razor cut point
+let _eraseHover  = null;  // { type:'wire'|'comp', idx, segIdx }
+let _razorHover  = null;  // { wireIdx, segIdx, t, px, py, ax, ay, bx, by }
+let _solderHover = null;  // { pts: [{x,y,kind,label}], canJoin: bool } — candidates near cursor
+let _inspectData = null;  // { groups: Map(rootKey→{pts,col}), compNodes: Map(compId→[nodeId]) }
 
 window.addEventListener('load',()=>{
   canvas=document.getElementById('mc');
@@ -1039,6 +1097,194 @@ function loop(ts){
     if(c && c.t==='fuse') updateProps();
   }
   rafId=requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════
+//  SOLDER & INSPECT DRAW + LOGIC
+// ═══════════════════════════════════════════════════
+
+// Palette of distinct colours for node groups
+const NODE_COLOURS = [
+  '#4a9eff','#3de88e','#ffd166','#ff4a6a','#b87aff',
+  '#30e8d8','#ff9a7a','#a8e063','#f78fb3','#67e8f9',
+  '#fdba74','#86efac','#c4b5fd','#fca5a5','#6ee7b7',
+];
+
+function _buildInspectData(){
+  if(!S.comps.length && !S.wires.length) return null;
+  try {
+    const topo = CircuitTopology.buildNodeGroups(S.comps, S.wires, GS);
+    const { compNodesMap } = topo;
+
+    // Assign a colour to each node id
+    const nodeColours = new Map(); // nodeId → colour
+    let colIdx = 0;
+    compNodesMap.forEach(nodeIds=>{
+      nodeIds.forEach(nid=>{
+        if(!nodeColours.has(nid)) nodeColours.set(nid, NODE_COLOURS[colIdx++ % NODE_COLOURS.length]);
+      });
+    });
+
+    // Collect all physical points belonging to each node:
+    // — component terminals
+    const nodePoints = new Map(); // nodeId → [{x,y,kind,label}]
+    function addPt(nid, x, y, kind, label){
+      if(!nodePoints.has(nid)) nodePoints.set(nid, []);
+      nodePoints.get(nid).push({x, y, kind, label});
+    }
+
+    S.comps.forEach(c=>{
+      const def = DMAP[c.t]; if(!def) return;
+      const nodes = compNodesMap.get(c.id); if(!nodes) return;
+      def.terms.forEach((_,ti)=>{
+        const tp = termPos(c, ti);
+        addPt(nodes[ti], tp.x, tp.y, 'terminal', `${def.lbl}#${c.id}`);
+      });
+    });
+    // — wire points
+    S.wires.forEach(wire=>{
+      wire.pts.forEach(pt=>{
+        // Find which node this wire point belongs to via the snapped key
+        const sx = snap(pt.x), sy = snap(pt.y);
+        // Check against all terminal positions to find node membership
+        // Iterate compNodesMap to find whose terminal is closest
+        let bestNid = null, bestDist = GS*1.6;
+        S.comps.forEach(c=>{
+          const def = DMAP[c.t]; if(!def) return;
+          const nodes = compNodesMap.get(c.id); if(!nodes) return;
+          def.terms.forEach((_,ti)=>{
+            const tp = termPos(c,ti);
+            const d = Math.hypot(sx-tp.x, sy-tp.y);
+            if(d < bestDist){ bestDist=d; bestNid=nodes[ti]; }
+          });
+        });
+        // Also check wire endpoint unions using wire-to-wire proximity
+        if(bestNid === null){
+          // Assign to a "wire-only" node based on position key
+          // Use a pseudo-id from the position itself
+          const posKey = `wire:${sx},${sy}`;
+          if(!nodeColours.has(posKey)) nodeColours.set(posKey, NODE_COLOURS[colIdx++ % NODE_COLOURS.length]);
+          bestNid = posKey;
+        }
+        addPt(bestNid, sx, sy, 'wire', '');
+      });
+    });
+
+    return { nodePoints, nodeColours, compNodesMap };
+  } catch(e) {
+    return null;
+  }
+}
+
+function drawInspect(){
+  if(S.tool !== 'inspect') return;
+  const data = _inspectData;
+  if(!data) return;
+  ctx.save();
+
+  // Draw coloured discs at each terminal/wire point belonging to each node
+  data.nodePoints.forEach((pts, nid)=>{
+    const col = data.nodeColours.get(nid) || '#ffffff';
+    // Draw filled region connecting all points in this node (convex hull approximation)
+    // For simplicity: draw lines between all points in same node
+    const unique = [];
+    const seen = new Set();
+    pts.forEach(p=>{
+      const k=`${p.x},${p.y}`;
+      if(!seen.has(k)){ seen.add(k); unique.push(p); }
+    });
+
+    if(unique.length >= 2){
+      ctx.strokeStyle = col+'55'; ctx.lineWidth = 4; ctx.lineCap='round';
+      ctx.beginPath();
+      unique.forEach((p,i)=>{ i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y); });
+      ctx.stroke();
+    }
+
+    // Coloured dot at each point
+    unique.forEach(p=>{
+      // Larger ring for terminals, smaller for wire midpoints
+      const r = p.kind==='terminal' ? GS*0.45 : GS*0.28;
+      ctx.fillStyle = col+'cc';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      // Node ID label
+      const label = typeof nid==='number' ? `N${nid}` : `N?`;
+      ctx.fillStyle = '#000000bb';
+      ctx.beginPath(); ctx.arc(p.x, p.y, r-1, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = col;
+      ctx.font = `bold ${Math.round(GS*0.38)}px IBM Plex Mono`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(label, p.x, p.y);
+    });
+  });
+
+  // Legend in top-left of canvas (fixed position, not world space)
+  ctx.restore();
+  ctx.save();
+  const dpr = window.devicePixelRatio||1;
+  const cw = canvas.width/dpr;
+  const lx=10, ly=10, lh=16, lpad=6;
+  const nodeIds = [...new Set([...data.nodePoints.keys()])].filter(k=>typeof k==='number').sort((a,b)=>a-b);
+  const bgH = nodeIds.length*lh + lpad*2;
+  ctx.fillStyle='rgba(13,15,20,0.82)';
+  ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(lx,ly,120,bgH,5); else ctx.rect(lx,ly,120,bgH); ctx.fill();
+  nodeIds.forEach((nid,i)=>{
+    const col = data.nodeColours.get(nid)||'#fff';
+    const y = ly+lpad+i*lh+lh/2;
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(lx+lpad+5,y,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=col; ctx.font='9px IBM Plex Mono'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(`Node ${nid}`, lx+lpad+14, y);
+  });
+  ctx.restore();
+}
+
+function drawSolderHover(){
+  if(S.tool !== 'solder' || !_solderHover) return;
+  ctx.save();
+  const {x, y, pts} = _solderHover;
+
+  // Draw a pulsing ring at the solder point
+  const pulse = 0.7 + Math.sin(S.animT*6)*0.3;
+  const r = GS*0.65 * pulse;
+
+  // Outer glow
+  ctx.strokeStyle='rgba(255,209,102,0.4)'; ctx.lineWidth=8;
+  ctx.beginPath(); ctx.arc(x,y,r+4,0,Math.PI*2); ctx.stroke();
+  // Main ring
+  ctx.strokeStyle='#ffd166'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
+  // Centre dot
+  ctx.fillStyle='#ffd166';
+  ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+
+  // Lines from ring to each candidate
+  pts.forEach(p=>{
+    const isTerminal = p.kind==='terminal';
+    ctx.strokeStyle = isTerminal ? '#ffd166cc' : '#4a9effcc';
+    ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(p.x,p.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = isTerminal ? '#ffd166' : '#4a9eff';
+    ctx.beginPath(); ctx.arc(p.x,p.y,3.5,0,Math.PI*2); ctx.fill();
+  });
+
+  // Status label
+  ctx.fillStyle='rgba(13,15,20,0.85)';
+  const lbl = pts.length >= 2
+    ? `Solder: ${pts.length} points`
+    : pts.length === 1 ? `Junction confirmed` : `No junction`;
+  const lw = ctx.measureText(lbl).width + 12;
+  ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x-lw/2,y-GS*1.8,lw,16,4); else ctx.rect(x-lw/2,y-GS*1.8,lw,16);
+  ctx.fill();
+  ctx.fillStyle= pts.length>=2?'#ffd166':'#3de88e';
+  ctx.font='9px IBM Plex Mono'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(lbl, x, y-GS*1.8+8);
+
+  ctx.restore();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1730,8 +1976,13 @@ function render(){
   const cw = canvas.width / dpr, ch = canvas.height / dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle='#0d0f14'; ctx.fillRect(0,0,cw,ch);
+  // Update zoom display
+  const zEl = document.getElementById('sb-zoom');
+  if(zEl) zEl.textContent = Math.round(S.zoom*100)+'%';
+  // Rebuild inspect data every frame when active (keeps it live)
+  if(S.tool==='inspect') _inspectData = _buildInspectData();
   ctx.save(); ctx.translate(S.pan.x,S.pan.y); ctx.scale(S.zoom,S.zoom);
-  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawCROProbeMode();
+  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawSolderHover(); drawInspect(); drawCROProbeMode();
   // Palette drag ghost
   if(S._palDragType && S._palDragPos){
     const def = DMAP[S._palDragType];
@@ -2227,7 +2478,41 @@ function onMD(e){
     render(); return;
   }
 
-  // ── Razor tool: cut wire at hover point ───────────────────────────────
+  // ── Solder tool: force a junction wire to connect overlapping points ────
+  if(S.tool === 'solder'){
+    if(_solderHover && _solderHover.pts.length >= 1){
+      snapshot();
+      const {x, y} = _solderHover;
+      // Strategy: ensure every candidate point at this cluster position
+      // is connected by adding explicit wire stubs from each unique position
+      // back to the cluster centre.
+      // If any two candidates are not at exactly the same snapped position,
+      // connect them with a wire. Otherwise they're already in the same
+      // union group (the topology unions within 1.5×GS).
+      const positions = new Map();
+      _solderHover.pts.forEach(p=>{
+        const key = `${snap(p.x)},${snap(p.y)}`;
+        positions.set(key, {x: snap(p.x), y: snap(p.y)});
+      });
+      const posArr = [...positions.values()];
+      if(posArr.length >= 2){
+        // Connect all positions back to the first (star topology)
+        for(let i=1; i<posArr.length; i++){
+          S.wires.push({pts:[{...posArr[0]},{...posArr[i]}], sel:false});
+        }
+      } else if(posArr.length === 1){
+        // Single position — add a junction dot wire (back to itself is invalid,
+        // so add a proper confirmed-junction stub 1 grid step and back)
+        // This just confirms the existing union; no wire needed.
+        // Show confirmation flash only.
+      }
+      _flashPts.push({x, y, t:1.2});
+      _solderHover = null;
+      if(S.simOn) runSimulation();
+      updateSB();
+    }
+    render(); return;
+  }
   if(S.tool === 'razor'){
     if(_razorHover){
       const rh = _razorHover;
@@ -2386,6 +2671,59 @@ function onMM(e){
     canvas.style.cursor = _razorHover ? 'crosshair' : 'default';
     render(); return;
   }
+
+  // ── Solder tool: find overlapping terminals/wire-ends near cursor ──────
+  if(S.tool === 'solder'){
+    const REACH = GS * 1.8;
+    const candidates = [];
+
+    // Collect nearby component terminals
+    S.comps.forEach(c=>{
+      const def = DMAP[c.t]; if(!def) return;
+      def.terms.forEach((_,ti)=>{
+        const tp = termPos(c,ti);
+        if(Math.hypot(w.x-tp.x, w.y-tp.y) < REACH)
+          candidates.push({x:tp.x, y:tp.y, kind:'terminal', label:`${DMAP[c.t].lbl}#${c.id}[${ti}]`});
+      });
+    });
+    // Collect nearby wire endpoints
+    S.wires.forEach((wire,wi)=>{
+      [wire.pts[0], wire.pts[wire.pts.length-1]].forEach(pt=>{
+        if(Math.hypot(w.x-pt.x, w.y-pt.y) < REACH)
+          candidates.push({x:pt.x, y:pt.y, kind:'wire', label:`wire#${wi}`});
+      });
+    });
+
+    // Group candidates by snapped position
+    const posMap = new Map();
+    candidates.forEach(c2=>{
+      const key = `${snap(c2.x)},${snap(c2.y)}`;
+      if(!posMap.has(key)) posMap.set(key, []);
+      posMap.get(key).push(c2);
+    });
+
+    // Find the closest cluster with ≥2 items (potential join point)
+    let best = null, bestDist = REACH;
+    posMap.forEach((group, key)=>{
+      const [kx, ky] = key.split(',').map(Number);
+      const d = Math.hypot(w.x-kx, w.y-ky);
+      if(d < bestDist && group.length >= 1){
+        bestDist = d;
+        best = { x:kx, y:ky, pts:group, key,
+          canJoin: group.length >= 2 || group.some(g=>g.kind==='terminal') };
+      }
+    });
+    _solderHover = best;
+    canvas.style.cursor = _solderHover ? 'cell' : 'default';
+    render(); return;
+  }
+
+  // ── Inspect tool: compute and display all unions ────────────────────────
+  if(S.tool === 'inspect'){
+    _inspectData = _buildInspectData();
+    canvas.style.cursor = 'default';
+    render(); return;
+  }
   canvas.style.cursor='';
 
   // Check for meter hover and show tooltip
@@ -2427,27 +2765,87 @@ function onMU(e){
 }
 function onWheel(e){ e.preventDefault(); S.zoom=Math.max(0.3,Math.min(3,S.zoom*(e.deltaY>0?0.9:1.1))); render(); }
 
+// Zoom steps: 25%, 33%, 50%, 67%, 75%, 100%, 125%, 150%, 200%, 250%, 300%
+const ZOOM_STEPS = [0.25,0.33,0.5,0.67,0.75,1.0,1.25,1.5,2.0,2.5,3.0];
+function adjustZoom(dir){
+  const cur = S.zoom;
+  if(dir > 0){
+    const next = ZOOM_STEPS.find(z => z > cur + 0.01);
+    S.zoom = next || ZOOM_STEPS[ZOOM_STEPS.length-1];
+  } else {
+    const prev = [...ZOOM_STEPS].reverse().find(z => z < cur - 0.01);
+    S.zoom = prev || ZOOM_STEPS[0];
+  }
+  render();
+}
+
+function toggleOverflow(btn){
+  const menu = document.getElementById('overflow-menu');
+  const isOpen = menu.classList.contains('open');
+  menu.classList.toggle('open', !isOpen);
+  // Close on outside click
+  if(!isOpen){
+    setTimeout(()=>{
+      document.addEventListener('click', function close(e){
+        if(!menu.contains(e.target) && e.target !== btn){
+          menu.classList.remove('open');
+          document.removeEventListener('click', close);
+        }
+      });
+    }, 0);
+  }
+}
+
 // ── Touch state ───────────────────────────────────────────────────────────
 const _touch = { pointers: new Map(), lastDist: 0, lastMid: null, panStart: null, panPanOrig: null };
+let _longPressTimer = null;
+const LONG_PRESS_MS = 480;
 
 function _touchPos(touch){
   const r = canvas.getBoundingClientRect();
   return { x: touch.clientX - r.left, y: touch.clientY - r.top };
 }
 
+function _cancelLongPress(){ if(_longPressTimer){ clearTimeout(_longPressTimer); _longPressTimer=null; } }
+
 function onTouchStart(e){
   e.preventDefault();
   for(const t of e.changedTouches) _touch.pointers.set(t.identifier, _touchPos(t));
 
   if(_touch.pointers.size === 1){
-    // Single finger — treat like mouse for select/wire/pan
     const pts = [..._touch.pointers.values()];
-    const fake = { clientX: pts[0].x + canvas.getBoundingClientRect().left,
-                   clientY: pts[0].y + canvas.getBoundingClientRect().top,
-                   button: 0, preventDefault(){ } };
+    const cPos = pts[0];
+    const r = canvas.getBoundingClientRect();
+    const clientX = cPos.x + r.left, clientY = cPos.y + r.top;
+
+    // Long press: triggers hover effects (meter tooltip pin / component props)
+    _cancelLongPress();
+    _longPressTimer = setTimeout(()=>{
+      _longPressTimer = null;
+      const w = sw(clientX, clientY);
+      const c = compAt(w.x, w.y);
+      if(c){
+        if(c.t==='ammeter' || c.t==='voltmeter'){
+          // Long press on meter → pin it (same as Pin mode click)
+          if(!_pinnedMeters.has(c.id)){
+            pinMeter(c, clientX, clientY);
+          } else {
+            removePinnedMeter(c.id);
+          }
+        } else {
+          // Long press on any component → select it and open props
+          S.sel.clear(); S.sel.add(c.id);
+          updateProps(); render();
+        }
+        // Haptic feedback if available
+        if(navigator.vibrate) navigator.vibrate(30);
+      }
+    }, LONG_PRESS_MS);
+
+    const fake = { clientX, clientY, button: 0, preventDefault(){ } };
     onMD(fake);
   } else if(_touch.pointers.size === 2){
-    // Two fingers — prepare for pinch-zoom; cancel any drag
+    _cancelLongPress();
     S.drag = false; S.panning = false;
     const pts = [..._touch.pointers.values()];
     _touch.lastDist = Math.hypot(pts[1].x-pts[0].x, pts[1].y-pts[0].y);
@@ -2458,6 +2856,12 @@ function onTouchStart(e){
 function onTouchMove(e){
   e.preventDefault();
   for(const t of e.changedTouches) _touch.pointers.set(t.identifier, _touchPos(t));
+
+  // Cancel long press if finger moves significantly
+  if(_longPressTimer && _touch.pointers.size === 1){
+    const pts = [..._touch.pointers.values()];
+    _cancelLongPress();
+  }
 
   if(_touch.pointers.size === 1){
     const pts = [..._touch.pointers.values()];
@@ -2492,6 +2896,7 @@ function onTouchMove(e){
 
 function onTouchEnd(e){
   e.preventDefault();
+  _cancelLongPress();
   for(const t of e.changedTouches) _touch.pointers.delete(t.identifier);
   if(_touch.pointers.size < 2){ _touch.lastDist = 0; _touch.lastMid = null; }
   if(_touch.pointers.size === 0){
@@ -2586,7 +2991,7 @@ function onKey(e){
     if(document.getElementById('lcr-overlay').classList.contains('show')){ closeLCR(); return; }
     if(document.getElementById('tutoverlay').classList.contains('show')){ tutNav(999); return; }
     if(_croProbeMode !== null){ _croProbeMode=null; canvas.style.cursor=''; render(); return; }
-    _eraseHover=null; _razorHover=null;
+    _eraseHover=null; _razorHover=null; _solderHover=null; _inspectData=null;
     setTool('select', document.getElementById('tb-select')); return;
   }
 
@@ -2612,11 +3017,13 @@ function onKey(e){
   if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); return; }
   if(e.key==='Delete'||e.key==='Backspace') deleteSelected();
   if(e.key==='Enter') rotateSelected();
-  if(e.key==='v'||e.key==='V') setTool('select', document.getElementById('tb-select'));
-  if(e.key==='w'||e.key==='W') setTool('wire',   document.getElementById('tb-wire'));
-  if(e.key==='e'||e.key==='E') setTool('erase',  document.getElementById('tb-erase'));
-  if(e.key==='r'||e.key==='R') setTool('razor',  document.getElementById('tb-razor'));
-  if(e.key==='p'||e.key==='P') setTool('pan',    document.getElementById('tb-pan'));
+  if(e.key==='v'||e.key==='V') setTool('select',  document.getElementById('tb-select'));
+  if(e.key==='w'||e.key==='W') setTool('wire',    document.getElementById('tb-wire'));
+  if(e.key==='e'||e.key==='E') setTool('erase',   document.getElementById('tb-erase'));
+  if(e.key==='r'||e.key==='R') setTool('razor',   document.getElementById('tb-razor'));
+  if(e.key==='s'||e.key==='S') setTool('solder',  document.getElementById('tb-solder'));
+  if(e.key==='i'||e.key==='I') setTool('inspect', document.getElementById('tb-inspect'));
+  if(e.key==='p'||e.key==='P') setTool('pan',     document.getElementById('tb-pan'));
 
   // Arrow nudge — moves ALL selected, shift = 4× grid
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
@@ -3381,6 +3788,8 @@ function setTool(t,btn){
   if(t !== 'wire'){ S.wirePts=[]; S._wMouse=null; }
   if(t !== 'erase'){ _eraseHover=null; }
   if(t !== 'razor'){ _razorHover=null; }
+  if(t !== 'solder'){ _solderHover=null; }
+  if(t !== 'inspect'){ _inspectData=null; }
   canvas.style.cursor = t==='pan' ? 'grab' : '';
   document.getElementById('sb-tool').textContent = t.charAt(0).toUpperCase()+t.slice(1);
   render();
