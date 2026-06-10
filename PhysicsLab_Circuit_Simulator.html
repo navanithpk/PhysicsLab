@@ -395,6 +395,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     <button class="tb tool" id="tb-fs" onclick="toggleFullscreen()" title="Fullscreen [F11]"><span class="ti" id="fs-icon">⛶</span><span class="tl">Full</span></button>
   </div>
 
+  <div class="sep"></div>
+
+  <!-- ── Selection actions — always visible for iPad ── -->
+  <div class="tb-group">
+    <button class="tb tool" onclick="rotateSelected()"  title="Rotate 90° [Enter]"><span class="ti">↻</span><span class="tl">Rotate</span></button>
+    <button class="tb tool" onclick="flipSelected()"    title="Flip horizontal [F]"><span class="ti">⇄</span><span class="tl">Flip</span></button>
+    <button class="tb tool" onclick="copySelected();pasteClipboard()" title="Duplicate [Ctrl+D]"><span class="ti">⧉</span><span class="tl">Dupe</span></button>
+    <button class="tb tool" onclick="deleteSelected()"  title="Delete [Del]" style="color:var(--red)"><span class="ti">⌦</span><span class="tl">Del</span></button>
+  </div>
+
   <!-- Clear — prominent, far right of tools -->
   <div class="tb-right">
     <button class="tb-clear" onclick="clearCanvas()" title="Clear all components and wires">
@@ -3456,6 +3466,7 @@ function onKey(e){
   if(e.code==='Space'){ e.preventDefault(); S.simOn?stopSimulation():runSimulation(); return; }
   if(e.key==='Delete'||e.key==='Backspace') deleteSelected();
   if(e.key==='Enter') rotateSelected();
+  if(e.key==='f'||e.key==='F') flipSelected();
   if(e.key==='v'||e.key==='V') setTool('select',  document.getElementById('tb-select'));
   if(e.key==='w'||e.key==='W') setTool('wire',    document.getElementById('tb-wire'));
   if(e.key==='e'||e.key==='E') setTool('erase',   document.getElementById('tb-erase'));
