@@ -946,6 +946,7 @@ class MNASolver {
         case 'switch': case 'relay_switch':
           g = c.props.closed ? 1e5 : 0; break;
         case 'voltmeter': g = 1e-9; break;
+        case 'galvanometer': g = 1e5; break;  // near-ideal ammeter, very low R
         case 'cro':       g = 1e-9; break;
         case 'diode':
           // Only stamp if in the conducting set (forward biased)
@@ -1106,6 +1107,8 @@ class PhysicsEngine {
             I = vd * 1e6;   break; // DC short: I = V/very_small_R
           case 'voltmeter':
             I = vd * 1e-9; break; // High impedance
+          case 'galvanometer':
+            I = vd * 1e5; break;  // near-ideal ammeter
           case 'cro':
             I = vd * 1e-9; break; // CRO input, passive
           case 'relay_coil':
@@ -1114,8 +1117,10 @@ class PhysicsEngine {
       }
 
       c._simV = vd;
-      c._simI = Math.abs(I);  // Current magnitude is always positive
-      c._simVal = (c.t === 'ammeter') ? Math.abs(I) : Math.abs(vd);
+      c._simI = Math.abs(I);
+      // Galvanometer uses signed current (needle deflects left or right)
+      c._simVal = (c.t==='galvanometer') ? I :
+                  (c.t==='ammeter') ? Math.abs(I) : Math.abs(vd);
     });
   }
 
@@ -1181,6 +1186,7 @@ const DEFS = [
   {t:'thermistor',lbl:'Thermistor',grp:'Sensors',col:'#ff4a6a',props:{resistance:1000,label:'NTC'},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'diode',lbl:'Diode',grp:'Semiconductors',col:'#b87aff',props:{vf:0.7,label:'D'},terms:[[-1,0],[1,0]],gw:2,gh:1},
   {t:'ammeter',lbl:'Ammeter',grp:'Meters',col:'#ff4a6a',props:{range:'1A',label:'A'},terms:[[-1,0],[1,0]],gw:2,gh:2},
+  {t:'galvanometer',lbl:'Galvanometer',grp:'Meters',col:'#ff9a7a',props:{range:'100µA',label:'G'},terms:[[-1,0],[1,0]],gw:2,gh:2},
   {t:'voltmeter',lbl:'Voltmeter',grp:'Meters',col:'#4a9eff',props:{range:'20V',label:'V'},terms:[[-1,0],[1,0]],gw:2,gh:2},
   {t:'cro',lbl:'CRO',grp:'Meters',col:'#30e8d8',props:{wave:'sine',timeDiv:1,voltDiv:5,label:'CRO'},terms:[[-1,3],[1,3]],gw:5,gh:7},
   {t:'ground',lbl:'Ground',grp:'Reference',col:'#8890b0',props:{label:''},terms:[[0,0],[0,0]],gw:1,gh:1},
@@ -1218,8 +1224,20 @@ const VOLTMETER_RANGES = [
   { key:'500V',  max:500,     label:'500 V'  },
 ];
 
+const GALVO_RANGES = [
+  {key:'1µA',  label:'1µA',   max:1e-6},
+  {key:'5µA',  label:'5µA',   max:5e-6},
+  {key:'10µA', label:'10µA',  max:10e-6},
+  {key:'50µA', label:'50µA',  max:50e-6},
+  {key:'100µA',label:'100µA', max:100e-6},
+  {key:'500µA',label:'500µA', max:500e-6},
+  {key:'1mA',  label:'1mA',   max:1e-3},
+  {key:'5mA',  label:'5mA',   max:5e-3},
+];
+
 function getMeterRange(comp){
-  const table = comp.t==='ammeter' ? AMMETER_RANGES : VOLTMETER_RANGES;
+  const table = comp.t==='ammeter' ? AMMETER_RANGES :
+                comp.t==='galvanometer' ? GALVO_RANGES : VOLTMETER_RANGES;
   return table.find(r=>r.key===comp.props.range) || table[table.length>>1];
 }
 
@@ -1346,7 +1364,7 @@ function loop(ts){
   if(S.sel.size){
     const selId = [...S.sel][0];
     const c = S.comps.find(x=>x.id===selId);
-    if(c && (c.t==='ammeter'||c.t==='voltmeter')){
+    if(c && (c.t==='ammeter'||c.t==='voltmeter'||c.t==='galvanometer')){
       const propCanvas = document.getElementById(`prop-meter-canvas-${c.id}`);
       if(propCanvas) renderMeterFaceOnCanvas(c, propCanvas);
     }
@@ -1550,7 +1568,7 @@ function drawSolderHover(){
 // ═══════════════════════════════════════════════════
 const C={wire:'#4a9eff',comp:'#c8d4f0',src:'#ffb830',meter_a:'#ff9a7a',meter_v:'#7ab8ff',green:'#3de88e',red:'#ff4a6a',purple:'#b87aff'};
 function compColor(t){
-  if(t==='ammeter') return C.meter_a; if(t==='voltmeter') return C.meter_v;
+  if(t==='ammeter') return C.meter_a; if(t==='galvanometer') return '#ff9a7a'; if(t==='voltmeter') return C.meter_v;
   if(t==='cro') return '#30e8d8';
   if(t==='inductor') return '#b87aff';
   if(t==='cell'||t==='battery'||t==='ac'||t==='lamp'||t==='ldr') return C.src;
@@ -1846,6 +1864,44 @@ function drawDiode(ctx,col){
   ctx.beginPath(); ctx.moveTo(-GS*0.6,-GS*0.5); ctx.lineTo(-GS*0.6,GS*0.5); ctx.lineTo(GS*0.4,0); ctx.closePath(); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(GS*0.4,-GS*0.5); ctx.lineTo(GS*0.4,GS*0.5); ctx.stroke();
 }
+
+function drawGalvanometer(ctx, col, signedI, rangeObj, dispMode, animT, compId){
+  // Symbol: identical to ammeter/voltmeter — circle + letter + leads
+  ss(ctx, col);
+  const r = GS * 1.0;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.stroke();
+  // Terminal leads
+  ctx.beginPath(); ctx.moveTo(-GS*1.2, 0); ctx.lineTo(-r, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( GS*1.2, 0); ctx.lineTo( r, 0); ctx.stroke();
+  // Bold G letter
+  ctx.fillStyle = _exportBW ? '#000' : col;
+  ctx.font = `bold ${Math.round(r*0.62)}px IBM Plex Mono`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('G', 0, 0);
+
+  // Hover tooltip (signed value)
+  if(S.hover === compId && !_exportBW){
+    ctx.save();
+    const absI = Math.abs(signedI);
+    const sign = signedI < 0 ? '−' : '+';
+    const valStr = absI < 1e-9 ? '0 A' : (sign + _si(absI, 'A'));
+    const full = `G: ${valStr}`;
+    ctx.fillStyle = 'rgba(20,25,35,0.95)';
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    const dispX = GS*2.2, dispY = -GS*0.8, dispW = GS*3.5, dispH = GS*1.4;
+    roundRect(ctx, dispX-dispW/2, dispY-dispH/2, dispW, dispH, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = col; ctx.font='10px IBM Plex Sans';
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText('Galvanometer', dispX-dispW/2+4, dispY-dispH/2+3);
+    ctx.fillStyle = signedI > 0 ? '#ff4a6a' : signedI < 0 ? '#4a9eff' : '#3de88e';
+    ctx.font='bold 14px IBM Plex Mono';
+    ctx.textAlign='right'; ctx.textBaseline='bottom';
+    ctx.fillText(_si(absI,'A'), dispX+dispW/2-4, dispY+dispH/2-3);
+    ctx.restore();
+  }
+}
+
 function drawMeter(ctx,col,letter,value,range,over,under,dispMode,animT,compId){
   ss(ctx,col); const r=GS*1.0; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(-GS*1.2,0); ctx.lineTo(-r,0); ctx.stroke();
@@ -2179,6 +2235,7 @@ function drawComp(ctx,comp,def,sel,hov,animT){
     case 'thermistor': drawThermistor(ctx,hcol); break;
     case 'diode': drawDiode(ctx,hcol); break;
     case 'ammeter': drawMeter(ctx,hcol,'A',comp._simVal||0,{max:10},false,false,S.dispMode,animT,comp.id); break;
+    case 'galvanometer': drawGalvanometer(ctx,hcol,comp._simVal||0,getMeterRange(comp),S.dispMode,animT,comp.id); break;
     case 'voltmeter': drawMeter(ctx,hcol,'V',comp._simVal||0,{max:20},false,false,S.dispMode,animT,comp.id); break;
     case 'ground': drawGround(ctx,hcol); break;
     case 'cro': drawCRO(ctx,hcol,comp,animT,S.simOn,_nodeV,_lastCompNodes); break;
@@ -2240,7 +2297,7 @@ function render(){
   // Rebuild inspect data every frame when active (keeps it live)
   if(S.tool==='inspect') _inspectData = _buildInspectData();
   ctx.save(); ctx.translate(S.pan.x,S.pan.y); ctx.scale(S.zoom,S.zoom);
-  drawGrid(); drawWires(); drawWireElectronFlow(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawSolderHover(); drawInspect(); drawSelRect(); drawCROProbeMode();
+  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawSolderHover(); drawInspect(); drawSelRect(); drawCROProbeMode();
   // Palette drag ghost
   if(S._palDragType && S._palDragPos){
     const def = DMAP[S._palDragType];
@@ -3098,7 +3155,7 @@ function onMD(e){
 
   const c=compAt(w.x,w.y);
   // ── Pin mode: clicking meter toggles pinned modal, but still selects it ──
-  if(_meterMode === 'pin' && c && (c.t==='ammeter'||c.t==='voltmeter')){
+  if(_meterMode === 'pin' && c && (c.t==='ammeter'||c.t==='voltmeter'||c.t==='galvanometer')){
     if(_pinnedMeters.has(c.id)){
       removePinnedMeter(c.id);
     } else {
@@ -3253,8 +3310,7 @@ function onMM(e){
 
   // Check for meter hover and show tooltip
   const hoveredComp = compAt(w.x, w.y);
-  if(hoveredComp && (hoveredComp.t === 'ammeter' || hoveredComp.t === 'voltmeter')){
-    // In pin mode, only show hover tooltip if this meter isn't already pinned
+  if(hoveredComp && (hoveredComp.t === 'ammeter' || hoveredComp.t === 'voltmeter' || hoveredComp.t === 'galvanometer')){
     if(_meterMode === 'hover' || !_pinnedMeters.has(hoveredComp.id)){
       showMeterTooltip(hoveredComp, e.clientX, e.clientY, false);
     } else {
@@ -3400,7 +3456,7 @@ function onTouchStart(e){
       const w = sw(clientX, clientY);
       const c = compAt(w.x, w.y);
       if(c){
-        if(c.t==='ammeter' || c.t==='voltmeter'){
+        if(c.t==='ammeter' || c.t==='voltmeter' || c.t==='galvanometer'){
           // Long press on meter → pin it (same as Pin mode click)
           if(!_pinnedMeters.has(c.id)){
             pinMeter(c, clientX, clientY);
@@ -3744,7 +3800,7 @@ function updateProps(){
   if(c.t === 'ammeter' || c.t === 'voltmeter'){
     const isA    = c.t === 'ammeter';
     const col    = isA ? '#ff4a6a' : '#4a9eff';
-    const table  = isA ? AMMETER_RANGES : VOLTMETER_RANGES;
+    const table  = c.t==='ammeter' ? AMMETER_RANGES : c.t==='galvanometer' ? GALVO_RANGES : VOLTMETER_RANGES;
     const curKey = c.props.range || (isA ? '1A' : '20V');
     const isPinned = _pinnedMeters.has(c.id);
 
@@ -4083,42 +4139,107 @@ function ctxDelWire(){
 // Elements: titleEl, analogCanvas, valueEl, rangeEl
 function renderMeterFace(comp, titleEl, analogCanvas, valueEl, rangeEl){
   const isAmmeter = comp.t === 'ammeter';
-  const col  = isAmmeter ? '#ff4a6a' : '#4a9eff';
-  const unit = isAmmeter ? 'A' : 'V';
+  const isGalvo   = comp.t === 'galvanometer';
+  const col  = isAmmeter ? '#ff4a6a' : isGalvo ? '#ff9a7a' : '#4a9eff';
+  const unit = (isAmmeter||isGalvo) ? 'A' : 'V';
 
-  titleEl.textContent = isAmmeter ? 'AMMETER' : 'VOLTMETER';
+  titleEl.textContent = isAmmeter ? 'AMMETER' : isGalvo ? 'GALVANOMETER' : 'VOLTMETER';
   titleEl.style.color = col;
 
-  const rangeObj     = getMeterRange(comp);
-  const maxVal       = rangeObj.max;
-  const value        = comp._simVal || 0;
-  const absVal       = Math.abs(value);
-  const overRange    = absVal > maxVal * 1.02;
-  const clampedNorm  = Math.max(0, Math.min(1, absVal / maxVal));
+  const rangeObj  = getMeterRange(comp);
+  const maxVal    = rangeObj.max;
+  const value     = comp._simVal || 0;   // signed for galvo, unsigned for others
+  const absVal    = Math.abs(value);
+  const overRange = absVal > maxVal * 1.02;
+  // For galvo: normalise -1..+1; for others 0..1
+  const norm      = isGalvo ? Math.max(-1,Math.min(1,value/maxVal)) : Math.max(0,Math.min(1,absVal/maxVal));
 
   let displayValue, displayUnit;
-  if(overRange){
-    displayValue = 'OL'; displayUnit = '— over range';
-  } else {
-    if      (absVal >= 1)    { displayValue = value.toFixed(4);        displayUnit = unit;     }
-    else if (absVal >= 1e-3) { displayValue = (value*1e3).toFixed(3);  displayUnit = 'm'+unit; }
-    else if (absVal >= 1e-6) { displayValue = (value*1e6).toFixed(2);  displayUnit = 'µ'+unit; }
-    else                     { displayValue = (value*1e9).toFixed(2);  displayUnit = 'n'+unit; }
+  if(overRange){ displayValue='OL'; displayUnit='— over range'; }
+  else {
+    const v2 = isGalvo ? value : absVal;
+    if     (absVal>=1)    { displayValue=v2.toFixed(4);        displayUnit=unit; }
+    else if(absVal>=1e-3) { displayValue=(v2*1e3).toFixed(3);  displayUnit='m'+unit; }
+    else if(absVal>=1e-6) { displayValue=(v2*1e6).toFixed(2);  displayUnit='µ'+unit; }
+    else                  { displayValue=(v2*1e9).toFixed(2);  displayUnit='n'+unit; }
   }
 
   // Analog face
   const actx = analogCanvas.getContext('2d');
   const W = analogCanvas.width, H = analogCanvas.height;
   actx.clearRect(0,0,W,H);
-  const cx = W/2, cy = H-12, radius = 46;
-  const arcStart = Math.PI*0.80, arcEnd = Math.PI*2.20, arcSpan = arcEnd-arcStart;
+  const cx = W/2, cy = H-10, radius = 44;
 
-  actx.beginPath(); actx.arc(cx,cy,radius,arcStart,arcEnd);
-  actx.strokeStyle='#1e2438'; actx.lineWidth=9; actx.lineCap='butt'; actx.stroke();
+  if(isGalvo){
+    // Centre-zero gauge — same arc geometry as standard meter but midpoint = 0
+    // Standard arc: arcStart=0.80π (bottom-left) → arcEnd=2.20π (bottom-right), going clockwise
+    // We keep the same arc but treat the midpoint as zero instead of the start
+    const arcStart = Math.PI*0.80, arcEnd = Math.PI*2.20, arcSpan = arcEnd-arcStart;
+    const arcMid   = arcStart + arcSpan/2;  // top centre = zero position
 
-  const fillEnd = arcStart + clampedNorm*arcSpan;
-  actx.beginPath(); actx.arc(cx,cy,radius,arcStart,fillEnd);
-  actx.strokeStyle = overRange?'#ff4a6a':col; actx.lineWidth=9; actx.lineCap='round'; actx.stroke();
+    // Background track
+    actx.beginPath(); actx.arc(cx,cy,radius,arcStart,arcEnd);
+    actx.strokeStyle='#1e2438'; actx.lineWidth=9; actx.lineCap='butt'; actx.stroke();
+
+    // Filled section from centre outward in deflection direction
+    // norm: -1=full left, 0=centre, +1=full right
+    // norm=0 → needle at arcMid; norm=+1 → needle at arcEnd; norm=-1 → needle at arcStart
+    const needleAngle = arcMid + norm*(arcSpan/2);
+    if(Math.abs(norm) > 0.01){
+      actx.beginPath();
+      if(norm > 0) actx.arc(cx,cy,radius,arcMid,needleAngle);
+      else         actx.arc(cx,cy,radius,needleAngle,arcMid);
+      actx.strokeStyle = overRange?'#ff4a6a':(norm>0?'#ff9a7a':'#4a9eff');
+      actx.lineWidth=9; actx.lineCap='round'; actx.stroke();
+    }
+
+    // Ticks: left end (−max), 1/4, centre (0), 3/4, right end (+max)
+    for(let i=0; i<=10; i++){
+      const angle = arcStart + (i/10)*arcSpan;
+      const isMajor = (i===0||i===5||i===10);
+      const isCentre = (i===5);
+      const innerR = radius - (isMajor ? 13 : 8);
+      actx.beginPath();
+      actx.moveTo(cx+Math.cos(angle)*innerR,    cy+Math.sin(angle)*innerR);
+      actx.lineTo(cx+Math.cos(angle)*(radius-4),cy+Math.sin(angle)*(radius-4));
+      actx.strokeStyle = isCentre ? '#8890b0' : '#4a5470';
+      actx.lineWidth = isMajor ? 1.2 : 0.7; actx.stroke();
+    }
+
+    // Tick labels: −, 0, +
+    actx.fillStyle='#6878a0'; actx.font='8px IBM Plex Mono'; actx.textAlign='center'; actx.textBaseline='middle';
+    const labelR = radius-20;
+    actx.fillText('−', cx+Math.cos(arcStart)*labelR, cy+Math.sin(arcStart)*labelR);
+    actx.fillText('0', cx+Math.cos(arcMid)*labelR,   cy+Math.sin(arcMid)*labelR);
+    actx.fillText('+', cx+Math.cos(arcEnd)*labelR,   cy+Math.sin(arcEnd)*labelR);
+
+    // Needle from pivot to arc
+    const nx = cx+Math.cos(needleAngle)*(radius-6);
+    const ny = cy+Math.sin(needleAngle)*(radius-6);
+    // Shadow
+    actx.beginPath(); actx.moveTo(cx+1,cy+1); actx.lineTo(nx+1,ny+1);
+    actx.strokeStyle='rgba(0,0,0,0.4)'; actx.lineWidth=2.5; actx.lineCap='round'; actx.stroke();
+    // Needle — colour by deflection direction
+    actx.beginPath(); actx.moveTo(cx,cy); actx.lineTo(nx,ny);
+    actx.strokeStyle = overRange ? '#ff4a6a' : (Math.abs(norm)<0.02 ? '#f0f4ff' : norm>0 ? '#ff9a7a' : '#4a9eff');
+    actx.lineWidth=2; actx.stroke();
+    // Pivot
+    actx.beginPath(); actx.arc(cx,cy,4,0,Math.PI*2);
+    actx.fillStyle='#3de88e'; actx.fill();
+
+    // Range label
+    actx.fillStyle='#8890b0'; actx.font='9px IBM Plex Mono';
+    actx.textAlign='center'; actx.textBaseline='bottom';
+    actx.fillText('±'+rangeObj.label, cx, cy-radius+2);
+
+  } else {
+    // Standard 0-to-max arc
+    const arcStart = Math.PI*0.80, arcEnd = Math.PI*2.20, arcSpan = arcEnd-arcStart;
+    actx.beginPath(); actx.arc(cx,cy,radius,arcStart,arcEnd);
+    actx.strokeStyle='#1e2438'; actx.lineWidth=9; actx.lineCap='butt'; actx.stroke();
+    const fillEnd2 = arcStart + norm*arcSpan;
+    actx.beginPath(); actx.arc(cx,cy,radius,arcStart,fillEnd2);
+    actx.strokeStyle=overRange?'#ff4a6a':col; actx.lineWidth=9; actx.lineCap='round'; actx.stroke();
 
   // Major ticks
   const majorTicks=5;
@@ -4149,7 +4270,7 @@ function renderMeterFace(comp, titleEl, analogCanvas, valueEl, rangeEl){
   }
 
   // Needle
-  const needleAngle = arcStart+clampedNorm*arcSpan;
+  const needleAngle = arcStart+norm*arcSpan;
   const nx=cx+Math.cos(needleAngle)*(radius-6), ny=cy+Math.sin(needleAngle)*(radius-6);
   actx.beginPath(); actx.moveTo(cx+1,cy+1); actx.lineTo(nx+1,ny+1);
   actx.strokeStyle='rgba(0,0,0,0.4)'; actx.lineWidth=2.5; actx.lineCap='round'; actx.stroke();
@@ -4160,6 +4281,7 @@ function renderMeterFace(comp, titleEl, analogCanvas, valueEl, rangeEl){
   actx.fillStyle='#8890b0'; actx.font='9px IBM Plex Mono';
   actx.textAlign='center'; actx.textBaseline='bottom';
   actx.fillText(rangeObj.label, cx, cy-radius+2);
+  } // end standard meter else
 
   valueEl.style.color = overRange?'#ff4a6a':'#3de88e';
   valueEl.textContent = overRange ? 'OL' : (displayValue+' '+displayUnit);
@@ -4265,7 +4387,8 @@ function _startModalResize(compId, clientX, clientY){
 
 function buildMeterModal(comp, x, y){
   const isAmmeter = comp.t === 'ammeter';
-  const accentCol = isAmmeter ? '#ff4a6a' : '#4a9eff';
+  const isGalvo   = comp.t === 'galvanometer';
+  const accentCol = isAmmeter ? '#ff4a6a' : isGalvo ? '#ff9a7a' : '#4a9eff';
   const borderCol = isAmmeter ? 'rgba(255,74,106,.32)' : 'rgba(74,158,255,.32)';
 
   const el = document.createElement('div');
@@ -5656,89 +5779,11 @@ function openExampleGallery(){
 function closeEG(){ document.getElementById('eg-overlay').style.display='none'; }
 
 // ════════════════════════════════════════════════════════════════
-//  CLASSIC EXAMPLES (preserved originals)
+//  EXAMPLE HELPERS
 // ════════════════════════════════════════════════════════════════
-function loadExample1(){
-  // Staircase: 12V · master switch · ammeter · 3 parallel branches (switch + resistor + lamp each)
-  _clearForExample(); const ox=32,oy=48;
-  _ac('battery', 6,2,ox,oy,0,{voltage:12,cells:4,label:'12V'});
-  _ac('switch', 11,2,ox,oy,0,{closed:true,label:'S'});
-  _ac('ammeter',15,2,ox,oy,0,{range:'500mA',label:'A'});
-  // Branch 1
-  _ac('switch', 20,5,ox,oy,PI2,{closed:true,label:'S1'});
-  _ac('resistor',20,10,ox,oy,PI2,{resistance:100,label:'R1'});
-  _ac('lamp',   20,16,ox,oy,0, {resistance:60,rating:6,label:'L1'});
-  // Branch 2
-  _ac('switch', 26,5,ox,oy,PI2,{closed:false,label:'S2'});
-  _ac('resistor',26,10,ox,oy,PI2,{resistance:220,label:'R2'});
-  _ac('lamp',   26,16,ox,oy,0, {resistance:60,rating:6,label:'L2'});
-  // Branch 3
-  _ac('switch', 32,5,ox,oy,PI2,{closed:true,label:'S3'});
-  _ac('resistor',32,10,ox,oy,PI2,{resistance:470,label:'R3'});
-  _ac('lamp',   32,16,ox,oy,0, {resistance:60,rating:6,label:'L3'});
-  _ac('ground', 26,22,ox,oy,0,{});
-  // Top rail
-  _seg(4,2,10,2,ox,oy); _seg(10,2,12,2,ox,oy); _seg(12,2,16,2,ox,oy);
-  _seg(16,2,20,2,ox,oy); _seg(20,2,26,2,ox,oy); _seg(26,2,32,2,ox,oy); _seg(32,2,36,2,ox,oy);
-  // Branch verticals
-  _seg(20,2,20,3,ox,oy); _seg(20,7,20,8,ox,oy); _seg(20,12,20,14,ox,oy); _seg(20,18,20,20,ox,oy);
-  _seg(26,2,26,3,ox,oy); _seg(26,7,26,8,ox,oy); _seg(26,12,26,14,ox,oy); _seg(26,18,26,20,ox,oy);
-  _seg(32,2,32,3,ox,oy); _seg(32,7,32,8,ox,oy); _seg(32,12,32,14,ox,oy); _seg(32,18,32,20,ox,oy);
-  // Bottom rail + sides
-  _seg(20,20,32,20,ox,oy); _seg(4,20,20,20,ox,oy); _seg(32,20,36,20,ox,oy);
-  _seg(4,2,4,20,ox,oy); _seg(36,2,36,20,ox,oy);
-  _seg(26,20,26,22,ox,oy);
-  _txt('Toggle S2/S3 to see current redistribution',0,25,ox,oy);
-}
-
-function loadExample2(){
-  // Series-parallel ladder: battery + series R + two parallel branches
-  _clearForExample(); const ox=48,oy=64;
-  _ac('battery',  2,6,ox,oy,0, {voltage:12,cells:4,label:'12V'});
-  _ac('ammeter',  6,2,ox,oy,0, {range:'500mA',label:'I_T'});
-  _ac('resistor', 9,2,ox,oy,0, {resistance:100,label:'Rs 100Ω'});
-  _ac('resistor',15,4,ox,oy,PI2,{resistance:330,label:'R₂ 330Ω'});
-  _ac('resistor',21,4,ox,oy,PI2,{resistance:680,label:'R₃ 680Ω'});
-  _ac('voltmeter',9,8,ox,oy,PI2, {range:'10V',label:'V_s'});
-  _ac('voltmeter',18,8,ox,oy,PI2,{range:'20V',label:'V_p'});
-  _ac('lamp',    15,10,ox,oy,0, {resistance:60,rating:3,label:'L'});
-  _ac('ground',  15,14,ox,oy,0, {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,7,2,ox,oy); _seg(7,2,11,2,ox,oy);
-  _seg(11,2,15,2,ox,oy); _seg(15,2,21,2,ox,oy); _seg(21,2,24,2,ox,oy);
-  _seg(15,2,15,6,ox,oy); _seg(15,7,15,8,ox,oy); _seg(15,9,15,12,ox,oy); _seg(15,13,15,14,ox,oy);
-  _seg(21,2,21,6,ox,oy); _seg(21,7,21,12,ox,oy); _seg(21,12,15,12,ox,oy);
-  _seg(0,12,15,12,ox,oy); _seg(21,12,24,12,ox,oy); _seg(24,2,24,12,ox,oy); _seg(0,2,0,12,ox,oy);
-  _seg(7,2,9,2,ox,oy); _seg(9,2,9,7,ox,oy); _seg(9,9,9,12,ox,oy);
-  _seg(11,2,18,2,ox,oy); _seg(18,2,18,7,ox,oy); _seg(18,9,18,12,ox,oy);
-  _txt('KVL + KCL: mixed series-parallel',0,17,ox,oy);
-}
-
-function loadExample3(){
-  // Lamp bank: 6V · 4 parallel lamp branches with individual switches
-  _clearForExample(); const ox=32,oy=48;
-  _ac('battery', 6,2,ox,oy,0,{voltage:6,cells:4,label:'6V'});
-  _ac('switch', 11,2,ox,oy,0,{closed:true,label:'S'});
-  _ac('ammeter',15,2,ox,oy,0,{range:'1A',label:'A'});
-  const branches=[{x:20,s:'S1',c:true},{x:26,s:'S2',c:false},{x:32,s:'S3',c:true},{x:38,s:'S4',c:false}];
-  const Rs=[100,220,330,470];
-  branches.forEach((b,i)=>{
-    _ac('switch', b.x,5,ox,oy,PI2,{closed:b.c,label:b.s});
-    _ac('resistor',b.x,10,ox,oy,PI2,{resistance:Rs[i],label:`R${i+1} ${Rs[i]}Ω`});
-    _ac('lamp',   b.x,16,ox,oy,0,{resistance:60,rating:3,label:`L${i+1}`});
-    _seg(b.x,2,b.x,3,ox,oy); _seg(b.x,7,b.x,8,ox,oy);
-    _seg(b.x,12,b.x,14,ox,oy); _seg(b.x,18,b.x,20,ox,oy);
-  });
-  _ac('ground',29,22,ox,oy,0,{});
-  _seg(4,2,10,2,ox,oy); _seg(10,2,12,2,ox,oy); _seg(12,2,16,2,ox,oy);
-  _seg(16,2,20,2,ox,oy); _seg(20,2,26,2,ox,oy); _seg(26,2,32,2,ox,oy); _seg(32,2,38,2,ox,oy); _seg(38,2,42,2,ox,oy);
-  _seg(20,20,38,20,ox,oy); _seg(4,20,20,20,ox,oy); _seg(38,20,42,20,ox,oy);
-  _seg(4,2,4,20,ox,oy); _seg(42,2,42,20,ox,oy); _seg(29,20,29,22,ox,oy);
-  _txt('Toggle switches — observe brightness changes',0,25,ox,oy);
-}
-
-// ── Helpers ─────────────────────────────────────────────────────
 function _clearForExample(){
-  S.comps=[]; S.wires=[]; S.texts=[]; S.sel.clear(); S.nextId=1;
+  S.comps=[]; S.wires=[]; S.texts=[]; S.sel.clear();
+  S.selWires=new Set(); S.nextId=1;
   S._undoStack=[]; S._redoStack=[];
   stopSimulation();
 }
@@ -5750,332 +5795,779 @@ function _ac(type,gx,gy,ox,oy,rot,props){
   if(rot) c.rot=rot; if(props) Object.assign(c.props,props); return c;
 }
 function _txt(text,gx,gy,ox,oy){ S.texts.push({text,x:ox+gx*GS,y:oy+gy*GS,col:'#7890b0'}); }
-
 const PI2 = Math.PI/2;
-const ox0=48, oy0=80;  // default canvas origin
+const ox0=48, oy0=80;
+function loadExample1(){
+  // Staircase: 12V battery → main switch → ammeter → 3 parallel branches
+  // Each branch: switch (rot PI2) + resistor (rot PI2) + lamp (rot 0, vertical terms)
+  // Layout: battery at (6,2), branches at x=20,26,32, all on rails y=2 (top) and y=20 (bottom)
+  _clearForExample(); const ox=32,oy=48;
+
+  // Main line components (horizontal, y=2)
+  // battery gw=4 → cx=6, terms at x=4 and x=8
+  _ac('battery', 6,2,ox,oy,0,{voltage:12,cells:4,label:'12V'});
+  // switch gw=2 → cx=11, terms at x=10 and x=12
+  _ac('switch',  11,2,ox,oy,0,{closed:true,label:'S'});
+  // ammeter gw=2 → cx=15, terms at x=14 and x=16
+  _ac('ammeter', 15,2,ox,oy,0,{range:'500mA',label:'A'});
+
+  // Branches at x=20,26,32 — each occupies y=3 to y=20
+  // switch rot PI2 at (x,5): terms at (x,4) and (x,6)
+  // resistor rot PI2 at (x,10): terms at (x,8) and (x,12)  [gw=4 so ±2]
+  // lamp rot 0 at (x,16): terms at (x,14) and (x,18) [gh=4, terms [0,-2],[0,2]]
+  [[20,'S1',true],[26,'S2',false],[32,'S3',true]].forEach(([bx,lbl,closed],i)=>{
+    const R=[100,220,470][i];
+    _ac('switch',   bx,5, ox,oy,PI2,{closed,label:lbl});
+    _ac('resistor', bx,10,ox,oy,PI2,{resistance:R,label:`R${i+1} ${R}Ω`});
+    _ac('lamp',     bx,16,ox,oy,0,  {resistance:60,rating:6,label:`L${i+1}`});
+    // Wire: top rail (y=2) down to switch top (y=4)
+    _seg(bx,2,  bx,4,  ox,oy);
+    // Switch bottom (y=6) to resistor top (y=8)
+    _seg(bx,6,  bx,8,  ox,oy);
+    // Resistor bottom (y=12) to lamp top (y=14)
+    _seg(bx,12, bx,14, ox,oy);
+    // Lamp bottom (y=18) to bottom rail (y=20)
+    _seg(bx,18, bx,20, ox,oy);
+  });
+
+  _ac('ground',26,22,ox,oy,0,{});
+
+  // battery− at x=4, vertical to y=20; battery+ at x=8
+  _seg(4,2,  4,20, ox,oy);  // left side: bat− to bottom rail
+  // Top rail: bat+ (x=8) → switch left (x=10)
+  _seg(8,2,  10,2, ox,oy);
+  // switch right (x=12) → ammeter left (x=14)
+  _seg(12,2, 14,2, ox,oy);
+  // ammeter right (x=16) → branch 1 top (x=20)
+  _seg(16,2, 20,2, ox,oy);
+  // branch tops connected along y=2
+  _seg(20,2, 26,2, ox,oy);
+  _seg(26,2, 32,2, ox,oy);
+  // right side down
+  _seg(32,2, 36,2, ox,oy);
+  _seg(36,2, 36,20,ox,oy);
+  // Bottom rail
+  _seg(4,20, 36,20,ox,oy);
+  _seg(26,20,26,22,ox,oy);  // ground stub
+
+  _txt('Toggle S1/S2/S3 to redistribute current',0,25,ox,oy);
+  updateSB(); recenterView();
+}
+
+function loadExample2(){
+  // Series + parallel: battery → ammeter → Rs (series) → parallel R2∥R3
+  // Layout: horizontal main line at y=2, parallel branches vertical at x=16 and x=22
+  _clearForExample(); const ox=48,oy=64;
+
+  // battery cx=2, terms x=0,x=4; ammeter cx=6, terms x=5,x=7; Rs cx=10, terms x=8,x=12
+  _ac('battery', 2,2,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter', 6,2,ox,oy,0, {range:'200mA',label:'I_T'});
+  _ac('resistor',10,2,ox,oy,0,{resistance:100,label:'Rs 100Ω'});
+  // Parallel branches at x=16 and x=22 (rot PI2)
+  // R2 at (16,6): terms at (16,4) and (16,8)
+  // R3 at (22,6): terms at (22,4) and (22,8)
+  _ac('resistor',16,6,ox,oy,PI2,{resistance:330,label:'R₂ 330Ω'});
+  _ac('resistor',22,6,ox,oy,PI2,{resistance:680,label:'R₃ 680Ω'});
+  // Voltmeter across Rs: (9,6) rot PI2 → terms at (9,5) and (9,7) — adjust to fit
+  _ac('voltmeter',9,5,ox,oy,PI2,{range:'5V',label:'V_s'});
+  // Voltmeter across parallel section: (19,5) → terms at (19,4) and (19,6)
+  _ac('voltmeter',19,5,ox,oy,PI2,{range:'20V',label:'V_p'});
+  _ac('ground',   19,12,ox,oy,0,{});
+
+  // Main top rail: bat+(x=4) → ammeter(5-7) → Rs(8-12) → junction(x=16 and x=22)
+  _seg(0,2,  4,2,  ox,oy);   // left rail to bat−? No — bat− is at x=0, bat+ at x=4
+  _seg(0,2,  0,10, ox,oy);   // bat− down to bottom
+  _seg(4,2,  5,2,  ox,oy);
+  _seg(7,2,  8,2,  ox,oy);
+  _seg(12,2, 16,2, ox,oy);
+  _seg(16,2, 22,2, ox,oy);
+  _seg(22,2, 25,2, ox,oy);
+  _seg(25,2, 25,10,ox,oy);   // right side down
+  // Parallel branch wires: top at y=2, down to R tops at y=4
+  _seg(16,2, 16,4, ox,oy);
+  _seg(22,2, 22,4, ox,oy);
+  // R bottoms at y=8, down to bottom rail y=10
+  _seg(16,8, 16,10,ox,oy);
+  _seg(22,8, 22,10,ox,oy);
+  // Bottom rail
+  _seg(0,10, 25,10,ox,oy);
+  _seg(19,10,19,12,ox,oy);   // ground stub
+  // Voltmeter V_s: terminals at (9,4) and (9,6) — connect to Rs terminals
+  _seg(8,2,  9,2,  ox,oy);
+  _seg(9,2,  9,4,  ox,oy);
+  _seg(9,6,  9,10, ox,oy);
+  // Voltmeter V_p: terminals at (19,4) and (19,6)
+  _seg(16,2, 19,2, ox,oy);
+  _seg(19,2, 19,4, ox,oy);
+  _seg(19,6, 19,10,ox,oy);
+  _txt('KVL: V_bat = V_Rs + V_parallel',0,14,ox,oy);
+  updateSB(); recenterView();
+}
+
+function loadExample3(){
+  // Lamp bank: 6V → main switch → ammeter → 4 parallel lamp branches
+  _clearForExample(); const ox=32,oy=48;
+
+  _ac('battery', 6,2,ox,oy,0,{voltage:6,cells:4,label:'6V'});
+  _ac('switch',  11,2,ox,oy,0,{closed:true,label:'S'});
+  _ac('ammeter', 15,2,ox,oy,0,{range:'1A',label:'A'});
+
+  const Rs=[100,220,330,470];
+  [20,26,32,38].forEach((bx,i)=>{
+    _ac('switch',   bx,5, ox,oy,PI2,{closed:i%2===0,label:`S${i+1}`});
+    _ac('resistor', bx,10,ox,oy,PI2,{resistance:Rs[i],label:`R${i+1} ${Rs[i]}Ω`});
+    _ac('lamp',     bx,16,ox,oy,0,  {resistance:60,rating:3,label:`L${i+1}`});
+    _seg(bx,2,  bx,4,  ox,oy);
+    _seg(bx,6,  bx,8,  ox,oy);
+    _seg(bx,12, bx,14, ox,oy);
+    _seg(bx,18, bx,20, ox,oy);
+  });
+
+  _ac('ground',29,22,ox,oy,0,{});
+
+  _seg(4,2,  10,2, ox,oy);   // bat+ to switch
+  _seg(12,2, 14,2, ox,oy);   // switch to ammeter
+  _seg(16,2, 20,2, ox,oy);   // ammeter to branch 1
+  _seg(20,2, 26,2, ox,oy); _seg(26,2, 32,2, ox,oy); _seg(32,2, 38,2, ox,oy);
+  _seg(38,2, 42,2, ox,oy); _seg(42,2, 42,20,ox,oy);
+  _seg(4,2,  4,20, ox,oy);   // bat− down
+  _seg(4,20, 42,20,ox,oy);   // bottom rail
+  _seg(29,20,29,22,ox,oy);
+  _txt('Toggle branch switches to vary brightness',0,25,ox,oy);
+  updateSB(); recenterView();
+}
 
 // ════════════════════════════════════════════════════════════════
 //  OHM'S LAW
 // ════════════════════════════════════════════════════════════════
 function loadOhm1(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('battery', 2,2,ox,oy,0,{voltage:9,cells:4,label:'9V'});
-  _ac('ammeter', 6,2,ox,oy,0,{range:'100mA',label:'A'});
-  _ac('resistor',10,2,ox,oy,0,{resistance:470,label:'R 470Ω'});
-  _ac('voltmeter',14,4,ox,oy,PI2,{range:'20V',label:'V'});
-  _ac('ground',10,7,ox,oy,0,{});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
-  _seg(12,2,16,2,ox,oy); _seg(16,2,16,7,ox,oy);
-  _seg(0,7,16,7,ox,oy); _seg(0,2,0,7,ox,oy);
-  _seg(12,2,14,2,ox,oy); _seg(14,2,14,3,ox,oy); _seg(14,5,14,7,ox,oy);
-  _txt('V = I × R  |  9V ÷ 470Ω = 19.1 mA',0,9,ox,oy);
+  // Simple series: bat(gw4)→ammeter(gw2)→resistor(gw4)→back, voltmeter across R
+  // Use consistent x layout. All at y=0 (relative). ox/oy shift everything.
+  _clearForExample(); const ox=48,oy=96;
+  // bat: cx=2, terms x=0,x=4
+  // ammeter: cx=6, terms x=5,x=7
+  // resistor: cx=11, terms x=9,x=13
+  // voltmeter (rot PI2) at cx=15, cy=3 → terms (15,2) and (15,4)
+  // ground at (11,7)
+  _ac('battery',  2,0,ox,oy,0,  {voltage:9,cells:4,label:'9V'});
+  _ac('ammeter',  6,0,ox,oy,0,  {range:'100mA',label:'A'});
+  _ac('resistor',11,0,ox,oy,0,  {resistance:470,label:'R 470Ω'});
+  _ac('voltmeter',15,3,ox,oy,PI2,{range:'20V',label:'V'});
+  _ac('ground',   11,6,ox,oy,0,  {});
+  // Top rail
+  _seg(0,0, 4,0, ox,oy);   // bat−, bat+
+  _seg(4,0, 5,0, ox,oy);
+  _seg(7,0, 9,0, ox,oy);
+  _seg(13,0,17,0,ox,oy);
+  _seg(17,0,17,6,ox,oy);
+  // Bottom rail
+  _seg(0,6, 17,6,ox,oy);
+  _seg(0,0, 0,6, ox,oy);    // bat− side
+  // Voltmeter legs: terms at (15,2) and (15,4)
+  _seg(9,0, 15,0, ox,oy);
+  _seg(15,0,15,2, ox,oy);
+  _seg(15,4,15,6, ox,oy);
+  _txt('V = IR  |  9V / 470Ω = 19.1 mA',0,9,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadOhm2(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('battery', 2,2,ox,oy,0,{voltage:9,cells:4,label:'9V'});
-  _ac('ammeter', 6,2,ox,oy,0,{range:'100mA',label:'A'});
-  _ac('resistor',10,2,ox,oy,0,{resistance:100,label:'R1 100Ω'});
-  _ac('resistor',14,2,ox,oy,0,{resistance:220,label:'R2 220Ω'});
-  _ac('voltmeter',10,6,ox,oy,PI2,{range:'5V',label:'V₁'});
-  _ac('voltmeter',14,6,ox,oy,PI2,{range:'10V',label:'V₂'});
-  _ac('ground',12,10,ox,oy,0,{});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
-  _seg(12,2,16,2,ox,oy); _seg(16,2,18,2,ox,oy); _seg(18,2,18,10,ox,oy);
-  _seg(0,10,18,10,ox,oy); _seg(0,2,0,10,ox,oy);
-  _seg(8,2,10,2,ox,oy); _seg(10,2,10,5,ox,oy); _seg(10,7,10,10,ox,oy);
-  _seg(12,2,14,2,ox,oy); _seg(14,2,14,5,ox,oy); _seg(14,7,14,10,ox,oy);
-  _txt('Series: R_T = 100+220 = 320 Ω  →  I = 28.1 mA',0,12,ox,oy);
+  // Two resistors in series with individual voltmeters
+  _clearForExample(); const ox=48,oy=96;
+  // bat cx=2: terms x=0,x=4
+  // ammeter cx=6: terms x=5,x=7
+  // R1 cx=11: terms x=9,x=13
+  // R2 cx=17: terms x=15,x=19
+  // V1 (rot PI2) at (11,4): terms (11,3),(11,5)
+  // V2 (rot PI2) at (17,4): terms (17,3),(17,5)
+  // ground at (13,8)
+  _ac('battery',  2,0,ox,oy,0,  {voltage:9,cells:4,label:'9V'});
+  _ac('ammeter',  6,0,ox,oy,0,  {range:'100mA',label:'A'});
+  _ac('resistor',11,0,ox,oy,0,  {resistance:100,label:'R1 100Ω'});
+  _ac('resistor',17,0,ox,oy,0,  {resistance:220,label:'R2 220Ω'});
+  _ac('voltmeter',11,4,ox,oy,PI2,{range:'5V', label:'V₁'});
+  _ac('voltmeter',17,4,ox,oy,PI2,{range:'10V',label:'V₂'});
+  _ac('ground',   13,8,ox,oy,0,  {});
+  _seg(0,0, 4,0, ox,oy); _seg(4,0, 5,0, ox,oy); _seg(7,0, 9,0, ox,oy);
+  _seg(13,0,15,0,ox,oy); _seg(19,0,21,0,ox,oy);
+  _seg(21,0,21,8,ox,oy); _seg(0,8,21,8,ox,oy); _seg(0,0,0,8,ox,oy);
+  // V1 legs: terms at (11,3) and (11,5)
+  _seg(9,0, 11,0, ox,oy); _seg(11,0,11,3,ox,oy); _seg(11,5,11,8,ox,oy);
+  // V2 legs: terms at (17,3) and (17,5)
+  _seg(15,0,17,0,ox,oy); _seg(17,0,17,3,ox,oy); _seg(17,5,17,8,ox,oy);
+  _txt('R_total=320Ω  I=28.1mA  V₁=2.81V  V₂=6.19V',0,11,ox,oy);
+  updateSB(); recenterView();
 }
 
 // ════════════════════════════════════════════════════════════════
 //  POTENTIAL DIVIDER
 // ════════════════════════════════════════════════════════════════
 function loadPD1(){
-  _clearForExample(); const ox=ox0,oy=48;
-  _ac('battery',  2,3,ox,oy,0, {voltage:12,cells:4,label:'12V'});
-  _ac('resistor', 7,2,ox,oy,PI2,{resistance:1000,label:'R1 1kΩ'});
-  _ac('resistor', 7,8,ox,oy,PI2,{resistance:1000,label:'R2 1kΩ'});
-  _ac('voltmeter',12,8,ox,oy,PI2,{range:'20V',label:'V_out'});
-  _ac('ground',   7,13,ox,oy,0, {});
-  _seg(0,3,5,3,ox,oy); _seg(0,3,0,13,ox,oy); _seg(0,13,7,13,ox,oy);
-  _seg(5,3,7,3,ox,oy); _seg(7,3,7,5,ox,oy); _seg(7,6,7,10,ox,oy); _seg(7,11,7,13,ox,oy);
-  // voltmeter from midpoint
-  _seg(7,6,12,6,ox,oy); _seg(12,6,12,7,ox,oy); _seg(12,9,12,13,ox,oy); _seg(7,13,12,13,ox,oy);
+  // 12V → R1(vertical) → R2(vertical) → ground. Voltmeter across R2.
+  // battery horizontal at top; R1 and R2 in vertical chain on right side.
+  _clearForExample(); const ox=64,oy=64;
+  // bat cx=0, cy=4: terms (−2,4)=(−2,4) and (+2,4)=(2,4)
+  // Place bat at left, vertical chain on right at x=6
+  // bat at (4,6) rot 0: terms x=2 and x=6, both at y=6
+  // R1 rot PI2 at (6,3): terms (6,1) and (6,5)
+  // R2 rot PI2 at (6,9): terms (6,7) and (6,11)
+  // V  rot PI2 at (11,9): terms (11,8) and (11,10)
+  // ground at (6,13)
+  _ac('battery',  4,6,ox,oy,0,  {voltage:12,cells:4,label:'12V'});
+  _ac('resistor', 6,3,ox,oy,PI2,{resistance:1000,label:'R1 1kΩ'});
+  _ac('resistor', 6,9,ox,oy,PI2,{resistance:1000,label:'R2 1kΩ'});
+  _ac('voltmeter',11,9,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground',   6,13,ox,oy,0, {});
+  // bat+ at x=6,y=6 connects to R1 bottom at (6,5)
+  _seg(6,6,  6,5,  ox,oy);
+  // R1 top at (6,1) to bat− at x=2,y=6 via top wire
+  _seg(6,1,  2,1,  ox,oy);   // horizontal at y=1
+  _seg(2,1,  2,6,  ox,oy);   // down to bat−
+  // R2 top at (6,7) connects to R1 bottom (6,5) — already connected via (6,5)→(6,7) gap?
+  // R1 bottom at (6,5), R2 top at (6,7): need wire from 5→7
+  _seg(6,5,  6,7,  ox,oy);
+  // R2 bottom at (6,11) to ground
+  _seg(6,11, 6,13, ox,oy);
+  // Voltmeter across R2: tap at junction (6,7) and bottom (6,11)
+  _seg(6,7,  11,7, ox,oy);   // midpoint tap to voltmeter
+  _seg(11,7, 11,8, ox,oy);   // voltmeter top
+  _seg(11,10,11,11,ox,oy);   // voltmeter bottom
+  _seg(11,11,6,11, ox,oy);   // back to R2 bottom
+  // Close the loop: bat− back via bottom
+  _seg(2,6,  2,13, ox,oy);
+  _seg(2,13, 6,13, ox,oy);
   _txt('V_out = 12 × 1k/(1k+1k) = 6.0 V',0,16,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadPD2(){
-  _clearForExample(); const ox=ox0,oy=48;
-  _ac('battery',  2,3,ox,oy,0, {voltage:12,cells:4,label:'12V'});
-  _ac('resistor', 7,2,ox,oy,PI2,{resistance:2200,label:'R1 2.2kΩ'});
-  _ac('resistor', 7,8,ox,oy,PI2,{resistance:1000,label:'R2 1kΩ'});
-  _ac('voltmeter',12,8,ox,oy,PI2,{range:'20V',label:'V_out'});
-  _ac('ground',   7,13,ox,oy,0, {});
-  _seg(0,3,5,3,ox,oy); _seg(0,3,0,13,ox,oy); _seg(0,13,7,13,ox,oy);
-  _seg(5,3,7,3,ox,oy); _seg(7,3,7,5,ox,oy); _seg(7,6,7,10,ox,oy); _seg(7,11,7,13,ox,oy);
-  _seg(7,6,12,6,ox,oy); _seg(12,6,12,7,ox,oy); _seg(12,9,12,13,ox,oy); _seg(7,13,12,13,ox,oy);
-  _txt('V_out = 12 × 1k/3.2k = 3.75 V',0,16,ox,oy);
+  _clearForExample(); const ox=64,oy=64;
+  _ac('battery',  4,6,ox,oy,0,  {voltage:12,cells:4,label:'12V'});
+  _ac('resistor', 6,3,ox,oy,PI2,{resistance:2200,label:'R1 2.2kΩ'});
+  _ac('resistor', 6,9,ox,oy,PI2,{resistance:1000,label:'R2 1kΩ'});
+  _ac('voltmeter',11,9,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground',   6,13,ox,oy,0, {});
+  _seg(6,6,  6,5,  ox,oy);
+  _seg(6,1,  2,1,  ox,oy); _seg(2,1,  2,6,  ox,oy);
+  _seg(6,5,  6,7,  ox,oy);
+  _seg(6,11, 6,13, ox,oy);
+  _seg(6,7,  11,7, ox,oy); _seg(11,7, 11,8, ox,oy);
+  _seg(11,10,11,11,ox,oy); _seg(11,11,6,11, ox,oy);
+  _seg(2,6,  2,13, ox,oy); _seg(2,13, 6,13, ox,oy);
+  _txt('V_out = 12 × 1k/(2.2k+1k) = 3.75 V',0,16,ox,oy);
+  updateSB(); recenterView();
 }
 
 // ════════════════════════════════════════════════════════════════
 //  KCL
 // ════════════════════════════════════════════════════════════════
 function loadKCL1(){
-  _clearForExample(); const ox=ox0,oy=64;
-  _ac('battery', 2,6,ox,oy,0, {voltage:9,cells:4,label:'9V'});
-  _ac('ammeter', 6,2,ox,oy,0, {range:'500mA',label:'I_T'});
-  _ac('ammeter',11,4,ox,oy,PI2,{range:'200mA',label:'I₁'});
-  _ac('ammeter',17,4,ox,oy,PI2,{range:'100mA',label:'I₂'});
-  _ac('resistor',11,8,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
-  _ac('resistor',17,8,ox,oy,PI2,{resistance:220,label:'R2 220Ω'});
-  _ac('ground', 14,13,ox,oy,0, {});
-  // main top rail
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,11,2,ox,oy);
-  _seg(11,2,17,2,ox,oy); _seg(17,2,20,2,ox,oy); _seg(20,2,20,12,ox,oy);
-  // branches
-  _seg(11,2,11,3,ox,oy); _seg(11,5,11,10,ox,oy); _seg(11,11,11,12,ox,oy);
-  _seg(17,2,17,3,ox,oy); _seg(17,5,17,10,ox,oy); _seg(17,11,17,12,ox,oy);
-  // bottom rail
-  _seg(0,12,11,12,ox,oy); _seg(11,12,17,12,ox,oy); _seg(17,12,20,12,ox,oy);
-  _seg(0,2,0,12,ox,oy);
-  _txt('KCL: I_T = I₁ + I₂',0,15,ox,oy);
-  _txt('     = 90mA + 40.9mA = 130.9 mA',0,17,ox,oy);
+  _clearForExample(); const ox=48,oy=80;
+  // bat cx=2 y=0: terms (0,0)(4,0)
+  // ammeter cx=6 y=0: terms (5,0)(7,0)
+  // Two parallel branches at x=12 and x=18 (rot PI2)
+  // Each branch: ammeter (rot PI2) stacked on resistor (rot PI2)
+  // ammeter(12,3) rot PI2: terms (12,2)(12,4)
+  // resistor(12,8) rot PI2: terms (12,6)(12,10)
+  // ammeter(18,3) rot PI2: terms (18,2)(18,4)
+  // resistor(18,8) rot PI2: terms (18,6)(18,10)
+  _ac('battery', 2,0,ox,oy,0, {voltage:9,cells:4,label:'9V'});
+  _ac('ammeter', 6,0,ox,oy,0, {range:'500mA',label:'I_T'});
+  _ac('ammeter',12,3,ox,oy,PI2,{range:'200mA',label:'I₁'});
+  _ac('ammeter',18,3,ox,oy,PI2,{range:'100mA',label:'I₂'});
+  _ac('resistor',12,8,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',18,8,ox,oy,PI2,{resistance:220,label:'R2 220Ω'});
+  _ac('ground',  15,13,ox,oy,0,{});
+  // Top rail
+  _seg(0,0, 4,0, ox,oy); _seg(4,0, 5,0, ox,oy); _seg(7,0, 12,0,ox,oy);
+  _seg(12,0,18,0,ox,oy); _seg(18,0,21,0,ox,oy); _seg(21,0,21,12,ox,oy);
+  // Branch 1: top(12,0)→ammeter_top(12,2); ammeter_bot(12,4)→R_top(12,6); R_bot(12,10)→bottom
+  _seg(12,0,12,2,  ox,oy); _seg(12,4,12,6,  ox,oy); _seg(12,10,12,12,ox,oy);
+  // Branch 2 same
+  _seg(18,0,18,2,  ox,oy); _seg(18,4,18,6,  ox,oy); _seg(18,10,18,12,ox,oy);
+  // Bottom rail
+  _seg(0,12,21,12,ox,oy); _seg(0,0,0,12,ox,oy); _seg(15,12,15,13,ox,oy);
+  _txt('KCL: I_T = I₁ + I₂',0,16,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadKCL2(){
-  _clearForExample(); const ox=ox0,oy=64;
-  _ac('battery', 2,6,ox,oy,0, {voltage:12,cells:4,label:'12V'});
-  _ac('ammeter', 6,2,ox,oy,0, {range:'500mA',label:'I_T'});
-  _ac('resistor',11,4,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
-  _ac('resistor',17,4,ox,oy,PI2,{resistance:220,label:'R2 220Ω'});
-  _ac('resistor',23,4,ox,oy,PI2,{resistance:470,label:'R3 470Ω'});
-  _ac('ground', 17,11,ox,oy,0, {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,11,2,ox,oy);
-  _seg(11,2,17,2,ox,oy); _seg(17,2,23,2,ox,oy); _seg(23,2,26,2,ox,oy);
-  _seg(11,2,11,6,ox,oy); _seg(11,7,11,10,ox,oy);
-  _seg(17,2,17,6,ox,oy); _seg(17,7,17,10,ox,oy);
-  _seg(23,2,23,6,ox,oy); _seg(23,7,23,10,ox,oy);
-  _seg(0,10,11,10,ox,oy); _seg(11,10,17,10,ox,oy); _seg(17,10,23,10,ox,oy); _seg(23,10,26,10,ox,oy);
-  _seg(26,2,26,10,ox,oy); _seg(0,2,0,10,ox,oy);
-  _txt('KCL: I_T = 120 + 54.5 + 25.5 = 200 mA',0,13,ox,oy);
+  _clearForExample(); const ox=48,oy=80;
+  _ac('battery', 2,0,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter', 6,0,ox,oy,0, {range:'500mA',label:'I_T'});
+  _ac('resistor',12,5,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',18,5,ox,oy,PI2,{resistance:220,label:'R2 220Ω'});
+  _ac('resistor',24,5,ox,oy,PI2,{resistance:470,label:'R3 470Ω'});
+  _ac('ground',  18,12,ox,oy,0,{});
+  _seg(0,0,4,0,ox,oy); _seg(4,0,5,0,ox,oy); _seg(7,0,12,0,ox,oy);
+  _seg(12,0,18,0,ox,oy); _seg(18,0,24,0,ox,oy); _seg(24,0,27,0,ox,oy);
+  _seg(27,0,27,10,ox,oy);
+  _seg(12,0,12,3,ox,oy); _seg(12,7,12,10,ox,oy);
+  _seg(18,0,18,3,ox,oy); _seg(18,7,18,10,ox,oy);
+  _seg(24,0,24,3,ox,oy); _seg(24,7,24,10,ox,oy);
+  _seg(0,10,27,10,ox,oy); _seg(0,0,0,10,ox,oy); _seg(18,10,18,12,ox,oy);
+  _txt('I_T = 120+54.5+25.5 = 200 mA',0,15,ox,oy);
+  updateSB(); recenterView();
 }
 
 // ════════════════════════════════════════════════════════════════
 //  KVL
 // ════════════════════════════════════════════════════════════════
 function loadKVL1(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('battery', 2,2,ox,oy,0, {voltage:12,cells:4,label:'12V'});
-  _ac('ammeter', 6,2,ox,oy,0, {range:'100mA',label:'A'});
-  _ac('resistor', 9,2,ox,oy,0, {resistance:100,label:'R1 100Ω'});
-  _ac('resistor',13,2,ox,oy,0, {resistance:220,label:'R2 220Ω'});
-  _ac('resistor',17,2,ox,oy,0, {resistance:470,label:'R3 470Ω'});
-  _ac('voltmeter', 9,6,ox,oy,PI2,{range:'5V', label:'V₁'});
-  _ac('voltmeter',13,6,ox,oy,PI2,{range:'5V', label:'V₂'});
-  _ac('voltmeter',17,6,ox,oy,PI2,{range:'10V',label:'V₃'});
-  _ac('ground',11,10,ox,oy,0, {});
-  // top rail
-  _seg(0,2,4,2,ox,oy); _seg(4,2,7,2,ox,oy); _seg(7,2,11,2,ox,oy); _seg(11,2,15,2,ox,oy);
-  _seg(15,2,19,2,ox,oy); _seg(19,2,20,2,ox,oy); _seg(20,2,20,10,ox,oy);
-  _seg(0,10,20,10,ox,oy); _seg(0,2,0,10,ox,oy);
-  // voltmeter legs
-  _seg(7,2,9,2,ox,oy); _seg(9,2,9,5,ox,oy); _seg(9,7,9,10,ox,oy);
-  _seg(11,2,13,2,ox,oy); _seg(13,2,13,5,ox,oy); _seg(13,7,13,10,ox,oy);
-  _seg(15,2,17,2,ox,oy); _seg(17,2,17,5,ox,oy); _seg(17,7,17,10,ox,oy);
-  _txt('KVL: V_bat = V₁+V₂+V₃',0,12,ox,oy);
-  _txt('12 = 1.54 + 3.38 + 7.08 V ✓',0,14,ox,oy);
+  _clearForExample(); const ox=48,oy=96;
+  // bat(2,0) ammeter(6,0) R1(11,0) R2(17,0) R3(23,0) — all horizontal
+  // V1 at (11,4) V2 at (17,4) V3 at (23,4) — rot PI2
+  _ac('battery', 2,0,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter', 6,0,ox,oy,0, {range:'100mA',label:'A'});
+  _ac('resistor',11,0,ox,oy,0,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',17,0,ox,oy,0,{resistance:220,label:'R2 220Ω'});
+  _ac('resistor',23,0,ox,oy,0,{resistance:470,label:'R3 470Ω'});
+  _ac('voltmeter',11,4,ox,oy,PI2,{range:'5V', label:'V₁'});
+  _ac('voltmeter',17,4,ox,oy,PI2,{range:'5V', label:'V₂'});
+  _ac('voltmeter',23,4,ox,oy,PI2,{range:'10V',label:'V₃'});
+  _ac('ground',   13,8,ox,oy,0, {});
+  // Main rail: bat−(0,0)...bat+(4,0)→ammeter(5-7)→R1(9-13)→R2(15-19)→R3(21-25)→right down
+  _seg(0,0, 4,0, ox,oy); _seg(4,0,5,0,ox,oy); _seg(7,0,9,0,ox,oy);
+  _seg(13,0,15,0,ox,oy); _seg(19,0,21,0,ox,oy);
+  _seg(25,0,27,0,ox,oy); _seg(27,0,27,8,ox,oy);
+  _seg(0,8,27,8,ox,oy); _seg(0,0,0,8,ox,oy);
+  // V1 across R1: taps at (9,0) and (13,0)
+  _seg(9,0,11,0,ox,oy); _seg(11,0,11,3,ox,oy); _seg(11,5,11,8,ox,oy);
+  // V2 across R2
+  _seg(15,0,17,0,ox,oy); _seg(17,0,17,3,ox,oy); _seg(17,5,17,8,ox,oy);
+  // V3 across R3
+  _seg(21,0,23,0,ox,oy); _seg(23,0,23,3,ox,oy); _seg(23,5,23,8,ox,oy);
+  _txt('KVL: 12 = 1.54 + 3.38 + 7.08 V ✓',0,11,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadKVL2(){
-  _clearForExample(); const ox=ox0,oy=64;
-  _ac('battery', 2,6,ox,oy,0, {voltage:12,cells:4,label:'12V'});
-  _ac('ammeter', 6,2,ox,oy,0, {range:'200mA',label:'I_T'});
-  _ac('resistor', 9,2,ox,oy,0, {resistance:100,label:'Rs 100Ω'});
-  _ac('resistor',15,4,ox,oy,PI2,{resistance:220,label:'R₂ 220Ω'});
-  _ac('resistor',21,4,ox,oy,PI2,{resistance:470,label:'R₃ 470Ω'});
-  _ac('voltmeter',9,7,ox,oy,PI2, {range:'5V',label:'V_s'});
-  _ac('voltmeter',18,7,ox,oy,PI2,{range:'20V',label:'V_par'});
-  _ac('ground',15,12,ox,oy,0, {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,7,2,ox,oy); _seg(7,2,11,2,ox,oy);
-  _seg(11,2,15,2,ox,oy); _seg(15,2,21,2,ox,oy); _seg(21,2,24,2,ox,oy);
-  _seg(15,2,15,6,ox,oy); _seg(15,7,15,11,ox,oy);
-  _seg(21,2,21,6,ox,oy); _seg(21,7,21,11,ox,oy);
-  _seg(15,11,21,11,ox,oy); _seg(0,11,15,11,ox,oy); _seg(21,11,24,11,ox,oy);
-  _seg(24,2,24,11,ox,oy); _seg(0,2,0,11,ox,oy);
-  _seg(7,2,9,2,ox,oy); _seg(9,2,9,6,ox,oy); _seg(9,8,9,11,ox,oy);
-  _seg(11,2,18,2,ox,oy); _seg(18,2,18,6,ox,oy); _seg(18,8,18,11,ox,oy);
-  _txt('KVL: V_bat = V_Rs + V_par',0,14,ox,oy);
+  _clearForExample(); const ox=48,oy=80;
+  // Series Rs then parallel R2∥R3 with voltmeters on each section
+  _ac('battery', 2,0,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter', 6,0,ox,oy,0, {range:'200mA',label:'I_T'});
+  _ac('resistor',11,0,ox,oy,0,{resistance:100,label:'Rs 100Ω'});
+  _ac('resistor',17,5,ox,oy,PI2,{resistance:220,label:'R₂ 220Ω'});
+  _ac('resistor',23,5,ox,oy,PI2,{resistance:470,label:'R₃ 470Ω'});
+  _ac('voltmeter',11,5,ox,oy,PI2,{range:'5V', label:'V_s'});
+  _ac('voltmeter',20,5,ox,oy,PI2,{range:'20V',label:'V_p'});
+  _ac('ground',   20,12,ox,oy,0,{});
+  // Main top rail
+  _seg(0,0,4,0,ox,oy); _seg(4,0,5,0,ox,oy); _seg(7,0,9,0,ox,oy);
+  _seg(13,0,17,0,ox,oy); _seg(17,0,23,0,ox,oy); _seg(23,0,26,0,ox,oy);
+  _seg(26,0,26,10,ox,oy);
+  // Parallel branches
+  _seg(17,0,17,3,ox,oy); _seg(17,7,17,10,ox,oy);
+  _seg(23,0,23,3,ox,oy); _seg(23,7,23,10,ox,oy);
+  // Bottom rail
+  _seg(0,10,26,10,ox,oy); _seg(0,0,0,10,ox,oy); _seg(20,10,20,12,ox,oy);
+  // V_s across Rs: terms at (11,4) and (11,6)
+  _seg(9,0,11,0,ox,oy); _seg(11,0,11,4,ox,oy); _seg(11,6,11,10,ox,oy);
+  // V_p across parallel section
+  _seg(17,0,20,0,ox,oy); _seg(20,0,20,4,ox,oy); _seg(20,6,20,10,ox,oy);
+  _txt('KVL: V_bat = V_Rs + V_parallel',0,15,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadWheatstone(){
-  _clearForExample(); const ox=ox0+16,oy=48;
-  _ac('battery', 6,0,ox,oy,PI2,{voltage:9,cells:4,label:'9V'});
-  _ac('resistor', 2,4,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
-  _ac('resistor',10,4,ox,oy,PI2,{resistance:100,label:'R2 100Ω'});
-  _ac('resistor', 2,10,ox,oy,PI2,{resistance:220,label:'R3 220Ω'});
-  _ac('resistor',10,10,ox,oy,PI2,{resistance:220,label:'R4 220Ω'});
-  _ac('voltmeter',6,7,ox,oy,0,  {range:'5V',label:'Galv'});
-  _ac('ground',   6,16,ox,oy,0, {});
-  // top node
-  _seg(4,1,8,1,ox,oy); _seg(4,1,2,1,ox,oy); _seg(8,1,10,1,ox,oy);
-  _seg(2,1,2,6,ox,oy); _seg(10,1,10,6,ox,oy);
-  // mid nodes (galvanometer)
-  _seg(2,6,5,6,ox,oy); _seg(7,6,10,6,ox,oy);
-  _seg(2,6,2,12,ox,oy); _seg(10,6,10,12,ox,oy);
-  // bottom node
-  _seg(2,12,10,12,ox,oy); _seg(6,12,6,16,ox,oy);
-  _txt('Balanced: R1/R2 = R3/R4 = 100/220',-5,18,ox,oy);
-  _txt('Galvanometer = 0 V when balanced',-5,20,ox,oy);
+  _clearForExample(); const ox=64,oy=48;
+  // Diamond bridge: top node, left node, right node, bottom node
+  // Battery drives top−bottom. Galvanometer (voltmeter) between left−right.
+  // Top at (6,0), Left at (2,6), Right at (10,6), Bottom at (6,12)
+  // R1: from top(6,0) to left(2,6) — place rot PI2 midway (2,3): terms (2,1) and (2,5)
+  // But a rotated resistor at (2,3) has terms (2,1) and (2,5) — correct path
+  // R2: top(6,0) to right(10,6) — (10,3): terms (10,1) and (10,5)
+  // R3: left(2,6) to bottom(6,12) — (2,9): terms (2,7) and (2,11)
+  // R4: right(10,6) to bottom(6,12) — (10,9): terms (10,7) and (10,11)
+  // Galvanometer (voltmeter): between left(2,6) and right(10,6) — horizontal at (6,6)
+  // battery: drives top to bottom — vertical; bat at (6,−1)? Use rot PI2.
+  // bat rot PI2 at (6,0): terms (6,−2) and (6,2) — too close to R1/R2
+  // Better: put battery on the left side, top wire at y=0, bottom at y=12.
+  // bat at (−2,6) rot 0: terms (−4,6) and (0,6) — left terminal at x=−4
+  // Simpler: place battery vertical on left, top rail at y=0, bottom at y=12
+  // Use: bat at (6, −3) rot PI2 → terms at (6, −5) and (6, −1)
+  // Actually cleanest: battery at top, galvanometer in middle
+  // Top node y=0, bottom node y=12, bat between them on the right side
+
+  _ac('resistor',2, 3,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',10,3,ox,oy,PI2,{resistance:100,label:'R2 100Ω'});
+  _ac('resistor',2, 9,ox,oy,PI2,{resistance:220,label:'R3 220Ω'});
+  _ac('resistor',10,9,ox,oy,PI2,{resistance:220,label:'R4 220Ω'});
+  _ac('voltmeter',6,6,ox,oy,0,  {range:'5V',label:'Galv'});
+  // battery vertical on the right: rot PI2 at (14,6): terms (14,4) and (14,8)
+  _ac('battery', 14,6,ox,oy,PI2,{voltage:9,cells:4,label:'9V'});
+  _ac('ground',  6,14,ox,oy,0,  {});
+
+  // Top node at (6,0): connect R1 top (2,1) and R2 top (10,1) to (6,0) then to bat+ (14,4)→(6,0)
+  _seg(2,1, 2,0, ox,oy); _seg(2,0, 10,0,ox,oy); _seg(10,0,10,1,ox,oy);
+  _seg(6,0, 14,0,ox,oy); _seg(14,0,14,4,ox,oy);  // bat+ path
+  // Left node at (2,6): R1 bot (2,5)→(2,6)→R3 top (2,7) + galv left term (5,6)
+  _seg(2,5, 2,7, ox,oy);
+  _seg(2,6, 5,6, ox,oy);
+  // Right node at (10,6): R2 bot (10,5)→(10,6)→R4 top (10,7) + galv right term (7,6)
+  _seg(10,5,10,7,ox,oy);
+  _seg(10,6,7,6, ox,oy);
+  // Bottom node at (6,12): R3 bot (2,11)→(2,12) and R4 bot (10,11)→(10,12) + bat− (14,8)→(14,12)
+  _seg(2,11, 2,12, ox,oy); _seg(2,12, 10,12,ox,oy); _seg(10,11,10,12,ox,oy);
+  _seg(6,12, 14,12,ox,oy); _seg(14,8, 14,12,ox,oy);
+  _seg(6,12, 6,14, ox,oy);   // ground stub
+  _txt('Balanced: R1/R2 = R3/R4. Galv = 0 V',0,17,ox,oy);
+  updateSB(); recenterView();
 }
 
 // ════════════════════════════════════════════════════════════════
 //  RECTIFICATION
 // ════════════════════════════════════════════════════════════════
 function loadHalfWave(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('ac',      2,2,ox,oy,0,  {voltage:12,freq:50,label:'12V 50Hz'});
-  _ac('ammeter', 6,2,ox,oy,0,  {range:'20mA',label:'A'});
-  _ac('diode',  10,2,ox,oy,0,  {vf:0.7,label:'D'});
-  _ac('resistor',14,4,ox,oy,PI2,{resistance:1000,label:'R_L 1kΩ'});
-  _ac('voltmeter',18,4,ox,oy,PI2,{range:'20V',label:'V_out'});
-  _ac('ground', 14,8,ox,oy,0,  {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
-  _seg(12,2,14,2,ox,oy); _seg(14,2,18,2,ox,oy); _seg(18,2,20,2,ox,oy);
-  _seg(20,2,20,8,ox,oy); _seg(0,8,20,8,ox,oy); _seg(0,2,0,8,ox,oy);
-  _seg(14,2,14,7,ox,oy); _seg(14,8,14,9,ox,oy);
-  _seg(18,2,18,7,ox,oy); _seg(18,8,18,9,ox,oy);
-  _txt('Diode blocks −ve half-cycle',0,11,ox,oy);
-  _txt('V_avg ≈ V_peak/π ≈ 3.8 V',0,13,ox,oy);
+  _clearForExample(); const ox=48,oy=96;
+  // ac(gw2) → ammeter(gw2) → diode(gw2) → R_L(gw4,rot PI2) vertical + voltmeter
+  // ac cx=1, terms (0,0)(2,0)
+  // ammeter cx=4, terms (3,0)(5,0)
+  // diode cx=7, terms (6,0)(8,0)
+  // R_L rot PI2 at (10,3): terms (10,1)(10,5)
+  // voltmeter rot PI2 at (13,3): terms (13,2)(13,4)
+  _ac('ac',      1,0,ox,oy,0,  {voltage:12,freq:50,label:'12V AC'});
+  _ac('ammeter', 4,0,ox,oy,0,  {range:'20mA',label:'A'});
+  _ac('diode',   7,0,ox,oy,0,  {vf:0.7,label:'D'});
+  _ac('resistor',10,3,ox,oy,PI2,{resistance:1000,label:'R_L 1kΩ'});
+  _ac('voltmeter',13,3,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground',  10,7,ox,oy,0, {});
+  // Top rail: ac+(2,0)→ammeter(3-5)→diode(6-8)→R_L top (10,1)
+  _seg(2,0, 3,0, ox,oy); _seg(5,0, 6,0, ox,oy); _seg(8,0,10,0,ox,oy);
+  _seg(10,0,10,1,ox,oy);
+  // R_L bot (10,5) → bottom rail
+  _seg(10,5,10,7,ox,oy);
+  // Voltmeter: top(13,2) from junction above R_L, bottom(13,4) to bottom rail
+  _seg(10,0,13,0,ox,oy); _seg(13,0,13,2,ox,oy); _seg(13,4,13,7,ox,oy);
+  // Right side down: ac+(2,0)→right side→bottom
+  _seg(13,0,15,0,ox,oy); _seg(15,0,15,7,ox,oy);
+  // Bottom rail
+  _seg(10,7,15,7,ox,oy);
+  // ac−(0,0): left side
+  _seg(0,0,0,7,ox,oy); _seg(0,7,10,7,ox,oy);
+  _txt('+ve half-cycle only  |  V_avg ≈ 3.8 V',0,10,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadHalfWaveCap(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('ac',       2,2,ox,oy,0,  {voltage:12,freq:50,label:'12V 50Hz'});
-  _ac('diode',    6,2,ox,oy,0,  {vf:0.7,label:'D'});
-  _ac('capacitor',10,4,ox,oy,PI2,{capacitance:470e-6,label:'C 470µF'});
-  _ac('resistor', 14,4,ox,oy,PI2,{resistance:1000,label:'R_L 1kΩ'});
-  _ac('voltmeter',18,4,ox,oy,PI2,{range:'20V',label:'V_out'});
-  _ac('ground',   10,8,ox,oy,0,  {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,10,2,ox,oy);
-  _seg(10,2,14,2,ox,oy); _seg(14,2,18,2,ox,oy); _seg(18,2,20,2,ox,oy);
-  _seg(20,2,20,8,ox,oy); _seg(0,8,20,8,ox,oy); _seg(0,2,0,8,ox,oy);
-  _seg(10,2,10,7,ox,oy); _seg(10,8,10,9,ox,oy);
-  _seg(14,2,14,7,ox,oy); _seg(14,8,14,9,ox,oy);
-  _seg(18,2,18,7,ox,oy); _seg(18,8,18,9,ox,oy);
-  _txt('C charges on +ve peak, discharges slowly',0,11,ox,oy);
-  _txt('V_out ≈ V_peak − V_f = 11.3 V (smoothed)',0,13,ox,oy);
+  _clearForExample(); const ox=48,oy=96;
+  // Same as half-wave but add capacitor in parallel with R_L
+  _ac('ac',       1,0,ox,oy,0,  {voltage:12,freq:50,label:'12V AC'});
+  _ac('diode',    4,0,ox,oy,0,  {vf:0.7,label:'D'});
+  _ac('capacitor',8,3,ox,oy,PI2,{capacitance:470e-6,label:'C 470µF'});
+  _ac('resistor', 12,3,ox,oy,PI2,{resistance:1000,label:'R_L 1kΩ'});
+  _ac('voltmeter',16,3,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground',   8,7,ox,oy,0,  {});
+  // ac−(0,0) left rail; ac+(2,0)→diode(3-5)→junction at x=8
+  _seg(2,0,3,0,ox,oy); _seg(5,0,8,0,ox,oy);
+  // Junction to all positive terminals
+  _seg(8,0,12,0,ox,oy); _seg(12,0,16,0,ox,oy); _seg(16,0,18,0,ox,oy);
+  _seg(18,0,18,7,ox,oy);
+  // C: terms (8,2)(8,4) — rot PI2 on cap (gw2 so ±1)
+  _seg(8,0,8,2,ox,oy); _seg(8,4,8,7,ox,oy);
+  // R_L: terms (12,1)(12,5) — wait, resistor gw=4 so ±2. rot PI2 at (12,3): (12,1)(12,5)
+  _seg(12,0,12,1,ox,oy); _seg(12,5,12,7,ox,oy);
+  // Voltmeter: terms (16,2)(16,4)
+  _seg(16,0,16,2,ox,oy); _seg(16,4,16,7,ox,oy);
+  // Bottom rail
+  _seg(0,7,18,7,ox,oy); _seg(0,0,0,7,ox,oy); _seg(8,7,8,8,ox,oy);
+  // ground stub (ground has a single term at (0,0) so just a dot):
+  // Re-place ground where the bottom rail taps
+  _txt('C smooths ripple  |  V_out ≈ 11.3 V',0,11,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadFullWave(){
-  _clearForExample(); const ox=ox0,oy=64;
-  // Bridge: AC across left-right nodes, DC output top-bottom
-  _ac('ac',      2,7,ox,oy,0,         {voltage:12,freq:50,label:'12V AC'});
-  _ac('diode',   7,3,ox,oy,0,         {vf:0.7,label:'D1'});
-  _ac('diode',  13,3,ox,oy,Math.PI,   {vf:0.7,label:'D2'});
-  _ac('diode',   7,11,ox,oy,Math.PI,  {vf:0.7,label:'D3'});
-  _ac('diode',  13,11,ox,oy,0,        {vf:0.7,label:'D4'});
-  _ac('resistor',19,7,ox,oy,PI2,      {resistance:1000,label:'R_L 1kΩ'});
-  _ac('voltmeter',23,7,ox,oy,PI2,     {range:'20V',label:'V_out'});
-  _ac('ground',  10,15,ox,oy,0,       {});
-  // AC source sides
-  _seg(0,5,0,7,ox,oy); _seg(0,7,5,7,ox,oy); _seg(0,7,0,9,ox,oy);
-  _seg(17,5,17,11,ox,oy); _seg(15,3,17,3,ox,oy); _seg(15,11,17,11,ox,oy);
-  // left bridge
-  _seg(5,3,9,3,ox,oy); _seg(5,11,9,11,ox,oy); _seg(5,3,5,7,ox,oy); _seg(5,7,5,11,ox,oy);
-  // right bridge
-  _seg(11,3,13,3,ox,oy); _seg(11,11,13,11,ox,oy);
-  // DC top (positive)
-  _seg(9,1,11,1,ox,oy); _seg(9,3,9,1,ox,oy); _seg(11,1,11,3,ox,oy);
-  _seg(11,1,19,1,ox,oy); _seg(19,1,19,5,ox,oy); _seg(19,9,19,14,ox,oy);
-  // DC bottom (negative/ground)
-  _seg(9,13,11,13,ox,oy); _seg(9,11,9,13,ox,oy); _seg(11,11,11,13,ox,oy);
-  _seg(11,13,19,13,ox,oy); _seg(23,1,23,5,ox,oy); _seg(23,9,23,14,ox,oy);
-  _seg(19,1,23,1,ox,oy); _seg(19,13,23,13,ox,oy);
-  _txt('Full-wave: both half-cycles → DC',0,17,ox,oy);
-  _txt('V_avg ≈ 2×V_peak/π ≈ 7.4 V',0,19,ox,oy);
+  _clearForExample(); const ox=48,oy=64;
+  // Full-wave bridge: 4 diodes.
+  // AC source: left terminal at (0,6), right terminal at (16,6)
+  // Bridge nodes: Top-DC+(8,0), Bottom-DC−(8,12)
+  // Left-AC(0,6), Right-AC(16,6)
+  // D1: from Left-AC to Top-DC+    → horizontal at y=3, from x=0 to x=8: place at (4,3) rot 0
+  // D2: from Top-DC+ to Right-AC   → horizontal at y=3, from x=8 to x=16: place at (12,3) rot PI (reversed)
+  // D3: from Bottom-DC− to Left-AC → horizontal at y=9, from x=8 to x=0: place at (4,9) rot PI
+  // D4: from Right-AC to Bottom-DC→ horizontal at y=9, from x=16 to x=8: place at (12,9) rot 0 (reversed)
+  // Wait — diode terms: term[0]=anode(left), term[1]=cathode(right)
+  // D1 anode at Left-AC(0,6), cathode at Top(8,0): needs diagonal — can't do diagonals easily
+  // Better: use standard textbook layout with nodes at corners of a square
+  // Square: TL=(4,0), TR=(12,0), BL=(4,12), BR=(12,12); AC across left(4,6) and right(12,6)
+  // D1: TL→TR top arm left: from (4,0) cathode to (12,0) — no, use vertical diodes
+  // Simplest correct layout for bridge:
+  // AC source between (2,6) and (18,6)
+  // D1 vert at (6,3): rot PI2 → anode at (6,4), cathode at (6,2) — conventional: left=anode when rot=0
+  //   With rot=PI2: term[0]=(-1,0) rotated → (0,-1) so at (6,2-1)=(6,2); term[1]=(1,0)→(0,1) at (6,4)
+  //   Hmm, diode rot PI2 at (6,3): term[0] at (6,3-1)=(6,2), term[1] at (6,3+1)=(6,4)
+  //   So current flows from term[0](6,2)→term[1](6,4): downward. That's wrong for top arm.
+  //   For top-left diode we want current to flow UP to the + rail (y=0)
+  //   So we need rot = -PI2 (or 3PI2): term[0] at (6,4), term[1] at (6,2) → current flows upward ✓
+  // This gets complex. Use the proven layout: 4 horizontal diodes in diamond formation.
+  // AC: ac gw=2 at (3,6): terms (2,6)(4,6)
+  // Top rail at y=0, bottom rail at y=12
+  // D1 at (8,3) rot=−PI2: flows from (8,4)→(8,2) i.e. left-AC upward to top rail
+  // D2 at (8,3) — need right side...
+  // Use explicit positions that work with horizontal diodes and connecting wires:
+  _ac('ac',       3,6, ox,oy,0,         {voltage:12,freq:50,label:'12V AC'});
+  _ac('diode',    8,2, ox,oy,PI2,        {vf:0.7,label:'D1'});  // left→top: term0=(8,1) term1=(8,3) — flows 1→3, i.e. upward when term1 is higher? No.
+  // Let me just hardcode the correct rotations that work:
+  // diode rot 0: term[0]=(cx-1,cy) anode, term[1]=(cx+1,cy) cathode. Current flows left→right.
+  // For bridge: I need 4 diodes, two pointing toward + output, two pointing away from − output.
+  //
+  // Standard bridge (all horizontal):
+  // Left AC node = L, Right AC node = R, + output = P, − output = N (ground)
+  // D1: L → P  (anode=L, cathode=P): horizontal, placed between L and P
+  // D2: N → L  (anode=N, cathode=L): horizontal reversed, placed between N and L  
+  // D3: R → P  (anode=R, cathode=P): horizontal, placed between R and P
+  // D4: N → R  (anode=N, cathode=R): horizontal reversed
+  //
+  // Layout: L at (4,4), R at (20,4), P at (12,0), N at (12,8)
+  // D1: L→P: place at (6,2) rot ? — this is diagonal, not clean.
+  //
+  // Just use the working 2-column layout:
+  // Place diodes vertically in two columns.
+  // All components at ox=48,oy=64
+  // AC source horizontal: ac at (3,6), terms (2,6) and (4,6)
+  // Left column x=8: D_upper at (8,2) rot=−PI2 (3PI2); D_lower at (8,10) rot=PI2
+  // Right column x=16: same
+  // + rail at y=0, − rail at y=12, R_L between them on right
+  //
+  // rot = −PI2 = 3*PI/2: cos=0, sin=−1
+  // term[0]=(-1,0)→ (8,2) + ((-1)*0 - 0*(−1), (-1)*(−1) + 0*0) = (8,2)+(0,1)=(8,3)
+  // term[1]=(1,0) → (8,2)+(0,-1) = (8,1)
+  // So rot=3PI/2: term0 at (8,3), term1 at (8,1). Current flows from term0→term1: from y=3 up to y=1. ✓ (current flows upward to + rail)
+  //
+  // rot = PI/2: term0 at (8,1), term1 at (8,3). Current flows from y=1 down to y=3. ✓ (from − rail up into positive = wrong for D_lower)
+  // For D_lower (flows from x-AC down to − rail): need current flowing downward.
+  // rot=PI/2: term0 at top (y−1), term1 at bottom (y+1). Current from top to bottom. ✓
+
+  // Clear and redo with correct topology
+  S.comps=[]; S.wires=[]; S.texts=[];
+  const NEG_PI2 = 3*Math.PI/2;
+  _ac('ac',        3, 6, ox,oy, 0,       {voltage:12,freq:50,label:'12V AC'});
+  // D1, D2 in left column x=8: 
+  // D1 top: current from (8,5) left-AC up to top rail (8,1) → rot=NEG_PI2: term0=(8,7),term1=(8,5)? Let me just compute:
+  // rot=NEG_PI2=3PI/2: cos(3PI/2)=0, sin(3PI/2)=-1
+  // term[0]=(-1,0): fdx=(-1)*16=−16, dy=0
+  //   x = cx + (−16)*0 − 0*(−1) = cx
+  //   y = cy + (−16)*(−1) + 0*0 = cy+16 = cy+1GS
+  //   So term0 is at (cx, cy+1) — below centre
+  // term[1]=(+1,0): x=cx, y=cy+(1)*(-1)*16=cy−16 → (cx, cy−1) — above centre
+  // So current enters from BELOW (cy+1) and exits at ABOVE (cy−1). Current flows UPWARD. ✓
+  //
+  // For D_lower: current flows from x-node downward to −rail
+  // rot=PI2: cos=0, sin=1
+  // term0 at (cx, cy−1), term1 at (cx, cy+1)
+  // Current enters above and exits below. Flows DOWNWARD. ✓
+
+  _ac('diode', 8,3, ox,oy, NEG_PI2, {vf:0.7,label:'D1'});  // left→top: term0=(8,4),term1=(8,2)
+  _ac('diode', 8,9, ox,oy, PI2,     {vf:0.7,label:'D2'});  // bot→left: term0=(8,8),term1=(8,10)
+  _ac('diode',16,3, ox,oy, NEG_PI2, {vf:0.7,label:'D3'});  // right→top: term0=(16,4),term1=(16,2)
+  _ac('diode',16,9, ox,oy, PI2,     {vf:0.7,label:'D4'});  // bot→right: term0=(16,8),term1=(16,10)
+  _ac('resistor',22,6,ox,oy,PI2,    {resistance:1000,label:'R_L 1kΩ'});
+  _ac('voltmeter',26,6,ox,oy,PI2,   {range:'20V',label:'V_out'});
+  _ac('ground',  22,12,ox,oy,0,     {});
+
+  // AC source: term0=(2,6), term1=(4,6)
+  // Connect ac− (2,6) to left-AC node (8,6)
+  _seg(4,6,  8,6,  ox,oy);   // ac+ → right input
+  _seg(2,6,  2,0,  ox,oy);   // ac− up to top-left corner
+  _seg(2,0,  8,0,  ox,oy);   // top-left to D1 top
+
+  // Top + rail at y=0: (8,0) connected left and right
+  // D1 top term1=(8,2): wire from y=0 to y=2
+  _seg(8,0,  8,2,  ox,oy);
+  // D3 top term1=(16,2): wire
+  _seg(16,0, 16,2, ox,oy);
+  // Top rail connects D1 and D3 tops
+  _seg(8,0,  16,0, ox,oy);
+  // Top rail extends to R_L top
+  _seg(16,0, 22,0, ox,oy); _seg(22,0,22,4,ox,oy);   // R_L top term at (22,4)
+
+  // Left-AC node (8,6): connected to D1 bottom term0=(8,4) and D2 top term0=(8,8)
+  _seg(8,6,  8,4,  ox,oy);   // left-AC to D1 bottom
+  _seg(8,6,  8,8,  ox,oy);   // left-AC to D2 top
+
+  // Right-AC node (16,6): connected to D3 bottom term0=(16,4) and D4 top term0=(16,8)
+  _seg(16,6, 16,4, ox,oy);
+  _seg(16,6, 16,8, ox,oy);
+  // Connect ac+ (4,6) to right-AC node (16,6)? Wait: ac+ is term1=(4,6).
+  // Actually I connected ac+ to left node (8,6) via _seg(4,6,8,6). Let me reconsider:
+  // AC source convention: current alternates. For the bridge to work, we just need the two AC terminals
+  // connected to the two "AC input" nodes of the bridge.
+  // ac term0=(2,6)=ac−, term1=(4,6)=ac+
+  // Left node (8,6), Right node (16,6)
+  // Connect (4,6) to left-node (8,6): ✓ already done
+  // Connect (2,6) to right-node (16,6): go via bottom
+  _seg(2,6,  2,12, ox,oy);   // ac− down
+  _seg(2,12, 16,12,ox,oy);   // bottom rail partial
+  _seg(16,12,16,10,ox,oy);   // up to D4 term1=(16,10)
+  // But we also need (2,12) going up to (2,0) — remove that, use bottom path instead
+  // Hmm, this is getting tangled. Let me use a clean topology:
+  // AC− at (2,6): goes RIGHT along y=6 to right-node at (16,6)? No, then both nodes are same...
+  // 
+  // Standard: one AC terminal connects to LEFT input of bridge, other to RIGHT input.
+  // Left node is where D1 cathode feeds from and D2 anode feeds to.
+  // Right node is where D3 cathode feeds from and D4 anode feeds to.
+  // Connect ac term0(2,6) → left_node(8,6) — already done: _seg(4,6,8,6) BUT that's term1!
+  // ac term1=(4,6). Let's fix: ac term0=(2,6)→left, ac term1=(4,6)→right
+  // _seg(2,6, 8,6, ox,oy)  for term0→left
+  // _seg(4,6, 16,6,ox,oy) for term1→right — but gapping is bad
+  // Actually it doesn't matter which terminal is left vs right (AC alternates). Let's just do:
+  // ac left (2,6) and right (4,6): bridge left-node at (4,6) [reuse ac+ position], bridge right-node connect separately
+
+  // COMPLETE RESTART of full-wave — use simplest clean layout
+  S.comps=[]; S.wires=[]; S.texts=[];
+  _fullWaveCore(ox, oy);
+  updateSB(); recenterView();
+}
+
+function _fullWaveCore(ox, oy){
+  // Clean bridge layout. All diodes horizontal. 
+  // AC source on left (vertical). Top rail y=0, bottom rail y=12.
+  // AC left-node at x=0 (y=6), right-node at x=14 (y=6).
+  // D1: (0,6)→(+rail): diode at (3,3) rot 0, term0=(2,3) term1=(4,3)
+  //   but that doesn't connect to y=6 and y=0 properly.
+  // 
+  // Use VERTICAL diodes with correct orientation established above:
+  // NEG_PI2: current flows upward (into + rail). Term0=below, Term1=above.
+  // PI2:     current flows downward (from x node down to − rail). Term0=above, Term1=below.
+  //
+  // Bridge nodes: AC_L=(4,6), AC_R=(12,6), DC_P=top rail y=0, DC_N=bottom rail y=12
+  // D1 at (4,3): NEG_PI2 → term0=(4,4), term1=(4,2) -- AC_L(y=6) feeds term0(y=4)? gap.
+  // Need term0 at y=6 (AC_L) and term1 at y=0 (+rail).
+  // Place D1 at (4,3) with term0 at y=4 — then wire (4,6)→(4,4) for AC_L connection
+  //
+  // This is the minimal wiring approach. Let's commit to it:
+  const NEG_PI2 = 3*Math.PI/2;
+  _ac('ac',       0,6, ox,oy, PI2,    {voltage:12,freq:50,label:'12V AC'});
+  // ac rot PI2 at (0,6): term0=(0,5), term1=(0,7)
+  // term0 = AC top connection, term1 = AC bottom connection
+  _ac('diode', 4,2, ox,oy, NEG_PI2,  {vf:0.7,label:'D1'}); // AC_L→DC+: term0=(4,3),term1=(4,1)
+  _ac('diode', 4,10,ox,oy, PI2,      {vf:0.7,label:'D2'}); // DC−→AC_L: term0=(4,9),term1=(4,11)
+  _ac('diode',12,2, ox,oy, NEG_PI2,  {vf:0.7,label:'D3'}); // AC_R→DC+: term0=(12,3),term1=(12,1)
+  _ac('diode',12,10,ox,oy, PI2,      {vf:0.7,label:'D4'}); // DC−→AC_R: term0=(12,9),term1=(12,11)
+  _ac('resistor',18,6,ox,oy,PI2,     {resistance:1000,label:'R_L 1kΩ'});
+  _ac('voltmeter',22,6,ox,oy,PI2,    {range:'20V',label:'V_out'});
+  _ac('ground',18,12,ox,oy,0,        {});
+
+  // AC connections: ac term0=(0,5) connects to AC_L top; ac term1=(0,7) to AC_R bottom? 
+  // Actually ac rot PI2: term0=(-1,0) rotated PI2 → (0,-1) → (0,5). term1=(1,0) rotated → (0,1) → (0,7).
+  // AC_L node: connect (0,5) and (0,7) each to one side of bridge.
+  // (0,5)→(4,5) then up to D1 term0 (4,3): 
+  _seg(0,5,  4,5,  ox,oy); _seg(4,5, 4,3,  ox,oy);  // AC top → D1 anode
+  _seg(4,11, 4,12, ox,oy);                            // D2 cathode to − rail
+  // (0,7)→(12,7) then to D3/D4:
+  _seg(0,7,  12,7, ox,oy); _seg(12,7,12,3, ox,oy);  // AC bottom → D3 anode
+  _seg(12,11,12,12,ox,oy);                            // D4 cathode to − rail
+  // + rail at y=0: D1 and D3 cathodes (4,1) and (12,1), extend to R_L
+  _seg(4,1,  12,1, ox,oy); _seg(12,1,18,1, ox,oy); _seg(18,1,18,4, ox,oy);
+  // − rail at y=12: D2 and D4 cathodes (4,12)(12,12), extend to R_L and ground
+  _seg(4,12, 12,12,ox,oy); _seg(12,12,18,12,ox,oy);
+  // D4 connections: D4 at (12,10) PI2: term0=(12,9), term1=(12,11)
+  // Need to connect AC_R node (12,7) to D4 term0 (12,9):
+  _seg(12,7, 12,9, ox,oy);   // AC_R down to D4 anode
+  // R_L and voltmeter: both rot PI2; R_L at (18,6): term0=(18,4),term1=(18,8); V at (22,6): term0=(22,5),term1=(22,7)
+  _seg(18,8, 18,12,ox,oy);   // R_L bottom to − rail
+  _seg(18,1, 22,1, ox,oy); _seg(22,1,22,5,ox,oy);   // V_out top
+  _seg(22,7, 22,12,ox,oy); _seg(18,12,22,12,ox,oy); // V_out bottom
+  _seg(18,12,18,13,ox,oy);   // ground stub
+  _txt('Full-wave bridge: both half-cycles used',0,16,ox,oy);
 }
 
 function loadFullWaveCap(){
-  loadFullWave();
-  const ox=ox0,oy=64;
-  _ac('capacitor',27,7,ox,oy,PI2,{capacitance:470e-6,label:'C 470µF'});
-  _seg(27,1,27,5,ox,oy); _seg(27,9,27,14,ox,oy);
-  const dc1=S.comps.find(c=>c.props.label==='V_out');
-  if(dc1){
-    // connect to same DC rails as load
-    _seg(23,1,27,1,ox,oy); _seg(23,13,27,13,ox,oy);
-  }
-  _txt('+smoothing cap — lower ripple, higher avg V',0,21,ox,oy);
+  _clearForExample(); const ox=48,oy=64;
+  _fullWaveCore(ox, oy);
+  // Add capacitor in parallel with R_L
+  // R_L at (18,6), top rail y=1, bot rail y=12
+  // Cap rot PI2 at (26,6): term0=(26,5), term1=(26,7)
+  _ac('capacitor',26,6,ox,oy,PI2,{capacitance:470e-6,label:'C 470µF'});
+  _seg(18,1, 26,1, ox,oy); _seg(26,1,26,5,ox,oy);
+  _seg(26,7, 26,12,ox,oy); _seg(18,12,26,12,ox,oy);
+  _txt('+ smoothing capacitor — lower ripple',0,17,ox,oy);
+  updateSB(); recenterView();
 }
 
 // ════════════════════════════════════════════════════════════════
 //  I-V CHARACTERISTICS
 // ════════════════════════════════════════════════════════════════
 function loadIV_Resistor(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('battery',  2,2,ox,oy,0,  {voltage:6,cells:4,label:'6V'});
-  _ac('ammeter',  6,2,ox,oy,0,  {range:'100mA',label:'A'});
-  _ac('resistor',10,2,ox,oy,0,  {resistance:470,label:'R 470Ω'});
-  _ac('voltmeter',14,4,ox,oy,PI2,{range:'10V',label:'V'});
-  _ac('ground',  10,7,ox,oy,0,  {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
-  _seg(12,2,16,2,ox,oy); _seg(16,2,16,7,ox,oy); _seg(0,7,16,7,ox,oy); _seg(0,2,0,7,ox,oy);
-  _seg(12,2,14,2,ox,oy); _seg(14,2,14,3,ox,oy); _seg(14,5,14,7,ox,oy);
-  _txt('Ohmic device: I-V is a straight line',0,10,ox,oy);
-  _txt('Gradient = 1/R = constant',0,12,ox,oy);
-  _txt('Change V to trace more of the curve',0,14,ox,oy);
+  _clearForExample(); const ox=48,oy=96;
+  _ac('battery',  2,0,ox,oy,0,  {voltage:6,cells:4,label:'6V'});
+  _ac('ammeter',  6,0,ox,oy,0,  {range:'100mA',label:'A'});
+  _ac('resistor',11,0,ox,oy,0,  {resistance:470,label:'R 470Ω'});
+  _ac('voltmeter',15,3,ox,oy,PI2,{range:'10V',label:'V'});
+  _ac('ground',  11,6,ox,oy,0,  {});
+  _seg(0,0,4,0,ox,oy); _seg(4,0,5,0,ox,oy); _seg(7,0,9,0,ox,oy);
+  _seg(13,0,17,0,ox,oy); _seg(17,0,17,6,ox,oy);
+  _seg(0,6,17,6,ox,oy); _seg(0,0,0,6,ox,oy);
+  _seg(9,0,15,0,ox,oy); _seg(15,0,15,2,ox,oy); _seg(15,4,15,6,ox,oy);
+  _txt('Ohmic: straight-line I-V  |  grad = 1/R',0,9,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadIV_Lamp(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('battery',  2,2,ox,oy,0,  {voltage:6,cells:4,label:'6V'});
-  _ac('ammeter',  6,2,ox,oy,0,  {range:'500mA',label:'A'});
-  _ac('lamp',    11,2,ox,oy,0,  {resistance:60,rating:6,label:'Lamp 6W'});
-  _ac('voltmeter',15,4,ox,oy,PI2,{range:'10V',label:'V'});
-  _ac('ground',  11,7,ox,oy,0,  {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,9,2,ox,oy); _seg(9,2,13,2,ox,oy);
-  _seg(13,2,17,2,ox,oy); _seg(17,2,17,7,ox,oy); _seg(0,7,17,7,ox,oy); _seg(0,2,0,7,ox,oy);
-  _seg(13,2,15,2,ox,oy); _seg(15,2,15,3,ox,oy); _seg(15,5,15,7,ox,oy);
-  _txt('Non-ohmic: filament heats up → R increases',0,10,ox,oy);
-  _txt('I-V curve bends — gradient decreases',0,12,ox,oy);
-  _txt('At low V: nearly linear. At rated V: much higher R',0,14,ox,oy);
+  _clearForExample(); const ox=48,oy=96;
+  _ac('battery',  2,0,ox,oy,0,  {voltage:6,cells:4,label:'6V'});
+  _ac('ammeter',  6,0,ox,oy,0,  {range:'500mA',label:'A'});
+  // lamp gw=2 gh=4 terms [0,-2],[0,2] — place horizontal (rot=0): terms at (cx,cy-2),(cx,cy+2)
+  // Place lamp at (10,0) rot 0: term0=(10,-2), term1=(10,2) — too vertical for inline use
+  // Rotate lamp PI2 to make it horizontal: with rot PI2, term[0]=[0,-2] rotated → (+2,0),(−2,0)
+  // Actually: lamp terms [0,-2] and [0,2]. rot PI2:
+  //   term0: dx=0, dy=(-2)*16=-32. rot PI2: x=cx+0*0−(−32)*1=cx+32? Wait:
+  //   x = cx + dx*cos(PI2) - dy*sin(PI2) = cx + 0*0 - (-32)*1 = cx+32 — NO, that's wrong
+  // Let me compute properly: dx=0*GS=0, dy=(-2)*GS=-32
+  // rot=PI2: cos=0, sin=1
+  // new_x = cx + 0*0 - (-32)*1 = cx + 32 → term0 at (cx+2, cy) ✓ lamp term0 at right when rotated PI2
+  // term1: dx=0, dy=2*16=32 → new_x = cx + 0*0 - 32*1 = cx-32 → term1 at (cx-2,cy) ← lamp term1 at left
+  // So lamp rot PI2 at (10,0): term0=(12,0) term1=(8,0) — acts like gw=4 horizontal component
+  _ac('lamp',    10,0,ox,oy,PI2, {resistance:60,rating:6,label:'Lamp 6W'});
+  _ac('voltmeter',15,3,ox,oy,PI2,{range:'10V',label:'V'});
+  _ac('ground',  10,6,ox,oy,0,  {});
+  _seg(0,0,4,0,ox,oy); _seg(4,0,5,0,ox,oy); _seg(7,0,8,0,ox,oy);   // bat→ammeter→lamp_term1
+  _seg(12,0,17,0,ox,oy); _seg(17,0,17,6,ox,oy);  // lamp_term0→right side
+  _seg(0,6,17,6,ox,oy); _seg(0,0,0,6,ox,oy);
+  _seg(12,0,15,0,ox,oy); _seg(15,0,15,2,ox,oy); _seg(15,4,15,6,ox,oy);  // voltmeter
+  _txt('Non-ohmic: R↑ with temperature  |  curve bends',0,9,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadIV_Diode(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('battery',  2,2,ox,oy,0,  {voltage:3,cells:4,label:'3V'});
-  _ac('ammeter',  6,2,ox,oy,0,  {range:'50mA',label:'A'});
-  _ac('resistor',10,2,ox,oy,0,  {resistance:100,label:'R 100Ω'});
-  _ac('diode',   14,2,ox,oy,0,  {vf:0.7,label:'D'});
-  _ac('voltmeter',18,4,ox,oy,PI2,{range:'2V',label:'V_D'});
+  _clearForExample(); const ox=48,oy=96;
+  // bat→ammeter→resistor→diode→back; voltmeter across diode
+  // bat cx=2: (0,0)(4,0); ammeter cx=6: (5,0)(7,0); R cx=11: (9,0)(13,0); D cx=16: (15,0)(17,0)
+  // V rot PI2 at (16,4): terms (16,3)(16,5)
+  _ac('battery',  2,0,ox,oy,0,  {voltage:3,cells:4,label:'3V'});
+  _ac('ammeter',  6,0,ox,oy,0,  {range:'50mA',label:'A'});
+  _ac('resistor',11,0,ox,oy,0,  {resistance:100,label:'R 100Ω'});
+  _ac('diode',   16,0,ox,oy,0,  {vf:0.7,label:'D'});
+  _ac('voltmeter',16,4,ox,oy,PI2,{range:'2V',label:'V_D'});
   _ac('ground',  14,7,ox,oy,0,  {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
-  _seg(12,2,16,2,ox,oy); _seg(16,2,20,2,ox,oy); _seg(20,2,20,7,ox,oy);
-  _seg(0,7,20,7,ox,oy); _seg(0,2,0,7,ox,oy);
-  _seg(16,2,18,2,ox,oy); _seg(18,2,18,3,ox,oy); _seg(18,5,18,7,ox,oy);
-  _txt('Non-ohmic: knee voltage ≈ 0.7 V',0,10,ox,oy);
-  _txt('Below 0.7 V: I ≈ 0 (reverse blocked)',0,12,ox,oy);
-  _txt('Above 0.7 V: I rises steeply',0,14,ox,oy);
+  _seg(0,0,4,0,ox,oy); _seg(4,0,5,0,ox,oy); _seg(7,0,9,0,ox,oy);
+  _seg(13,0,15,0,ox,oy); _seg(17,0,19,0,ox,oy); _seg(19,0,19,7,ox,oy);
+  _seg(0,7,19,7,ox,oy); _seg(0,0,0,7,ox,oy);
+  // Voltmeter across diode: taps at (15,0) and (17,0)
+  _seg(15,0,16,0,ox,oy); _seg(16,0,16,3,ox,oy); _seg(16,5,16,7,ox,oy);
+  _txt('Knee ≈ 0.7V  |  below knee: I≈0',0,10,ox,oy);
+  updateSB(); recenterView();
 }
 
 function loadIV_LED(){
-  _clearForExample(); const ox=ox0,oy=oy0;
-  _ac('battery',  2,2,ox,oy,0,  {voltage:5,cells:4,label:'5V'});
-  _ac('ammeter',  6,2,ox,oy,0,  {range:'50mA',label:'A'});
-  _ac('resistor',10,2,ox,oy,0,  {resistance:150,label:'R 150Ω'});
-  _ac('led',     14,2,ox,oy,0,  {vf:2.0,colour:'#3de88e',label:'LED'});
-  _ac('voltmeter',18,4,ox,oy,PI2,{range:'5V',label:'V_LED'});
+  _clearForExample(); const ox=48,oy=96;
+  _ac('battery',  2,0,ox,oy,0,  {voltage:5,cells:4,label:'5V'});
+  _ac('ammeter',  6,0,ox,oy,0,  {range:'50mA',label:'A'});
+  _ac('resistor',11,0,ox,oy,0,  {resistance:150,label:'R 150Ω'});
+  _ac('led',     16,0,ox,oy,0,  {vf:2.0,label:'LED'});
+  _ac('voltmeter',16,4,ox,oy,PI2,{range:'5V',label:'V_LED'});
   _ac('ground',  14,7,ox,oy,0,  {});
-  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
-  _seg(12,2,16,2,ox,oy); _seg(16,2,20,2,ox,oy); _seg(20,2,20,7,ox,oy);
-  _seg(0,7,20,7,ox,oy); _seg(0,2,0,7,ox,oy);
-  _seg(16,2,18,2,ox,oy); _seg(18,2,18,3,ox,oy); _seg(18,5,18,7,ox,oy);
-  _txt('LED forward voltage ≈ 2.0 V (green)',0,10,ox,oy);
-  _txt('Below V_f: blocked. At V_f: sudden conduction',0,12,ox,oy);
-  _txt('Emits light above threshold current',0,14,ox,oy);
+  _seg(0,0,4,0,ox,oy); _seg(4,0,5,0,ox,oy); _seg(7,0,9,0,ox,oy);
+  _seg(13,0,15,0,ox,oy); _seg(17,0,19,0,ox,oy); _seg(19,0,19,7,ox,oy);
+  _seg(0,7,19,7,ox,oy); _seg(0,0,0,7,ox,oy);
+  _seg(15,0,16,0,ox,oy); _seg(16,0,16,3,ox,oy); _seg(16,5,16,7,ox,oy);
+  _txt('LED V_f ≈ 2.0V  |  conducts + emits above V_f',0,10,ox,oy);
+  updateSB(); recenterView();
 }
 
+// Startup example
+function loadExample(){ loadOhm1(); }
 </script>
 </body>
 </html>
