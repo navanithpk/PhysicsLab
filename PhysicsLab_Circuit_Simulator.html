@@ -517,8 +517,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
           <button class="rp-btn purple" onclick="startTutorial()" title="Tutorial">
             <span class="ri">?</span><span class="rl">Help</span>
           </button>
-          <button class="rp-btn" onclick="loadExample()" id="tb-example" title="Load example">
-            <span class="ri">⊞</span><span class="rl">Example</span>
+          <button class="rp-btn" onclick="openExampleGallery()" id="tb-example" title="Browse example circuits">
+            <span class="ri">⊞</span><span class="rl">Examples</span>
           </button>
           <button class="rp-btn purple" onclick="exportDebugLog()" title="Debug JSON">
             <span class="ri">⬇</span><span class="rl">Debug</span>
@@ -701,6 +701,29 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
     </div>
     <div class="lcr-body" id="lcr-body"></div>
     <div id="lcr-src-note" style="padding:6px 20px 10px;font-size:10px;font-family:'IBM Plex Mono';color:#454e6a;border-top:1px solid var(--border);flex-shrink:0"></div>
+  </div>
+</div>
+
+<!-- ═══ EXAMPLE GALLERY MODAL ═══ -->
+<div id="eg-overlay" style="position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.78);
+  display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto"
+  onclick="if(event.target===this)closeEG()">
+  <div style="background:var(--bg2);border:1px solid var(--bord2);border-radius:14px;
+    width:min(720px,96vw);box-shadow:0 20px 60px rgba(0,0,0,.7);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      padding:18px 20px 14px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:15px;font-weight:600;color:var(--text)">Example Circuits</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">
+          Click a circuit to load it — simulation auto-starts
+        </div>
+      </div>
+      <button onclick="closeEG()" style="background:none;border:none;color:var(--text3);
+        font-size:18px;cursor:pointer;line-height:1"
+        onmouseover="this.style.color='#ff4a6a'" onmouseout="this.style.color='var(--text3)'">×</button>
+    </div>
+    <div id="eg-body" style="padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+    </div>
   </div>
 </div>
 
@@ -1201,7 +1224,7 @@ function getMeterRange(comp){
 }
 
 const S = {
-  tool:'select',comps:[],wires:[],sel:new Set(),hover:null,
+  tool:'select',comps:[],wires:[],sel:new Set(),selWires:new Set(),selRect:null,hover:null,
   drag:false,dragStart:null,dragOff:new Map(),wirePts:[],_wMouse:null,
   pan:{x:60,y:60},zoom:1,animT:0,simOn:false,dispMode:'analog',nextId:1,
   texts:[],_undoStack:[],_redoStack:[],editingText:null,_textInput:null,
@@ -1250,14 +1273,9 @@ window.addEventListener('load',()=>{
   // Restore or auto-detect UI scale
   try{
     const saved = localStorage.getItem('cl_uiscale');
-    if(saved){
-      setUIScale(parseFloat(saved));
-    } else if(window.matchMedia('(pointer: coarse)').matches){
-      // Touch device: default to 1.6× for comfortable tap targets
-      setUIScale(1.6);
-    } else {
-      setUIScale(1.0);
-    }
+    if(saved) setUIScale(parseFloat(saved));
+    else if(window.matchMedia('(pointer: coarse)').matches) setUIScale(1.6);
+    else setUIScale(1.0);
   } catch(e){ setUIScale(1.0); }
 
   resizeCv(); window.addEventListener('resize',resizeCv);
@@ -1267,7 +1285,8 @@ window.addEventListener('load',()=>{
   document.addEventListener('keyup',e=>{if(e.code==='Space')S.spaceDown=false;});
   setTool('select',document.getElementById('tb-select'));
   rafId=requestAnimationFrame(loop);
-  loadExample();
+  // loadExample is defined later in the file — call it after all JS is parsed
+  setTimeout(()=>{ if(typeof loadExample==='function') loadExample(); }, 0);
   updateUndoRedoButtons();
 });
 
@@ -2221,7 +2240,7 @@ function render(){
   // Rebuild inspect data every frame when active (keeps it live)
   if(S.tool==='inspect') _inspectData = _buildInspectData();
   ctx.save(); ctx.translate(S.pan.x,S.pan.y); ctx.scale(S.zoom,S.zoom);
-  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawSolderHover(); drawInspect(); drawCROProbeMode();
+  drawGrid(); drawWires(); drawWireElectronFlow(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawSolderHover(); drawInspect(); drawSelRect(); drawCROProbeMode();
   // Palette drag ghost
   if(S._palDragType && S._palDragPos){
     const def = DMAP[S._palDragType];
@@ -2250,9 +2269,10 @@ function drawGrid(){
 }
 
 function drawWires(){
-  S.wires.forEach(w=>{
-    ctx.strokeStyle = _exportBW ? '#000000' : (w.sel?'#7bb8ff':'rgba(74,158,255,0.8)');
-    ctx.lineWidth = w.sel ? 2 : 1.5;
+  S.wires.forEach((w,wi)=>{
+    const selW = w.sel || S.selWires.has(wi);
+    ctx.strokeStyle = _exportBW ? '#000000' : (selW?'#7bb8ff':'rgba(74,158,255,0.8)');
+    ctx.lineWidth = selW ? 2 : 1.5;
     ctx.beginPath();
     w.pts.forEach((p,i)=>{
       if(i===0) ctx.moveTo(p.x,p.y);
@@ -2268,6 +2288,74 @@ function drawWires(){
     });
   });
 }
+
+function drawWireElectronFlow(){
+  if(!S.simOn || !_nodeV || !_lastCompNodes || _exportBW) return;
+
+  // Map snapped terminal positions to signed current
+  const termCurrentMap = new Map();
+  S.comps.forEach(c=>{
+    const I = c._simI || 0;
+    if(Math.abs(I) < 1e-6) return;
+    const def = DMAP[c.t]; if(!def) return;
+    def.terms.forEach((_,ti)=>{
+      const tp = termPos(c,ti);
+      const key = Math.round(tp.x)+',' + Math.round(tp.y);
+      if(!termCurrentMap.has(key)) termCurrentMap.set(key, {I:0});
+      termCurrentMap.get(key).I += I * (ti===0 ? -1 : 1);
+    });
+  });
+
+  S.wires.forEach(w=>{
+    if(w.pts.length < 2) return;
+
+    // Find best matching current from terminal near wire endpoints
+    let bestI = 0, bestDist = GS * 2.5;
+    [w.pts[0], w.pts[w.pts.length-1]].forEach(pt=>{
+      termCurrentMap.forEach((entry,key)=>{
+        const [kx,ky] = key.split(',').map(Number);
+        const d = Math.hypot(pt.x-kx, pt.y-ky);
+        if(d < bestDist){ bestDist=d; bestI=entry.I; }
+      });
+    });
+    if(Math.abs(bestI) < 1e-6) return;
+
+    const speed = Math.min(3.5, Math.abs(bestI)/0.002) * 0.5;
+    const dir   = bestI > 0 ? 1 : -1;
+
+    // Build polyline segments
+    let totalLen = 0;
+    const segs = [];
+    for(let i=0; i<w.pts.length-1; i++){
+      const dx=w.pts[i+1].x-w.pts[i].x, dy=w.pts[i+1].y-w.pts[i].y;
+      const len=Math.hypot(dx,dy);
+      segs.push({i, dx, dy, len, cumLen:totalLen});
+      totalLen += len;
+    }
+    if(totalLen < 1) return;
+
+    const dotsCount = Math.max(1, Math.round(totalLen/(GS*1.8)));
+
+    ctx.fillStyle = '#6db8ff';
+    ctx.shadowColor = '#4a9eff';
+    ctx.shadowBlur  = 3;
+
+    for(let di=0; di<dotsCount; di++){
+      const progress = (((di/dotsCount) + S.animT*speed*dir) % 1 + 1) % 1;
+      const dist = progress * totalLen;
+      let seg = segs[segs.length-1];
+      for(let si=0; si<segs.length-1; si++){
+        if(dist < segs[si+1].cumLen){ seg=segs[si]; break; }
+      }
+      const t2 = seg.len>0 ? (dist-seg.cumLen)/seg.len : 0;
+      const px = w.pts[seg.i].x + seg.dx*t2;
+      const py = w.pts[seg.i].y + seg.dy*t2;
+      ctx.beginPath(); ctx.arc(px,py,2.2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  });
+}
+
 
 function drawComps(){
   S.comps.forEach(c=>{
@@ -2498,6 +2586,20 @@ function drawRazorHover(){
   ctx.beginPath(); ctx.moveTo(cx+xs, cy-xs); ctx.lineTo(cx-xs, cy+xs); ctx.stroke();
 
   ctx.restore();
+}
+
+
+function drawSelRect(){
+  if(!S.selRect || S.tool!=='select') return;
+  const r=S.selRect;
+  const rx=Math.min(r.x0,r.x1), ry=Math.min(r.y0,r.y1);
+  const rw=Math.abs(r.x1-r.x0), rh=Math.abs(r.y1-r.y0);
+  ctx.save();
+  ctx.strokeStyle='rgba(74,158,255,0.8)'; ctx.lineWidth=1; ctx.setLineDash([5,3]);
+  ctx.strokeRect(rx,ry,rw,rh);
+  ctx.fillStyle='rgba(74,158,255,0.07)';
+  ctx.fillRect(rx,ry,rw,rh);
+  ctx.setLineDash([]); ctx.restore();
 }
 
 function drawCROProbeMode(){
@@ -3007,12 +3109,18 @@ function onMD(e){
   if(c){
     if(c._locked){
       // Locked — select only, no drag
-      S.sel.clear(); S.sel.add(c.id);
+      S.sel.clear(); S.selWires.clear(); S.sel.add(c.id);
       updateProps(); render(); return;
     }
-    S.sel.clear(); S.sel.add(c.id); S.drag=true; S.dragStart={x:w.x,y:w.y}; S.dragOff.set(c.id,{ox:c.x-w.x,oy:c.y-w.y});
+    S.sel.clear(); S.selWires.clear(); S.sel.add(c.id);
+    S.drag=true; S.dragStart={x:w.x,y:w.y};
+    S.dragOff.set(c.id,{ox:c.x-w.x,oy:c.y-w.y});
+  } else {
+    // Clicking empty space — start rubber-band selection rect
+    S.sel.clear(); S.selWires.clear();
+    S.selRect = { x0:w.x, y0:w.y, x1:w.x, y1:w.y };
   }
-  else { S.sel.clear(); } updateProps(); render();
+  updateProps(); render();
 }
 function onMM(e){
   const w=sw(e.clientX,e.clientY);
@@ -3157,6 +3265,7 @@ function onMM(e){
   }
 
   if(S.drag){ S.sel.forEach(id=>{ const c=S.comps.find(x=>x.id===id); const o=S.dragOff.get(id); if(c&&o&&!c._locked){ c.x=snap(w.x+o.ox); c.y=snap(w.y+o.oy); } }); render(); }
+  if(S.selRect){ S.selRect.x1=w.x; S.selRect.y1=w.y; render(); }
   if(S.tool==='wire'){
     let sx = snap(w.x), sy = snap(w.y);
     let snappedToTerminal = false;
@@ -3172,13 +3281,26 @@ function onMM(e){
   }
 }
 function onMU(e){ 
-  if(S.panning){
-    S.panning=false;
-    canvas.style.cursor = S.tool==='pan' ? 'grab' : '';
-    return;
+  if(S.panning){ S.panning=false; canvas.style.cursor=S.tool==='pan'?'grab':''; return; }
+  S.drag=false;
+  if(S.selRect){
+    const r=S.selRect;
+    const rx0=Math.min(r.x0,r.x1), rx1=Math.max(r.x0,r.x1);
+    const ry0=Math.min(r.y0,r.y1), ry1=Math.max(r.y0,r.y1);
+    const big = (rx1-rx0)>4 || (ry1-ry0)>4; // only apply if dragged meaningfully
+    if(big){
+      S.sel.clear(); S.selWires.clear();
+      // Select comps whose centre is inside rect
+      S.comps.forEach(c=>{ if(c.x>=rx0&&c.x<=rx1&&c.y>=ry0&&c.y<=ry1) S.sel.add(c.id); });
+      // Select wires all of whose points are inside rect
+      S.wires.forEach((w,wi)=>{
+        if(w.pts.every(p=>p.x>=rx0&&p.x<=rx1&&p.y>=ry0&&p.y<=ry1)) S.selWires.add(wi);
+      });
+      updateProps();
+    }
+    S.selRect=null; render(); return;
   }
-  S.drag=false; 
-  if(S.simOn) runSimulation(); 
+  if(S.simOn) runSimulation();
 }
 function onWheel(e){ e.preventDefault(); S.zoom=Math.max(0.3,Math.min(3,S.zoom*(e.deltaY>0?0.9:1.1))); render(); }
 
@@ -3440,7 +3562,7 @@ function onKey(e){
     if(document.getElementById('lcr-overlay').classList.contains('show')){ closeLCR(); return; }
     if(document.getElementById('tutoverlay').classList.contains('show')){ tutNav(999); return; }
     if(_croProbeMode !== null){ _croProbeMode=null; canvas.style.cursor=''; render(); return; }
-    _eraseHover=null; _razorHover=null; _solderHover=null; _inspectData=null;
+    _eraseHover=null; _razorHover=null; _solderHover=null; _inspectData=null; S.selRect=null;
     setTool('select', document.getElementById('tb-select')); return;
   }
 
@@ -3453,6 +3575,7 @@ function onKey(e){
       case 'v': e.preventDefault(); pasteClipboard(); return;
       case 'a': e.preventDefault();
         S.sel.clear(); S.comps.forEach(c=>S.sel.add(c.id));
+        S.selWires.clear(); S.wires.forEach((_,i)=>S.selWires.add(i));
         updateProps(); render(); return;
       case 'd': e.preventDefault(); copySelected(); pasteClipboard(); return;
     }
@@ -4324,6 +4447,7 @@ function setTool(t,btn){
   if(t !== 'razor'){ _razorHover=null; }
   if(t !== 'solder'){ _solderHover=null; }
   if(t !== 'inspect'){ _inspectData=null; }
+  if(t !== 'select'){ S.selRect=null; }
   canvas.style.cursor = t==='pan' ? 'grab' : '';
   document.getElementById('sb-tool').textContent = t.charAt(0).toUpperCase()+t.slice(1);
   render();
@@ -5470,266 +5594,488 @@ function _showTransientPanel(type, V, R, L, C, f, Vtype, tMaxOverride, nodeRoles
 //  EXAMPLE CIRCUITS  (3 verified IGCSE-grade circuits)
 // ═══════════════════════════════════════════════════
 
-let _exampleIdx = 0; // cycles through 0,1,2
+// ═══════════════════════════════════════════════════════════════
+//  EXAMPLE GALLERY
+// ═══════════════════════════════════════════════════════════════
 
-const _EXAMPLE_NAMES = ['Staircase', 'Ladder', 'Lamp Bank'];
+const EXAMPLES = [
+  { group:"Ohm's Law",          name:"Basic Ohm's Law",           desc:"9 V · 470 Ω · ammeter · voltmeter. Verify V = IR.",              fn:()=>loadOhm1() },
+  { group:"Ohm's Law",          name:"Series Resistors",           desc:"100 Ω + 220 Ω in series. R_total = 320 Ω.",                     fn:()=>loadOhm2() },
+  { group:"Potential Divider",  name:"Equal Divider",              desc:"12 V · 1 kΩ + 1 kΩ. V_out = 6 V at midpoint.",                  fn:()=>loadPD1() },
+  { group:"Potential Divider",  name:"Unequal Divider",            desc:"12 V · 2.2 kΩ + 1 kΩ. V_out = 3.75 V.",                        fn:()=>loadPD2() },
+  { group:"KCL & KVL",          name:"KCL — Two Parallel",         desc:"Two parallel branches. I_T = I₁ + I₂.",                         fn:()=>loadKCL1() },
+  { group:"KCL & KVL",          name:"KCL — Three Parallel",       desc:"Three parallel branches. Verify KCL at junction.",              fn:()=>loadKCL2() },
+  { group:"KCL & KVL",          name:"KVL — Series Loop",          desc:"Battery + R1 + R2 + R3. V_bat = V₁ + V₂ + V₃.",                fn:()=>loadKVL1() },
+  { group:"KCL & KVL",          name:"KVL — Series-Parallel",      desc:"Series R in main line, two parallel branches.",                 fn:()=>loadKVL2() },
+  { group:"KCL & KVL",          name:"Wheatstone Bridge",          desc:"Balanced bridge R1/R2 = R3/R4. Galvanometer reads 0 V.",        fn:()=>loadWheatstone() },
+  { group:"Rectification",      name:"Half-wave Rectifier",        desc:"AC · single diode. +ve half-cycle only.",                       fn:()=>loadHalfWave() },
+  { group:"Rectification",      name:"Half-wave + Filter Cap",     desc:"Half-wave + smoothing capacitor across load.",                  fn:()=>loadHalfWaveCap() },
+  { group:"Rectification",      name:"Full-wave Bridge",           desc:"4-diode bridge. Both half-cycles → DC.",                        fn:()=>loadFullWave() },
+  { group:"Rectification",      name:"Full-wave + Filter Cap",     desc:"Full-wave bridge with smoothing capacitor.",                    fn:()=>loadFullWaveCap() },
+  { group:"I-V Characteristics",name:"Ohmic Resistor",             desc:"Fixed resistor. I-V graph: straight line, gradient = 1/R.",    fn:()=>loadIV_Resistor() },
+  { group:"I-V Characteristics",name:"Filament Lamp",              desc:"Non-ohmic: R increases with temp. I-V curve bends.",            fn:()=>loadIV_Lamp() },
+  { group:"I-V Characteristics",name:"Diode I-V",                  desc:"Knee at ~0.7 V. Below: blocked. Above: steep rise.",            fn:()=>loadIV_Diode() },
+  { group:"I-V Characteristics",name:"LED I-V",                    desc:"Forward voltage ~2.0 V. Conducts + emits above V_f.",           fn:()=>loadIV_LED() },
+  { group:"Classic Examples",   name:"Staircase (Parallel lamps)", desc:"12 V · 3 parallel branches with switches. Toggle branches.",    fn:()=>loadExample1() },
+  { group:"Classic Examples",   name:"Series-Parallel Ladder",     desc:"Mixed series-parallel resistor network with voltmeter.",        fn:()=>loadExample2() },
+  { group:"Classic Examples",   name:"Lamp Bank",                  desc:"6 V · 4 parallel lamp branches with individual switches.",      fn:()=>loadExample3() },
+];
 
-function loadExample(){
-  _exampleIdx = (_exampleIdx) % 3;
-  [loadExample1, loadExample2, loadExample3][_exampleIdx]();
-  const btn = document.getElementById('tb-example');
-  if(btn) btn.textContent = `Example: ${_EXAMPLE_NAMES[_exampleIdx]}`;
-  _exampleIdx++;
+function openExampleGallery(){
+  const overlay = document.getElementById('eg-overlay');
+  const body    = document.getElementById('eg-body');
+  if(!overlay || !body) return;
+
+  const groups = {};
+  EXAMPLES.forEach(ex=>{ if(!groups[ex.group]) groups[ex.group]=[]; groups[ex.group].push(ex); });
+
+  body.innerHTML = '';
+  Object.entries(groups).forEach(([group, exs])=>{
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'grid-column:1/-1;font-size:9px;text-transform:uppercase;letter-spacing:.8px;' +
+      'color:var(--text3);font-family:var(--mono);padding:6px 0 3px;border-bottom:1px solid var(--border);margin-top:6px';
+    hdr.textContent = group;
+    body.appendChild(hdr);
+    exs.forEach(ex=>{
+      const card = document.createElement('button');
+      card.style.cssText = 'text-align:left;background:var(--bg3);border:1px solid var(--border);' +
+        'border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .14s;' +
+        'display:flex;flex-direction:column;gap:5px;';
+      card.onmouseover=()=>{ card.style.borderColor='var(--accent)'; card.style.background='rgba(74,158,255,.07)'; };
+      card.onmouseout =()=>{ card.style.borderColor='var(--border)'; card.style.background='var(--bg3)'; };
+      card.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--text)">${ex.name}</div>` +
+        `<div style="font-size:10px;color:var(--text3);line-height:1.5;font-family:var(--mono)">${ex.desc}</div>`;
+      card.onclick = ()=>{ closeEG(); ex.fn(); recenterView(); runSimulation(); };
+      body.appendChild(card);
+    });
+  });
+
+  overlay.style.display = 'flex';
 }
 
-// ── Helpers ──────────────────────────────────────
+function closeEG(){ document.getElementById('eg-overlay').style.display='none'; }
+
+// ════════════════════════════════════════════════════════════════
+//  CLASSIC EXAMPLES (preserved originals)
+// ════════════════════════════════════════════════════════════════
+function loadExample1(){
+  // Staircase: 12V · master switch · ammeter · 3 parallel branches (switch + resistor + lamp each)
+  _clearForExample(); const ox=32,oy=48;
+  _ac('battery', 6,2,ox,oy,0,{voltage:12,cells:4,label:'12V'});
+  _ac('switch', 11,2,ox,oy,0,{closed:true,label:'S'});
+  _ac('ammeter',15,2,ox,oy,0,{range:'500mA',label:'A'});
+  // Branch 1
+  _ac('switch', 20,5,ox,oy,PI2,{closed:true,label:'S1'});
+  _ac('resistor',20,10,ox,oy,PI2,{resistance:100,label:'R1'});
+  _ac('lamp',   20,16,ox,oy,0, {resistance:60,rating:6,label:'L1'});
+  // Branch 2
+  _ac('switch', 26,5,ox,oy,PI2,{closed:false,label:'S2'});
+  _ac('resistor',26,10,ox,oy,PI2,{resistance:220,label:'R2'});
+  _ac('lamp',   26,16,ox,oy,0, {resistance:60,rating:6,label:'L2'});
+  // Branch 3
+  _ac('switch', 32,5,ox,oy,PI2,{closed:true,label:'S3'});
+  _ac('resistor',32,10,ox,oy,PI2,{resistance:470,label:'R3'});
+  _ac('lamp',   32,16,ox,oy,0, {resistance:60,rating:6,label:'L3'});
+  _ac('ground', 26,22,ox,oy,0,{});
+  // Top rail
+  _seg(4,2,10,2,ox,oy); _seg(10,2,12,2,ox,oy); _seg(12,2,16,2,ox,oy);
+  _seg(16,2,20,2,ox,oy); _seg(20,2,26,2,ox,oy); _seg(26,2,32,2,ox,oy); _seg(32,2,36,2,ox,oy);
+  // Branch verticals
+  _seg(20,2,20,3,ox,oy); _seg(20,7,20,8,ox,oy); _seg(20,12,20,14,ox,oy); _seg(20,18,20,20,ox,oy);
+  _seg(26,2,26,3,ox,oy); _seg(26,7,26,8,ox,oy); _seg(26,12,26,14,ox,oy); _seg(26,18,26,20,ox,oy);
+  _seg(32,2,32,3,ox,oy); _seg(32,7,32,8,ox,oy); _seg(32,12,32,14,ox,oy); _seg(32,18,32,20,ox,oy);
+  // Bottom rail + sides
+  _seg(20,20,32,20,ox,oy); _seg(4,20,20,20,ox,oy); _seg(32,20,36,20,ox,oy);
+  _seg(4,2,4,20,ox,oy); _seg(36,2,36,20,ox,oy);
+  _seg(26,20,26,22,ox,oy);
+  _txt('Toggle S2/S3 to see current redistribution',0,25,ox,oy);
+}
+
+function loadExample2(){
+  // Series-parallel ladder: battery + series R + two parallel branches
+  _clearForExample(); const ox=48,oy=64;
+  _ac('battery',  2,6,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter',  6,2,ox,oy,0, {range:'500mA',label:'I_T'});
+  _ac('resistor', 9,2,ox,oy,0, {resistance:100,label:'Rs 100Ω'});
+  _ac('resistor',15,4,ox,oy,PI2,{resistance:330,label:'R₂ 330Ω'});
+  _ac('resistor',21,4,ox,oy,PI2,{resistance:680,label:'R₃ 680Ω'});
+  _ac('voltmeter',9,8,ox,oy,PI2, {range:'10V',label:'V_s'});
+  _ac('voltmeter',18,8,ox,oy,PI2,{range:'20V',label:'V_p'});
+  _ac('lamp',    15,10,ox,oy,0, {resistance:60,rating:3,label:'L'});
+  _ac('ground',  15,14,ox,oy,0, {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,7,2,ox,oy); _seg(7,2,11,2,ox,oy);
+  _seg(11,2,15,2,ox,oy); _seg(15,2,21,2,ox,oy); _seg(21,2,24,2,ox,oy);
+  _seg(15,2,15,6,ox,oy); _seg(15,7,15,8,ox,oy); _seg(15,9,15,12,ox,oy); _seg(15,13,15,14,ox,oy);
+  _seg(21,2,21,6,ox,oy); _seg(21,7,21,12,ox,oy); _seg(21,12,15,12,ox,oy);
+  _seg(0,12,15,12,ox,oy); _seg(21,12,24,12,ox,oy); _seg(24,2,24,12,ox,oy); _seg(0,2,0,12,ox,oy);
+  _seg(7,2,9,2,ox,oy); _seg(9,2,9,7,ox,oy); _seg(9,9,9,12,ox,oy);
+  _seg(11,2,18,2,ox,oy); _seg(18,2,18,7,ox,oy); _seg(18,9,18,12,ox,oy);
+  _txt('KVL + KCL: mixed series-parallel',0,17,ox,oy);
+}
+
+function loadExample3(){
+  // Lamp bank: 6V · 4 parallel lamp branches with individual switches
+  _clearForExample(); const ox=32,oy=48;
+  _ac('battery', 6,2,ox,oy,0,{voltage:6,cells:4,label:'6V'});
+  _ac('switch', 11,2,ox,oy,0,{closed:true,label:'S'});
+  _ac('ammeter',15,2,ox,oy,0,{range:'1A',label:'A'});
+  const branches=[{x:20,s:'S1',c:true},{x:26,s:'S2',c:false},{x:32,s:'S3',c:true},{x:38,s:'S4',c:false}];
+  const Rs=[100,220,330,470];
+  branches.forEach((b,i)=>{
+    _ac('switch', b.x,5,ox,oy,PI2,{closed:b.c,label:b.s});
+    _ac('resistor',b.x,10,ox,oy,PI2,{resistance:Rs[i],label:`R${i+1} ${Rs[i]}Ω`});
+    _ac('lamp',   b.x,16,ox,oy,0,{resistance:60,rating:3,label:`L${i+1}`});
+    _seg(b.x,2,b.x,3,ox,oy); _seg(b.x,7,b.x,8,ox,oy);
+    _seg(b.x,12,b.x,14,ox,oy); _seg(b.x,18,b.x,20,ox,oy);
+  });
+  _ac('ground',29,22,ox,oy,0,{});
+  _seg(4,2,10,2,ox,oy); _seg(10,2,12,2,ox,oy); _seg(12,2,16,2,ox,oy);
+  _seg(16,2,20,2,ox,oy); _seg(20,2,26,2,ox,oy); _seg(26,2,32,2,ox,oy); _seg(32,2,38,2,ox,oy); _seg(38,2,42,2,ox,oy);
+  _seg(20,20,38,20,ox,oy); _seg(4,20,20,20,ox,oy); _seg(38,20,42,20,ox,oy);
+  _seg(4,2,4,20,ox,oy); _seg(42,2,42,20,ox,oy); _seg(29,20,29,22,ox,oy);
+  _txt('Toggle switches — observe brightness changes',0,25,ox,oy);
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
 function _clearForExample(){
-  S.comps=[]; S.wires=[]; S.sel.clear(); S.nextId=1;
+  S.comps=[]; S.wires=[]; S.texts=[]; S.sel.clear(); S.nextId=1;
   S._undoStack=[]; S._redoStack=[];
   stopSimulation();
 }
 function _g(gx,gy,ox,oy){ return {x:ox+gx*GS, y:oy+gy*GS}; }
 function _W(pts){ S.wires.push({pts,sel:false}); }
-function _seg(x1,y1,x2,y2,ox,oy){
-  _W([_g(x1,y1,ox,oy), _g(x2,y2,ox,oy)]);
-}
+function _seg(x1,y1,x2,y2,ox,oy){ _W([_g(x1,y1,ox,oy),_g(x2,y2,ox,oy)]); }
 function _ac(type,gx,gy,ox,oy,rot,props){
-  const c=addComp(type, ox+gx*GS, oy+gy*GS);
-  if(rot) c.rot=rot;
-  if(props) Object.assign(c.props,props);
-  return c;
+  const c=addComp(type,ox+gx*GS,oy+gy*GS);
+  if(rot) c.rot=rot; if(props) Object.assign(c.props,props); return c;
+}
+function _txt(text,gx,gy,ox,oy){ S.texts.push({text,x:ox+gx*GS,y:oy+gy*GS,col:'#7890b0'}); }
+
+const PI2 = Math.PI/2;
+const ox0=48, oy0=80;  // default canvas origin
+
+// ════════════════════════════════════════════════════════════════
+//  OHM'S LAW
+// ════════════════════════════════════════════════════════════════
+function loadOhm1(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('battery', 2,2,ox,oy,0,{voltage:9,cells:4,label:'9V'});
+  _ac('ammeter', 6,2,ox,oy,0,{range:'100mA',label:'A'});
+  _ac('resistor',10,2,ox,oy,0,{resistance:470,label:'R 470Ω'});
+  _ac('voltmeter',14,4,ox,oy,PI2,{range:'20V',label:'V'});
+  _ac('ground',10,7,ox,oy,0,{});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
+  _seg(12,2,16,2,ox,oy); _seg(16,2,16,7,ox,oy);
+  _seg(0,7,16,7,ox,oy); _seg(0,2,0,7,ox,oy);
+  _seg(12,2,14,2,ox,oy); _seg(14,2,14,3,ox,oy); _seg(14,5,14,7,ox,oy);
+  _txt('V = I × R  |  9V ÷ 470Ω = 19.1 mA',0,9,ox,oy);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  CIRCUIT 1 — "Staircase"
-//  12 V battery · master switch S1 · ammeter on main line
-//  Three parallel branches — each with its own switch + resistor + lamp:
-//    Branch A: always live (S1 only), R1 = 100 Ω
-//    Branch B: S2 (open) + R2 = 220 Ω
-//    Branch C: S3 (closed) + R3 = 470 Ω
-//  Toggle S2 / S3 to observe current redistribution.
-// ─────────────────────────────────────────────────────────────────────────────
-function loadExample1(){
-  _clearForExample();
-  const ox=32, oy=48;   // pixel origin
-  const PI2=Math.PI/2;
-
-  // ── Sources & meters on main rail ─────────────
-  _ac('battery', 6,2,ox,oy, 0, {voltage:12,cells:6,intR:1,label:'12V'});
-  _ac('ammeter',11,2,ox,oy, 0, {label:'A'});
-  _ac('switch',  15,2,ox,oy, 0, {closed:true, label:'S1'});
-
-  // ── Branch A (x=20): R1 + L1  (no branch switch — always on when S1 closed) ─
-  _ac('resistor',20, 7,ox,oy, PI2, {resistance:100,  label:'R1'});
-  _ac('lamp',    20,14,ox,oy,  0,  {resistance:60,   label:'L1'});
-
-  // ── Branch B (x=26): S2 + R2 + L2 ────────────
-  _ac('switch',  26, 5,ox,oy, PI2, {closed:false,    label:'S2'});
-  _ac('resistor',26,10,ox,oy, PI2, {resistance:220,  label:'R2'});
-  _ac('lamp',    26,16,ox,oy,  0,  {resistance:60,   label:'L2'});
-
-  // ── Branch C (x=32): S3 + R3 + L3 ────────────
-  _ac('switch',  32, 5,ox,oy, PI2, {closed:true,     label:'S3'});
-  _ac('resistor',32,10,ox,oy, PI2, {resistance:470,  label:'R3'});
-  _ac('lamp',    32,16,ox,oy,  0,  {resistance:60,   label:'L3'});
-
-  // ── Ground ────────────────────────────────────
-  _ac('ground',  20,22,ox,oy);
-
-  // ── Wires ─────────────────────────────────────
-  // Main rail (top, y=2): battery+ → ammeter → S1 → branches
-  _seg( 8,2,10,2,ox,oy);   // bat+ to ammeter
-  _seg(12,2,14,2,ox,oy);   // ammeter to S1
-  _seg(16,2,20,2,ox,oy);   // S1 to branch A top
-  _seg(20,2,26,2,ox,oy);   // branch A to B top
-  _seg(26,2,32,2,ox,oy);   // branch B to C top
-
-  // Return rail (bottom, y=20): all branches → ground
-  _seg( 4,2, 4,20,ox,oy);  // bat− down
-  _seg( 4,20,20,20,ox,oy); // bottom left span
-  _seg(20,20,26,20,ox,oy);
-  _seg(26,20,32,20,ox,oy);
-  _seg(20,20,20,22,ox,oy); // down to ground
-
-  // Branch A internals (x=20): top→R1→L1→bot
-  _seg(20,2, 20,5, ox,oy);   // top rail to R1 top
-  _seg(20,9, 20,12,ox,oy);   // R1 bot to L1 top
-  _seg(20,16,20,20,ox,oy);   // L1 bot to bottom rail
-
-  // Branch B internals (x=26): top→S2→R2→L2→bot
-  _seg(26,2, 26,4, ox,oy);   // top rail to S2 top
-  _seg(26,6, 26,8, ox,oy);   // S2 bot to R2 top
-  _seg(26,12,26,14,ox,oy);   // R2 bot to L2 top
-  _seg(26,18,26,20,ox,oy);   // L2 bot to bottom rail
-
-  // Branch C internals (x=32): top→S3→R3→L3→bot
-  _seg(32,2, 32,4, ox,oy);
-  _seg(32,6, 32,8, ox,oy);
-  _seg(32,12,32,14,ox,oy);
-  _seg(32,18,32,20,ox,oy);
-
-  updateSB(); fitView();
-  document.getElementById('simstatus').style.display='none';
+function loadOhm2(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('battery', 2,2,ox,oy,0,{voltage:9,cells:4,label:'9V'});
+  _ac('ammeter', 6,2,ox,oy,0,{range:'100mA',label:'A'});
+  _ac('resistor',10,2,ox,oy,0,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',14,2,ox,oy,0,{resistance:220,label:'R2 220Ω'});
+  _ac('voltmeter',10,6,ox,oy,PI2,{range:'5V',label:'V₁'});
+  _ac('voltmeter',14,6,ox,oy,PI2,{range:'10V',label:'V₂'});
+  _ac('ground',12,10,ox,oy,0,{});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
+  _seg(12,2,16,2,ox,oy); _seg(16,2,18,2,ox,oy); _seg(18,2,18,10,ox,oy);
+  _seg(0,10,18,10,ox,oy); _seg(0,2,0,10,ox,oy);
+  _seg(8,2,10,2,ox,oy); _seg(10,2,10,5,ox,oy); _seg(10,7,10,10,ox,oy);
+  _seg(12,2,14,2,ox,oy); _seg(14,2,14,5,ox,oy); _seg(14,7,14,10,ox,oy);
+  _txt('Series: R_T = 100+220 = 320 Ω  →  I = 28.1 mA',0,12,ox,oy);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  CIRCUIT 2 — "Series-Parallel Ladder"
-//  9 V battery · R_series = 150 Ω in the main line (limits total current)
-//  Ammeter reads main-line current.
-//  Two parallel arms after R_series:
-//    Arm 1: S1 (closed) + Lamp L1
-//    Arm 2: S2 (closed) + R2 = 330 Ω + Lamp L2
-//  Voltmeter branch reads voltage across the parallel section.
-//  Observation: opening S1 shifts all current through Arm 2 — L1 goes dark,
-//  L2 brightens slightly because less voltage drops across R_series.
-// ─────────────────────────────────────────────────────────────────────────────
-function loadExample2(){
-  _clearForExample();
-  const ox=32, oy=48;
-  const PI2=Math.PI/2;
-
-  // ── Main rail components ───────────────────────
-  _ac('battery',  6, 2,ox,oy, 0, {voltage:9,cells:4,intR:1,label:'9V'});
-  _ac('ammeter', 11, 2,ox,oy, 0, {label:'A'});
-  _ac('resistor',16, 2,ox,oy, 0, {resistance:150,label:'Rs'});  // series resistor
-
-  // ── Voltmeter across parallel section ─────────
-  _ac('voltmeter',21,11,ox,oy, PI2, {label:'V'});
-
-  // ── Arm 1 (x=27): S1 + L1 ────────────────────
-  _ac('switch',  27, 6,ox,oy, PI2, {closed:true,  label:'S1'});
-  _ac('lamp',    27,14,ox,oy,  0,  {resistance:60, label:'L1'});
-
-  // ── Arm 2 (x=33): S2 + R2 + L2 ───────────────
-  _ac('switch',  33, 5,ox,oy, PI2, {closed:true,  label:'S2'});
-  _ac('resistor',33,10,ox,oy, PI2, {resistance:330,label:'R2'});
-  _ac('lamp',    33,16,ox,oy,  0,  {resistance:60, label:'L2'});
-
-  // ── Ground ────────────────────────────────────
-  _ac('ground',  21,22,ox,oy);
-
-  // ── Wires ─────────────────────────────────────
-  // Main top rail: bat+ → ammeter → Rs → parallel section
-  _seg( 8,2,10,2,ox,oy);    // bat+ to ammeter
-  _seg(12,2,14,2,ox,oy);    // ammeter to Rs
-  _seg(18,2,21,2,ox,oy);    // Rs to junction
-  _seg(21,2,27,2,ox,oy);    // junction to arm 1
-  _seg(27,2,33,2,ox,oy);    // arm 1 to arm 2
-
-  // Return rail: bat− → bottom rail → ground
-  _seg( 4,2, 4,20,ox,oy);   // bat− down
-  _seg( 4,20,21,20,ox,oy);  // bottom rail left
-  _seg(21,20,27,20,ox,oy);
-  _seg(27,20,33,20,ox,oy);
-  _seg(21,20,21,22,ox,oy);  // to ground
-
-  // Voltmeter branch (x=21): top junction → V → bottom junction
-  _seg(21,2, 21,10,ox,oy);  // top to V top terminal
-  _seg(21,12,21,20,ox,oy);  // V bot terminal to bottom rail
-
-  // Arm 1 (x=27): top→S1→L1→bot
-  _seg(27,2, 27,5, ox,oy);
-  _seg(27,7, 27,12,ox,oy);   // S1 bot to L1 top
-  _seg(27,16,27,20,ox,oy);   // L1 bot to bottom
-
-  // Arm 2 (x=33): top→S2→R2→L2→bot
-  _seg(33,2, 33,4, ox,oy);
-  _seg(33,6, 33,8, ox,oy);
-  _seg(33,12,33,14,ox,oy);
-  _seg(33,18,33,20,ox,oy);
-
-  updateSB(); fitView();
-  document.getElementById('simstatus').style.display='none';
+// ════════════════════════════════════════════════════════════════
+//  POTENTIAL DIVIDER
+// ════════════════════════════════════════════════════════════════
+function loadPD1(){
+  _clearForExample(); const ox=ox0,oy=48;
+  _ac('battery',  2,3,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('resistor', 7,2,ox,oy,PI2,{resistance:1000,label:'R1 1kΩ'});
+  _ac('resistor', 7,8,ox,oy,PI2,{resistance:1000,label:'R2 1kΩ'});
+  _ac('voltmeter',12,8,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground',   7,13,ox,oy,0, {});
+  _seg(0,3,5,3,ox,oy); _seg(0,3,0,13,ox,oy); _seg(0,13,7,13,ox,oy);
+  _seg(5,3,7,3,ox,oy); _seg(7,3,7,5,ox,oy); _seg(7,6,7,10,ox,oy); _seg(7,11,7,13,ox,oy);
+  // voltmeter from midpoint
+  _seg(7,6,12,6,ox,oy); _seg(12,6,12,7,ox,oy); _seg(12,9,12,13,ox,oy); _seg(7,13,12,13,ox,oy);
+  _txt('V_out = 12 × 1k/(1k+1k) = 6.0 V',0,16,ox,oy);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  CIRCUIT 3 — "Lamp Bank"
-//  6 V battery · master switch S_main · ammeter reads total current
-//  Four independently switched parallel branches:
-//    Branch 1: S1 (closed) + R1 =  100 Ω + L1
-//    Branch 2: S2 (open)   + R2 =  220 Ω + L2
-//    Branch 3: S3 (closed) + R3 =  330 Ω + L3
-//    Branch 4: S4 (open)   + R4 =  470 Ω + L4
-//  Each resistor protects its lamp and sets brightness.
-//  Toggling individual switches demonstrates independent parallel control.
-// ─────────────────────────────────────────────────────────────────────────────
-function loadExample3(){
-  _clearForExample();
-  const ox=32, oy=48;
-  const PI2=Math.PI/2;
-
-  // ── Main rail ─────────────────────────────────
-  _ac('battery',  6, 2,ox,oy, 0, {voltage:6,cells:4,intR:0.5,label:'6V'});
-  _ac('switch',  11, 2,ox,oy, 0, {closed:true, label:'S'});
-  _ac('ammeter', 15, 2,ox,oy, 0, {label:'A'});
-
-  // ── Branch 1 (x=20): S1 + R1 + L1 ────────────
-  _ac('switch',  20, 5,ox,oy, PI2, {closed:true,  label:'S1'});
-  _ac('resistor',20,10,ox,oy, PI2, {resistance:100, label:'R1'});
-  _ac('lamp',    20,16,ox,oy,  0,  {resistance:60,  label:'L1'});
-
-  // ── Branch 2 (x=26): S2 + R2 + L2 ────────────
-  _ac('switch',  26, 5,ox,oy, PI2, {closed:false, label:'S2'});
-  _ac('resistor',26,10,ox,oy, PI2, {resistance:220, label:'R2'});
-  _ac('lamp',    26,16,ox,oy,  0,  {resistance:60,  label:'L2'});
-
-  // ── Branch 3 (x=32): S3 + R3 + L3 ────────────
-  _ac('switch',  32, 5,ox,oy, PI2, {closed:true,  label:'S3'});
-  _ac('resistor',32,10,ox,oy, PI2, {resistance:330, label:'R3'});
-  _ac('lamp',    32,16,ox,oy,  0,  {resistance:60,  label:'L3'});
-
-  // ── Branch 4 (x=38): S4 + R4 + L4 ────────────
-  _ac('switch',  38, 5,ox,oy, PI2, {closed:false, label:'S4'});
-  _ac('resistor',38,10,ox,oy, PI2, {resistance:470, label:'R4'});
-  _ac('lamp',    38,16,ox,oy,  0,  {resistance:60,  label:'L4'});
-
-  // ── Ground ────────────────────────────────────
-  _ac('ground',  20,22,ox,oy);
-
-  // ── Wires ─────────────────────────────────────
-  // Main top rail
-  _seg( 8,2,10,2,ox,oy);    // bat+ to S_main
-  _seg(12,2,14,2,ox,oy);    // S_main to ammeter
-  _seg(16,2,20,2,ox,oy);    // ammeter to branch 1
-  _seg(20,2,26,2,ox,oy);
-  _seg(26,2,32,2,ox,oy);
-  _seg(32,2,38,2,ox,oy);
-
-  // Return rail (bottom y=20)
-  _seg( 4,2, 4,20,ox,oy);   // bat− down
-  _seg( 4,20,20,20,ox,oy);
-  _seg(20,20,26,20,ox,oy);
-  _seg(26,20,32,20,ox,oy);
-  _seg(32,20,38,20,ox,oy);
-  _seg(20,20,20,22,ox,oy);  // to ground
-
-  // Branch 1 internals
-  _seg(20,2, 20,4, ox,oy);
-  _seg(20,6, 20,8, ox,oy);
-  _seg(20,12,20,14,ox,oy);
-  _seg(20,18,20,20,ox,oy);
-
-  // Branch 2 internals
-  _seg(26,2, 26,4, ox,oy);
-  _seg(26,6, 26,8, ox,oy);
-  _seg(26,12,26,14,ox,oy);
-  _seg(26,18,26,20,ox,oy);
-
-  // Branch 3 internals
-  _seg(32,2, 32,4, ox,oy);
-  _seg(32,6, 32,8, ox,oy);
-  _seg(32,12,32,14,ox,oy);
-  _seg(32,18,32,20,ox,oy);
-
-  // Branch 4 internals
-  _seg(38,2, 38,4, ox,oy);
-  _seg(38,6, 38,8, ox,oy);
-  _seg(38,12,38,14,ox,oy);
-  _seg(38,18,38,20,ox,oy);
-
-  updateSB(); fitView();
-  document.getElementById('simstatus').style.display='none';
+function loadPD2(){
+  _clearForExample(); const ox=ox0,oy=48;
+  _ac('battery',  2,3,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('resistor', 7,2,ox,oy,PI2,{resistance:2200,label:'R1 2.2kΩ'});
+  _ac('resistor', 7,8,ox,oy,PI2,{resistance:1000,label:'R2 1kΩ'});
+  _ac('voltmeter',12,8,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground',   7,13,ox,oy,0, {});
+  _seg(0,3,5,3,ox,oy); _seg(0,3,0,13,ox,oy); _seg(0,13,7,13,ox,oy);
+  _seg(5,3,7,3,ox,oy); _seg(7,3,7,5,ox,oy); _seg(7,6,7,10,ox,oy); _seg(7,11,7,13,ox,oy);
+  _seg(7,6,12,6,ox,oy); _seg(12,6,12,7,ox,oy); _seg(12,9,12,13,ox,oy); _seg(7,13,12,13,ox,oy);
+  _txt('V_out = 12 × 1k/3.2k = 3.75 V',0,16,ox,oy);
 }
+
+// ════════════════════════════════════════════════════════════════
+//  KCL
+// ════════════════════════════════════════════════════════════════
+function loadKCL1(){
+  _clearForExample(); const ox=ox0,oy=64;
+  _ac('battery', 2,6,ox,oy,0, {voltage:9,cells:4,label:'9V'});
+  _ac('ammeter', 6,2,ox,oy,0, {range:'500mA',label:'I_T'});
+  _ac('ammeter',11,4,ox,oy,PI2,{range:'200mA',label:'I₁'});
+  _ac('ammeter',17,4,ox,oy,PI2,{range:'100mA',label:'I₂'});
+  _ac('resistor',11,8,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',17,8,ox,oy,PI2,{resistance:220,label:'R2 220Ω'});
+  _ac('ground', 14,13,ox,oy,0, {});
+  // main top rail
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,11,2,ox,oy);
+  _seg(11,2,17,2,ox,oy); _seg(17,2,20,2,ox,oy); _seg(20,2,20,12,ox,oy);
+  // branches
+  _seg(11,2,11,3,ox,oy); _seg(11,5,11,10,ox,oy); _seg(11,11,11,12,ox,oy);
+  _seg(17,2,17,3,ox,oy); _seg(17,5,17,10,ox,oy); _seg(17,11,17,12,ox,oy);
+  // bottom rail
+  _seg(0,12,11,12,ox,oy); _seg(11,12,17,12,ox,oy); _seg(17,12,20,12,ox,oy);
+  _seg(0,2,0,12,ox,oy);
+  _txt('KCL: I_T = I₁ + I₂',0,15,ox,oy);
+  _txt('     = 90mA + 40.9mA = 130.9 mA',0,17,ox,oy);
+}
+
+function loadKCL2(){
+  _clearForExample(); const ox=ox0,oy=64;
+  _ac('battery', 2,6,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter', 6,2,ox,oy,0, {range:'500mA',label:'I_T'});
+  _ac('resistor',11,4,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',17,4,ox,oy,PI2,{resistance:220,label:'R2 220Ω'});
+  _ac('resistor',23,4,ox,oy,PI2,{resistance:470,label:'R3 470Ω'});
+  _ac('ground', 17,11,ox,oy,0, {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,11,2,ox,oy);
+  _seg(11,2,17,2,ox,oy); _seg(17,2,23,2,ox,oy); _seg(23,2,26,2,ox,oy);
+  _seg(11,2,11,6,ox,oy); _seg(11,7,11,10,ox,oy);
+  _seg(17,2,17,6,ox,oy); _seg(17,7,17,10,ox,oy);
+  _seg(23,2,23,6,ox,oy); _seg(23,7,23,10,ox,oy);
+  _seg(0,10,11,10,ox,oy); _seg(11,10,17,10,ox,oy); _seg(17,10,23,10,ox,oy); _seg(23,10,26,10,ox,oy);
+  _seg(26,2,26,10,ox,oy); _seg(0,2,0,10,ox,oy);
+  _txt('KCL: I_T = 120 + 54.5 + 25.5 = 200 mA',0,13,ox,oy);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  KVL
+// ════════════════════════════════════════════════════════════════
+function loadKVL1(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('battery', 2,2,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter', 6,2,ox,oy,0, {range:'100mA',label:'A'});
+  _ac('resistor', 9,2,ox,oy,0, {resistance:100,label:'R1 100Ω'});
+  _ac('resistor',13,2,ox,oy,0, {resistance:220,label:'R2 220Ω'});
+  _ac('resistor',17,2,ox,oy,0, {resistance:470,label:'R3 470Ω'});
+  _ac('voltmeter', 9,6,ox,oy,PI2,{range:'5V', label:'V₁'});
+  _ac('voltmeter',13,6,ox,oy,PI2,{range:'5V', label:'V₂'});
+  _ac('voltmeter',17,6,ox,oy,PI2,{range:'10V',label:'V₃'});
+  _ac('ground',11,10,ox,oy,0, {});
+  // top rail
+  _seg(0,2,4,2,ox,oy); _seg(4,2,7,2,ox,oy); _seg(7,2,11,2,ox,oy); _seg(11,2,15,2,ox,oy);
+  _seg(15,2,19,2,ox,oy); _seg(19,2,20,2,ox,oy); _seg(20,2,20,10,ox,oy);
+  _seg(0,10,20,10,ox,oy); _seg(0,2,0,10,ox,oy);
+  // voltmeter legs
+  _seg(7,2,9,2,ox,oy); _seg(9,2,9,5,ox,oy); _seg(9,7,9,10,ox,oy);
+  _seg(11,2,13,2,ox,oy); _seg(13,2,13,5,ox,oy); _seg(13,7,13,10,ox,oy);
+  _seg(15,2,17,2,ox,oy); _seg(17,2,17,5,ox,oy); _seg(17,7,17,10,ox,oy);
+  _txt('KVL: V_bat = V₁+V₂+V₃',0,12,ox,oy);
+  _txt('12 = 1.54 + 3.38 + 7.08 V ✓',0,14,ox,oy);
+}
+
+function loadKVL2(){
+  _clearForExample(); const ox=ox0,oy=64;
+  _ac('battery', 2,6,ox,oy,0, {voltage:12,cells:4,label:'12V'});
+  _ac('ammeter', 6,2,ox,oy,0, {range:'200mA',label:'I_T'});
+  _ac('resistor', 9,2,ox,oy,0, {resistance:100,label:'Rs 100Ω'});
+  _ac('resistor',15,4,ox,oy,PI2,{resistance:220,label:'R₂ 220Ω'});
+  _ac('resistor',21,4,ox,oy,PI2,{resistance:470,label:'R₃ 470Ω'});
+  _ac('voltmeter',9,7,ox,oy,PI2, {range:'5V',label:'V_s'});
+  _ac('voltmeter',18,7,ox,oy,PI2,{range:'20V',label:'V_par'});
+  _ac('ground',15,12,ox,oy,0, {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,7,2,ox,oy); _seg(7,2,11,2,ox,oy);
+  _seg(11,2,15,2,ox,oy); _seg(15,2,21,2,ox,oy); _seg(21,2,24,2,ox,oy);
+  _seg(15,2,15,6,ox,oy); _seg(15,7,15,11,ox,oy);
+  _seg(21,2,21,6,ox,oy); _seg(21,7,21,11,ox,oy);
+  _seg(15,11,21,11,ox,oy); _seg(0,11,15,11,ox,oy); _seg(21,11,24,11,ox,oy);
+  _seg(24,2,24,11,ox,oy); _seg(0,2,0,11,ox,oy);
+  _seg(7,2,9,2,ox,oy); _seg(9,2,9,6,ox,oy); _seg(9,8,9,11,ox,oy);
+  _seg(11,2,18,2,ox,oy); _seg(18,2,18,6,ox,oy); _seg(18,8,18,11,ox,oy);
+  _txt('KVL: V_bat = V_Rs + V_par',0,14,ox,oy);
+}
+
+function loadWheatstone(){
+  _clearForExample(); const ox=ox0+16,oy=48;
+  _ac('battery', 6,0,ox,oy,PI2,{voltage:9,cells:4,label:'9V'});
+  _ac('resistor', 2,4,ox,oy,PI2,{resistance:100,label:'R1 100Ω'});
+  _ac('resistor',10,4,ox,oy,PI2,{resistance:100,label:'R2 100Ω'});
+  _ac('resistor', 2,10,ox,oy,PI2,{resistance:220,label:'R3 220Ω'});
+  _ac('resistor',10,10,ox,oy,PI2,{resistance:220,label:'R4 220Ω'});
+  _ac('voltmeter',6,7,ox,oy,0,  {range:'5V',label:'Galv'});
+  _ac('ground',   6,16,ox,oy,0, {});
+  // top node
+  _seg(4,1,8,1,ox,oy); _seg(4,1,2,1,ox,oy); _seg(8,1,10,1,ox,oy);
+  _seg(2,1,2,6,ox,oy); _seg(10,1,10,6,ox,oy);
+  // mid nodes (galvanometer)
+  _seg(2,6,5,6,ox,oy); _seg(7,6,10,6,ox,oy);
+  _seg(2,6,2,12,ox,oy); _seg(10,6,10,12,ox,oy);
+  // bottom node
+  _seg(2,12,10,12,ox,oy); _seg(6,12,6,16,ox,oy);
+  _txt('Balanced: R1/R2 = R3/R4 = 100/220',-5,18,ox,oy);
+  _txt('Galvanometer = 0 V when balanced',-5,20,ox,oy);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  RECTIFICATION
+// ════════════════════════════════════════════════════════════════
+function loadHalfWave(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('ac',      2,2,ox,oy,0,  {voltage:12,freq:50,label:'12V 50Hz'});
+  _ac('ammeter', 6,2,ox,oy,0,  {range:'20mA',label:'A'});
+  _ac('diode',  10,2,ox,oy,0,  {vf:0.7,label:'D'});
+  _ac('resistor',14,4,ox,oy,PI2,{resistance:1000,label:'R_L 1kΩ'});
+  _ac('voltmeter',18,4,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground', 14,8,ox,oy,0,  {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
+  _seg(12,2,14,2,ox,oy); _seg(14,2,18,2,ox,oy); _seg(18,2,20,2,ox,oy);
+  _seg(20,2,20,8,ox,oy); _seg(0,8,20,8,ox,oy); _seg(0,2,0,8,ox,oy);
+  _seg(14,2,14,7,ox,oy); _seg(14,8,14,9,ox,oy);
+  _seg(18,2,18,7,ox,oy); _seg(18,8,18,9,ox,oy);
+  _txt('Diode blocks −ve half-cycle',0,11,ox,oy);
+  _txt('V_avg ≈ V_peak/π ≈ 3.8 V',0,13,ox,oy);
+}
+
+function loadHalfWaveCap(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('ac',       2,2,ox,oy,0,  {voltage:12,freq:50,label:'12V 50Hz'});
+  _ac('diode',    6,2,ox,oy,0,  {vf:0.7,label:'D'});
+  _ac('capacitor',10,4,ox,oy,PI2,{capacitance:470e-6,label:'C 470µF'});
+  _ac('resistor', 14,4,ox,oy,PI2,{resistance:1000,label:'R_L 1kΩ'});
+  _ac('voltmeter',18,4,ox,oy,PI2,{range:'20V',label:'V_out'});
+  _ac('ground',   10,8,ox,oy,0,  {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,10,2,ox,oy);
+  _seg(10,2,14,2,ox,oy); _seg(14,2,18,2,ox,oy); _seg(18,2,20,2,ox,oy);
+  _seg(20,2,20,8,ox,oy); _seg(0,8,20,8,ox,oy); _seg(0,2,0,8,ox,oy);
+  _seg(10,2,10,7,ox,oy); _seg(10,8,10,9,ox,oy);
+  _seg(14,2,14,7,ox,oy); _seg(14,8,14,9,ox,oy);
+  _seg(18,2,18,7,ox,oy); _seg(18,8,18,9,ox,oy);
+  _txt('C charges on +ve peak, discharges slowly',0,11,ox,oy);
+  _txt('V_out ≈ V_peak − V_f = 11.3 V (smoothed)',0,13,ox,oy);
+}
+
+function loadFullWave(){
+  _clearForExample(); const ox=ox0,oy=64;
+  // Bridge: AC across left-right nodes, DC output top-bottom
+  _ac('ac',      2,7,ox,oy,0,         {voltage:12,freq:50,label:'12V AC'});
+  _ac('diode',   7,3,ox,oy,0,         {vf:0.7,label:'D1'});
+  _ac('diode',  13,3,ox,oy,Math.PI,   {vf:0.7,label:'D2'});
+  _ac('diode',   7,11,ox,oy,Math.PI,  {vf:0.7,label:'D3'});
+  _ac('diode',  13,11,ox,oy,0,        {vf:0.7,label:'D4'});
+  _ac('resistor',19,7,ox,oy,PI2,      {resistance:1000,label:'R_L 1kΩ'});
+  _ac('voltmeter',23,7,ox,oy,PI2,     {range:'20V',label:'V_out'});
+  _ac('ground',  10,15,ox,oy,0,       {});
+  // AC source sides
+  _seg(0,5,0,7,ox,oy); _seg(0,7,5,7,ox,oy); _seg(0,7,0,9,ox,oy);
+  _seg(17,5,17,11,ox,oy); _seg(15,3,17,3,ox,oy); _seg(15,11,17,11,ox,oy);
+  // left bridge
+  _seg(5,3,9,3,ox,oy); _seg(5,11,9,11,ox,oy); _seg(5,3,5,7,ox,oy); _seg(5,7,5,11,ox,oy);
+  // right bridge
+  _seg(11,3,13,3,ox,oy); _seg(11,11,13,11,ox,oy);
+  // DC top (positive)
+  _seg(9,1,11,1,ox,oy); _seg(9,3,9,1,ox,oy); _seg(11,1,11,3,ox,oy);
+  _seg(11,1,19,1,ox,oy); _seg(19,1,19,5,ox,oy); _seg(19,9,19,14,ox,oy);
+  // DC bottom (negative/ground)
+  _seg(9,13,11,13,ox,oy); _seg(9,11,9,13,ox,oy); _seg(11,11,11,13,ox,oy);
+  _seg(11,13,19,13,ox,oy); _seg(23,1,23,5,ox,oy); _seg(23,9,23,14,ox,oy);
+  _seg(19,1,23,1,ox,oy); _seg(19,13,23,13,ox,oy);
+  _txt('Full-wave: both half-cycles → DC',0,17,ox,oy);
+  _txt('V_avg ≈ 2×V_peak/π ≈ 7.4 V',0,19,ox,oy);
+}
+
+function loadFullWaveCap(){
+  loadFullWave();
+  const ox=ox0,oy=64;
+  _ac('capacitor',27,7,ox,oy,PI2,{capacitance:470e-6,label:'C 470µF'});
+  _seg(27,1,27,5,ox,oy); _seg(27,9,27,14,ox,oy);
+  const dc1=S.comps.find(c=>c.props.label==='V_out');
+  if(dc1){
+    // connect to same DC rails as load
+    _seg(23,1,27,1,ox,oy); _seg(23,13,27,13,ox,oy);
+  }
+  _txt('+smoothing cap — lower ripple, higher avg V',0,21,ox,oy);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  I-V CHARACTERISTICS
+// ════════════════════════════════════════════════════════════════
+function loadIV_Resistor(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('battery',  2,2,ox,oy,0,  {voltage:6,cells:4,label:'6V'});
+  _ac('ammeter',  6,2,ox,oy,0,  {range:'100mA',label:'A'});
+  _ac('resistor',10,2,ox,oy,0,  {resistance:470,label:'R 470Ω'});
+  _ac('voltmeter',14,4,ox,oy,PI2,{range:'10V',label:'V'});
+  _ac('ground',  10,7,ox,oy,0,  {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
+  _seg(12,2,16,2,ox,oy); _seg(16,2,16,7,ox,oy); _seg(0,7,16,7,ox,oy); _seg(0,2,0,7,ox,oy);
+  _seg(12,2,14,2,ox,oy); _seg(14,2,14,3,ox,oy); _seg(14,5,14,7,ox,oy);
+  _txt('Ohmic device: I-V is a straight line',0,10,ox,oy);
+  _txt('Gradient = 1/R = constant',0,12,ox,oy);
+  _txt('Change V to trace more of the curve',0,14,ox,oy);
+}
+
+function loadIV_Lamp(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('battery',  2,2,ox,oy,0,  {voltage:6,cells:4,label:'6V'});
+  _ac('ammeter',  6,2,ox,oy,0,  {range:'500mA',label:'A'});
+  _ac('lamp',    11,2,ox,oy,0,  {resistance:60,rating:6,label:'Lamp 6W'});
+  _ac('voltmeter',15,4,ox,oy,PI2,{range:'10V',label:'V'});
+  _ac('ground',  11,7,ox,oy,0,  {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,9,2,ox,oy); _seg(9,2,13,2,ox,oy);
+  _seg(13,2,17,2,ox,oy); _seg(17,2,17,7,ox,oy); _seg(0,7,17,7,ox,oy); _seg(0,2,0,7,ox,oy);
+  _seg(13,2,15,2,ox,oy); _seg(15,2,15,3,ox,oy); _seg(15,5,15,7,ox,oy);
+  _txt('Non-ohmic: filament heats up → R increases',0,10,ox,oy);
+  _txt('I-V curve bends — gradient decreases',0,12,ox,oy);
+  _txt('At low V: nearly linear. At rated V: much higher R',0,14,ox,oy);
+}
+
+function loadIV_Diode(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('battery',  2,2,ox,oy,0,  {voltage:3,cells:4,label:'3V'});
+  _ac('ammeter',  6,2,ox,oy,0,  {range:'50mA',label:'A'});
+  _ac('resistor',10,2,ox,oy,0,  {resistance:100,label:'R 100Ω'});
+  _ac('diode',   14,2,ox,oy,0,  {vf:0.7,label:'D'});
+  _ac('voltmeter',18,4,ox,oy,PI2,{range:'2V',label:'V_D'});
+  _ac('ground',  14,7,ox,oy,0,  {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
+  _seg(12,2,16,2,ox,oy); _seg(16,2,20,2,ox,oy); _seg(20,2,20,7,ox,oy);
+  _seg(0,7,20,7,ox,oy); _seg(0,2,0,7,ox,oy);
+  _seg(16,2,18,2,ox,oy); _seg(18,2,18,3,ox,oy); _seg(18,5,18,7,ox,oy);
+  _txt('Non-ohmic: knee voltage ≈ 0.7 V',0,10,ox,oy);
+  _txt('Below 0.7 V: I ≈ 0 (reverse blocked)',0,12,ox,oy);
+  _txt('Above 0.7 V: I rises steeply',0,14,ox,oy);
+}
+
+function loadIV_LED(){
+  _clearForExample(); const ox=ox0,oy=oy0;
+  _ac('battery',  2,2,ox,oy,0,  {voltage:5,cells:4,label:'5V'});
+  _ac('ammeter',  6,2,ox,oy,0,  {range:'50mA',label:'A'});
+  _ac('resistor',10,2,ox,oy,0,  {resistance:150,label:'R 150Ω'});
+  _ac('led',     14,2,ox,oy,0,  {vf:2.0,colour:'#3de88e',label:'LED'});
+  _ac('voltmeter',18,4,ox,oy,PI2,{range:'5V',label:'V_LED'});
+  _ac('ground',  14,7,ox,oy,0,  {});
+  _seg(0,2,4,2,ox,oy); _seg(4,2,8,2,ox,oy); _seg(8,2,12,2,ox,oy);
+  _seg(12,2,16,2,ox,oy); _seg(16,2,20,2,ox,oy); _seg(20,2,20,7,ox,oy);
+  _seg(0,7,20,7,ox,oy); _seg(0,2,0,7,ox,oy);
+  _seg(16,2,18,2,ox,oy); _seg(18,2,18,3,ox,oy); _seg(18,5,18,7,ox,oy);
+  _txt('LED forward voltage ≈ 2.0 V (green)',0,10,ox,oy);
+  _txt('Below V_f: blocked. At V_f: sudden conduction',0,12,ox,oy);
+  _txt('Emits light above threshold current',0,14,ox,oy);
+}
+
 </script>
 </body>
 </html>
