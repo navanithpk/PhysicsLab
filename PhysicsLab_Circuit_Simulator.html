@@ -735,10 +735,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 // ═══════════════════════════════════════════════════
 class CircuitTopology {
   static buildNodeGroups(components, wires, gridSpacing) {
-    const snapRadius = gridSpacing * 1.5;
+    // Tight snap for endpoint-to-endpoint connections: must be within 0.6 grid squares
+    const endpointSnapR = gridSpacing * 0.6;
+    // Slightly looser for segment-interior projection: allows component placed ON a wire
+    const segSnapR = gridSpacing * 0.8;
     const keyStr = (x, y) => `${snap(x)},${snap(y)}`;
     const snap = (v) => Math.round(v / gridSpacing) * gridSpacing;
-    const pointsNear = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by) < snapRadius;
 
     // Filter broken wires
     const activeWires = wires.filter(w => w.pts.length >= 2);
@@ -770,12 +772,12 @@ class CircuitTopology {
       });
     });
 
-    // Cross-match terminals with nearby wire endpoints
+    // Cross-match terminals with nearby wire endpoints (tight radius — must nearly touch)
     const pointsArray = Array.from(parent.keys());
     terminalPoints.forEach(t => {
       pointsArray.forEach(ptKey => {
         const [px, py] = ptKey.split(',').map(Number);
-        if (pointsNear(t.x, t.y, px, py)) {
+        if (Math.hypot(t.x - px, t.y - py) < endpointSnapR) {
           union(t.key, ptKey);
         }
       });
@@ -800,7 +802,7 @@ class CircuitTopology {
           const tParam = Math.max(0, Math.min(1, ((t.x-ax)*dx + (t.y-ay)*dy) / lenSq));
           const closestX = ax + tParam*dx;
           const closestY = ay + tParam*dy;
-          if (Math.hypot(t.x - closestX, t.y - closestY) < snapRadius) {
+          if (Math.hypot(t.x - closestX, t.y - closestY) < segSnapR) {
             // Terminal is on this segment — join it to both endpoints
             union(t.key, keyStr(ax, ay));
             union(t.key, keyStr(bx, by));
@@ -1611,6 +1613,12 @@ function drawCell(ctx,col){
   ctx.font='7px IBM Plex Mono'; ctx.textAlign='center';
   ctx.fillText('+', GS*0.15+8, -GS*0.45);
   ctx.fillText('−', -GS*0.15-8, -GS*0.28);
+  // Terminal endpoint markers — show exact connection points
+  if(!_exportBW){
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(-GS, 0, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( GS, 0, 2.5, 0, Math.PI*2); ctx.fill();
+  }
 }
 function drawBattery(ctx,col,cells){
   ss(ctx,col);
@@ -1639,6 +1647,12 @@ function drawBattery(ctx,col,cells){
   ctx.lineWidth=1; ctx.setLineDash([3,3]);
   ctx.beginPath(); ctx.moveTo(-GS*0.3,0); ctx.lineTo(GS*0.3,0); ctx.stroke();
   ctx.setLineDash([]); ctx.lineWidth=1.4;
+  // Terminal endpoint markers
+  if(!_exportBW){
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(-GS*2, 0, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( GS*2, 0, 2.5, 0, Math.PI*2); ctx.fill();
+  }
 }
 function drawAC(ctx,col){
   ss(ctx,col); ctx.beginPath(); ctx.arc(0,0,GS*0.82,0,Math.PI*2); ctx.stroke(); ctx.beginPath();
@@ -2779,7 +2793,9 @@ function stopSimulation(){
 function snap(v){ return Math.round(v/GS)*GS; }
 function addComp(type,x,y){
   const def=DMAP[type]; if(!def)return null; snapshot();
-  const c={id:S.nextId++,t:type,x,y,rot:0,props:JSON.parse(JSON.stringify(def.props)),_lit:false,_simVal:0,_simI:0,_simV:0};
+  // Always snap component centre to grid so terminals land on grid intersections
+  const sx=snap(x), sy=snap(y);
+  const c={id:S.nextId++,t:type,x:sx,y:sy,rot:0,props:JSON.parse(JSON.stringify(def.props)),_lit:false,_simVal:0,_simI:0,_simV:0};
   S.comps.push(c); updateSB(); selectOnly(c.id);
   if(S.simOn) runSimulation();
   return c;
