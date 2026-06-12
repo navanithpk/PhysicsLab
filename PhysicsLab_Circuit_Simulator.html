@@ -1303,8 +1303,6 @@ window.addEventListener('load',()=>{
   document.addEventListener('keyup',e=>{if(e.code==='Space')S.spaceDown=false;});
   setTool('select',document.getElementById('tb-select'));
   rafId=requestAnimationFrame(loop);
-  // loadExample is defined later in the file — call it after all JS is parsed
-  setTimeout(()=>{ if(typeof loadExample==='function') loadExample(); }, 0);
   updateUndoRedoButtons();
 });
 
@@ -4620,15 +4618,33 @@ function updateUndoRedoButtons(){
 }
 
 function saveCircuit(){
-  const data=JSON.stringify({comps:S.comps,wires:S.wires,texts:S.texts,nextId:S.nextId});
-  const blob=new Blob([data],{type:'application/json'}); const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='circuit.json'; a.click();
+  // Deep-clone and round wire coordinates to integers to avoid float drift
+  const wires = S.wires.map(w=>({
+    ...w,
+    pts: w.pts.map(p=>({x: Math.round(p.x), y: Math.round(p.y)}))
+  }));
+  const data = JSON.stringify({comps:S.comps, wires, texts:S.texts, nextId:S.nextId});
+  const blob = new Blob([data],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download='circuit.json'; a.click();
 }
+
 function loadCircuit(){
   const i=document.createElement('input'); i.type='file'; i.accept='.json';
   i.onchange=e=>{
     const f=e.target.files[0]; const r=new FileReader();
-    r.onload=ev=>{ const d=JSON.parse(ev.target.result); S.comps=d.comps; S.wires=d.wires; S.texts=d.texts||[]; S.nextId=d.nextId; stopSimulation(); updateSB(); render(); };
+    r.onload=ev=>{
+      const d=JSON.parse(ev.target.result);
+      S.comps=d.comps;
+      // Snap wire pts to integers on load — preserves diagonals, fixes float drift
+      S.wires=(d.wires||[]).map(w=>({
+        ...w,
+        pts: w.pts.map(p=>({x: Math.round(p.x), y: Math.round(p.y)}))
+      }));
+      S.texts=d.texts||[];
+      S.nextId=d.nextId;
+      stopSimulation(); updateSB(); recenterView(); render();
+    };
     r.readAsText(f);
   }; i.click();
 }
