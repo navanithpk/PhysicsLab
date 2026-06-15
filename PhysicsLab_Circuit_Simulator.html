@@ -783,6 +783,17 @@ class CircuitTopology {
       });
     });
 
+    // Terminal-to-terminal: two component terminals at the same grid position
+    // must be unioned even when no wire connects them (e.g. resistor abutting another)
+    for(let i=0; i<terminalPoints.length; i++){
+      for(let j=i+1; j<terminalPoints.length; j++){
+        const a=terminalPoints[i], b=terminalPoints[j];
+        if(Math.hypot(a.x-b.x, a.y-b.y) < endpointSnapR){
+          union(a.key, b.key);
+        }
+      }
+    }
+
     // FIX: Also check if a terminal lies on the INTERIOR of any wire segment.
     // Without this, a component placed onto an existing wire (or a wire routed
     // past an existing terminal without an endpoint exactly at that terminal)
@@ -819,7 +830,6 @@ class CircuitTopology {
     components.forEach(c => {
       const def = DEFS.find(d => d.t === c.t);
       if (!def) return;
-      // Use termPos to get actual terminal positions (respects flip & rotation)
       const mappedIds = def.terms.map((_, ti) => {
         const pt = termPos(c, ti);
         const root = find(keyStr(pt.x, pt.y));
@@ -829,7 +839,15 @@ class CircuitTopology {
       compNodesMap.set(c.id, mappedIds);
     });
 
-    return { compNodesMap, nodeCount: nextNodeId - 1 };
+    // Build position→nodeId map for ALL known points (wire endpoints + terminals)
+    // This lets wire dot animation look up node voltage at any pixel coordinate
+    const posToNode = new Map();
+    parent.forEach((_, key) => {
+      const root = find(key);
+      if (rootsMap.has(root)) posToNode.set(key, rootsMap.get(root));
+    });
+
+    return { compNodesMap, nodeCount: nextNodeId - 1, posToNode };
   }
 }
 
@@ -1262,6 +1280,7 @@ let _flashPts = [];
 let _toastTimer = null;
 let _lastCompNodes = null;
 let _nodeV = null;
+let _posToNode = null;  // Map("x,y" → nodeId) — built after each solve for wire dot lookup
 
 // ── Meter display mode ─────────────────────────────────────────────────────
 // 'hover': single tooltip follows mouse, disappears on leave (default)
@@ -2309,7 +2328,7 @@ function render(){
   // Rebuild inspect data every frame when active (keeps it live)
   if(S.tool==='inspect') _inspectData = _buildInspectData();
   ctx.save(); ctx.translate(S.pan.x,S.pan.y); ctx.scale(S.zoom,S.zoom);
-  drawGrid(); drawWires(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawSolderHover(); drawInspect(); drawSelRect(); drawCROProbeMode();
+  drawGrid(); drawWires(); drawWireElectronFlow(); drawComps(); drawWIP(); drawTexts(); drawElectronFlow(); drawOpenCircuit(); drawFlashes(); drawEraseHover(); drawRazorHover(); drawSolderHover(); drawInspect(); drawSelRect(); drawCROProbeMode();
   // Palette drag ghost
   if(S._palDragType && S._palDragPos){
     const def = DMAP[S._palDragType];
@@ -2359,40 +2378,54 @@ function drawWires(){
 }
 
 function drawWireElectronFlow(){
-  if(!S.simOn || !_nodeV || !_lastCompNodes || _exportBW) return;
+  if(!S.simOn || !_nodeV || !_posToNode || _exportBW) return;
 
-  // Map snapped terminal positions to signed current
-  const termCurrentMap = new Map();
-  S.comps.forEach(c=>{
-    const I = c._simI || 0;
-    if(Math.abs(I) < 1e-6) return;
-    const def = DMAP[c.t]; if(!def) return;
-    def.terms.forEach((_,ti)=>{
-      const tp = termPos(c,ti);
-      const key = Math.round(tp.x)+',' + Math.round(tp.y);
-      if(!termCurrentMap.has(key)) termCurrentMap.set(key, {I:0});
-      termCurrentMap.get(key).I += I * (ti===0 ? -1 : 1);
-    });
-  });
+  const snapK = v => Math.round(v / GS) * GS;
+  const posKey = (x, y) => `${snapK(x)},${snapK(y)}`;
 
   S.wires.forEach(w=>{
     if(w.pts.length < 2) return;
 
-    // Find best matching current from terminal near wire endpoints
-    let bestI = 0, bestDist = GS * 2.5;
-    [w.pts[0], w.pts[w.pts.length-1]].forEach(pt=>{
-      termCurrentMap.forEach((entry,key)=>{
-        const [kx,ky] = key.split(',').map(Number);
-        const d = Math.hypot(pt.x-kx, pt.y-ky);
-        if(d < bestDist){ bestDist=d; bestI=entry.I; }
+    // Resolve node voltages at wire endpoints
+    const p0 = w.pts[0], pN = w.pts[w.pts.length-1];
+    const k0 = posKey(p0.x, p0.y), kN = posKey(pN.x, pN.y);
+    const nid0 = _posToNode.get(k0), nidN = _posToNode.get(kN);
+    const v0 = nid0 != null ? (_nodeV.get(nid0) || 0) : null;
+    const vN = nidN != null ? (_nodeV.get(nidN) || 0) : null;
+
+    // Need at least one resolved voltage; use midpoint search for the other if needed
+    let vStart = v0, vEnd = vN;
+    if(vStart == null && vEnd == null) return;
+    if(vStart == null) vStart = vEnd;
+    if(vEnd == null)   vEnd   = vStart;
+
+    const dV = vEnd - vStart;  // voltage drop along wire from pts[0] to pts[last]
+    if(Math.abs(dV) < 1e-9) return; // equipotential wire — no net current direction
+
+    // Conventional current flows from high V to low V
+    // dV > 0 means end is higher → current flows end→start (dir = -1 along wire)
+    // dV < 0 means start is higher → current flows start→end (dir = +1)
+    const dir = dV < 0 ? 1 : -1;
+
+    // Speed: proportional to |ΔV| (proxy for current magnitude), capped
+    // Use nearest component current for better scaling if available
+    let I_proxy = Math.abs(dV) * 0.01;  // rough proxy
+    // Try to find actual current from a component sharing these endpoints
+    S.comps.forEach(c=>{
+      if(!c._simI || c._simI < 1e-6) return;
+      const def = DMAP[c.t]; if(!def) return;
+      def.terms.forEach((_,ti)=>{
+        const tp = termPos(c, ti);
+        const d0 = Math.hypot(tp.x-p0.x, tp.y-p0.y);
+        const dN = Math.hypot(tp.x-pN.x, tp.y-pN.y);
+        if(d0 < GS*0.7 || dN < GS*0.7) I_proxy = Math.max(I_proxy, c._simI);
       });
     });
-    if(Math.abs(bestI) < 1e-6) return;
 
-    const speed = Math.min(3.5, Math.abs(bestI)/0.002) * 0.5;
-    const dir   = bestI > 0 ? 1 : -1;
+    const speed = Math.min(3.5, I_proxy / 0.002) * 0.5;
+    if(speed < 0.01) return;
 
-    // Build polyline segments
+    // Build polyline for dot travel
     let totalLen = 0;
     const segs = [];
     for(let i=0; i<w.pts.length-1; i++){
@@ -2403,11 +2436,9 @@ function drawWireElectronFlow(){
     }
     if(totalLen < 1) return;
 
-    const dotsCount = Math.max(1, Math.round(totalLen/(GS*1.8)));
-
+    const dotsCount = Math.max(1, Math.round(totalLen / (GS*1.8)));
     ctx.fillStyle = '#6db8ff';
-    ctx.shadowColor = '#4a9eff';
-    ctx.shadowBlur  = 3;
+    ctx.shadowColor = '#4a9eff'; ctx.shadowBlur = 3;
 
     for(let di=0; di<dotsCount; di++){
       const progress = (((di/dotsCount) + S.animT*speed*dir) % 1 + 1) % 1;
@@ -2459,8 +2490,10 @@ function drawWIP(){
 function drawElectronFlow(){
   if(!S.simOn || !_nodeV || !_lastCompNodes) return;
 
-  // Components where showing dots INSIDE the body is misleading or cluttering
-  const NO_DOTS = new Set(['ammeter','battery','cell','ground','voltmeter','cro']);
+  // Only skip components where dots are meaningless:
+  // ground: single-terminal reference, ammeter: near-zero drop (covered by wire dots),
+  // voltmeter/cro/galvanometer: near-zero current, so dots would flicker
+  const NO_DOTS = new Set(['ground','voltmeter','cro','galvanometer']);
 
   S.comps.forEach(c => {
     if(NO_DOTS.has(c.t)) return;  // skip — dots on wires handle these branches
@@ -2747,6 +2780,7 @@ function runSimulation() {
     // Save outputs globally for routing rendering pipelines safely
     _nodeV = result.nodeVoltages;
     _lastCompNodes = topology.compNodesMap;
+    _posToNode = topology.posToNode;
 
     // Convert potential data sets locally to target states
     PhysicsEngine.mapSimulationStates(S.comps, topology.compNodesMap, result);
@@ -2774,7 +2808,7 @@ function runSimulation() {
 }
 
 function stopSimulation(){
-  _openCircuitPt=null; S.simOn=false;
+  _openCircuitPt=null; S.simOn=false; _posToNode=null;
   S.comps.forEach(c=>{
     c._simV=0; c._simI=0; c._simVal=0; c._lit=false;
     // Don't reset _blown — fuse stays blown until manually replaced
