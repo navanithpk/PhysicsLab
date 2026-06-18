@@ -1,0 +1,2961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>NoteForge — Academic Notes Studio</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Crimson+Pro:ital,wght@0,400;0,600;1,400;1,600&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Serif+Display:ital@0;1&family=Nunito:wght@300;400;600;700&family=Work+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ─── COLOUR PROFILES ─── */
+:root, [data-theme="earthy"] {
+  --bg-page:#f5f0e8;--bg-canvas:#faf8f4;--bg-toolbar:#2c2416;--bg-panel:#ede8df;
+  --bg-element:#ffffff;--accent-1:#8b5e3c;--accent-2:#c4956a;--accent-3:#4a7c59;
+  --text-primary:#1a130a;--text-secondary:#5a4a3a;--text-muted:#8b7b6b;
+  --border:#ccc4b4;--border-strong:#8b7b6b;--highlight:#f0e4c8;
+  --callout-info:#e8f4ec;--callout-warn:#fef3e2;--callout-tip:#e8edf8;
+  --callout-info-border:#4a7c59;--callout-warn-border:#c4956a;--callout-tip-border:#5a7abf;
+  --shadow:rgba(60,40,20,0.10);
+}
+[data-theme="forest"] {
+  --bg-page:#1e2a1f;--bg-canvas:#243027;--bg-toolbar:#141d15;--bg-panel:#1a2420;
+  --bg-element:#2a3830;--accent-1:#7ec8a4;--accent-2:#a8d8b8;--accent-3:#f4c87a;
+  --text-primary:#e8f4ec;--text-secondary:#a8c8b0;--text-muted:#6a9478;
+  --border:#3a5040;--border-strong:#7ec8a4;--highlight:#2e4a34;
+  --callout-info:#1a3028;--callout-warn:#2e2814;--callout-tip:#1a2838;
+  --callout-info-border:#7ec8a4;--callout-warn-border:#f4c87a;--callout-tip-border:#7ab4f4;
+  --shadow:rgba(0,0,0,0.30);
+}
+[data-theme="mist"] {
+  --bg-page:#f0f2f5;--bg-canvas:#f8f9fb;--bg-toolbar:#2a3040;--bg-panel:#e8eaef;
+  --bg-element:#ffffff;--accent-1:#4a6fa5;--accent-2:#7a9fc8;--accent-3:#6b8fa0;
+  --text-primary:#1a2030;--text-secondary:#4a5568;--text-muted:#8090a8;
+  --border:#c8d0dc;--border-strong:#4a6fa5;--highlight:#e0e8f4;
+  --callout-info:#e8f0f8;--callout-warn:#fff8e8;--callout-tip:#f0f8f0;
+  --callout-info-border:#4a6fa5;--callout-warn-border:#c49a30;--callout-tip-border:#4a8a60;
+  --shadow:rgba(40,60,100,0.10);
+}
+[data-theme="vivid"] {
+  --bg-page:#fff9f0;--bg-canvas:#fffcf8;--bg-toolbar:#1a0a2e;--bg-panel:#faf0e8;
+  --bg-element:#ffffff;--accent-1:#e63946;--accent-2:#f4a261;--accent-3:#2a9d8f;
+  --text-primary:#0d0d0d;--text-secondary:#3a2a1a;--text-muted:#888;
+  --border:#e8d8c8;--border-strong:#e63946;--highlight:#fef08a;
+  --callout-info:#e0f4f8;--callout-warn:#fff3cd;--callout-tip:#e8f8f0;
+  --callout-info-border:#2a9d8f;--callout-warn-border:#f4a261;--callout-tip-border:#2a9d8f;
+  --shadow:rgba(100,30,0,0.08);
+}
+[data-theme="print"] {
+  --bg-page:#ffffff;--bg-canvas:#ffffff;--bg-toolbar:#333;--bg-panel:#f0f0f0;
+  --bg-element:#ffffff;--accent-1:#000000;--accent-2:#444444;--accent-3:#222222;
+  --text-primary:#000000;--text-secondary:#333333;--text-muted:#666666;
+  --border:#cccccc;--border-strong:#000000;--highlight:#f0f0f0;
+  --callout-info:#f8f8f8;--callout-warn:#f8f8f8;--callout-tip:#f8f8f8;
+  --callout-info-border:#666;--callout-warn-border:#666;--callout-tip-border:#666;
+  --shadow:none;
+}
+
+/* ─── FONT STACKS ─── */
+:root {
+  --font-heading: 'Lora', Georgia, serif;
+  --font-body: 'Lora', Georgia, serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ─── RESET ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:16px;}
+body{font-family:var(--font-ui);background:var(--bg-page);color:var(--text-primary);min-height:100vh;transition:background .3s,color .3s;}
+
+/* ─── TOOLBAR ─── */
+#toolbar{
+  position:fixed;top:0;left:0;right:0;height:44px;
+  background:var(--bg-toolbar);display:flex;align-items:center;gap:2px;
+  padding:0 10px;z-index:1000;box-shadow:0 2px 12px rgba(0,0,0,0.3);
+  overflow:visible;
+}
+.tb-brand{font-family:var(--font-heading);color:var(--accent-2);font-size:14px;font-weight:600;letter-spacing:.02em;white-space:nowrap;margin-right:6px;flex-shrink:0;}
+.tb-sep{width:1px;height:24px;background:rgba(255,255,255,0.15);margin:0 4px;flex-shrink:0;}
+
+/* Icon-only compact toolbar buttons */
+.tb-btn{
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  width:32px;height:32px;
+  background:transparent;border:1px solid rgba(255,255,255,0.12);border-radius:6px;
+  color:rgba(255,255,255,0.82);font-family:var(--font-ui);font-size:11px;font-weight:600;
+  cursor:pointer;flex-shrink:0;transition:background .13s,border-color .13s;position:relative;
+}
+.tb-btn:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,255,255,0.28);}
+.tb-btn svg{width:15px;height:15px;flex-shrink:0;}
+/* Tooltip on hover */
+.tb-btn[title]:hover::after{
+  content:attr(title);position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.82);color:#fff;font-size:10px;font-family:var(--font-ui);font-weight:400;
+  white-space:nowrap;padding:3px 8px;border-radius:4px;pointer-events:none;z-index:9999;
+}
+
+/* Dropdown group */
+.tb-group{position:relative;flex-shrink:0;}
+.tb-group-btn{
+  display:flex;align-items:center;gap:3px;padding:0 8px;height:32px;
+  background:transparent;border:1px solid rgba(255,255,255,0.12);border-radius:6px;
+  color:rgba(255,255,255,0.82);font-family:var(--font-ui);font-size:11px;font-weight:500;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .13s,border-color .13s;
+}
+.tb-group-btn:hover,.tb-group-btn.open{background:rgba(255,255,255,0.13);border-color:rgba(255,255,255,0.28);}
+.tb-group-btn svg{width:13px;height:13px;flex-shrink:0;}
+.tb-group-btn .caret{font-size:8px;opacity:.6;margin-left:1px;}
+.tb-dropdown{
+  position:absolute;top:calc(100% + 5px);left:0;
+  background:var(--bg-toolbar);border:1px solid rgba(255,255,255,0.15);
+  border-radius:9px;padding:6px;z-index:2000;
+  display:none;flex-direction:column;gap:1px;min-width:170px;
+  box-shadow:0 8px 28px rgba(0,0,0,0.45);
+}
+.tb-dropdown.open{display:flex;}
+.tb-dropdown-item{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  border-radius:5px;color:rgba(255,255,255,0.82);font-size:12px;font-family:var(--font-ui);
+  cursor:pointer;transition:background .1s;white-space:nowrap;
+}
+.tb-dropdown-item:hover{background:rgba(255,255,255,0.11);color:#fff;}
+.tb-dropdown-item svg{width:13px;height:13px;opacity:.75;flex-shrink:0;}
+.tb-dropdown-sep{height:1px;background:rgba(255,255,255,0.1);margin:3px 0;}
+.tb-dropdown-label{font-size:9px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.1em;padding:4px 10px 2px;}
+
+/* Theme dots */
+.theme-dots{display:flex;gap:4px;align-items:center;flex-shrink:0;}
+.theme-dot{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s,transform .15s;}
+.theme-dot:hover{transform:scale(1.2);}
+.theme-dot.active{border-color:#fff;}
+.td-earthy{background:linear-gradient(135deg,#8b5e3c,#c4956a);}
+.td-forest{background:linear-gradient(135deg,#243027,#7ec8a4);}
+.td-mist{background:linear-gradient(135deg,#4a6fa5,#a0c0e0);}
+.td-vivid{background:linear-gradient(135deg,#e63946,#2a9d8f);}
+.td-print{background:linear-gradient(135deg,#fff,#888);border:1px solid #888;}
+
+/* Numbering mini toggle */
+.num-toggle{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.num-toggle label{font-size:10px;color:rgba(255,255,255,0.6);cursor:pointer;white-space:nowrap;}
+.num-toggle input[type=checkbox]{width:13px;height:13px;accent-color:var(--accent-2);cursor:pointer;}
+
+/* right-push spacer */
+.tb-spacer{flex:1;}
+
+/* ─── MAIN LAYOUT ─── */
+#app{padding-top:52px;display:flex;min-height:100vh;}
+
+/* ─── LEFT PANEL ─── */
+#left-panel{
+  width:220px;flex-shrink:0;background:var(--bg-panel);border-right:1px solid var(--border);
+  padding:16px 12px;position:sticky;top:44px;height:calc(100vh - 44px);overflow-y:auto;
+  transition:background .3s,border-color .3s;
+}
+#left-panel::-webkit-scrollbar{width:4px;}
+#left-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.panel-section{margin-bottom:20px;}
+.panel-heading{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:8px;padding-left:4px;}
+.ins-btn{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;background:var(--bg-element);border:1px solid var(--border);border-radius:7px;color:var(--text-secondary);font-family:var(--font-ui);font-size:12px;font-weight:500;cursor:pointer;text-align:left;margin-bottom:4px;transition:background .15s,border-color .15s,color .15s;box-shadow:0 1px 3px var(--shadow);}
+.ins-btn:hover{background:var(--highlight);border-color:var(--accent-1);color:var(--accent-1);}
+.ins-btn svg{width:14px;height:14px;flex-shrink:0;opacity:.7;}
+.ins-btn:hover svg{opacity:1;}
+
+/* Font panel inside left panel */
+.font-panel-row{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+.font-row-label{font-size:9px;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;padding-left:2px;}
+.panel-font-select{
+  width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg-element);color:var(--text-secondary);font-size:12px;
+  font-family:var(--font-ui);cursor:pointer;outline:none;
+}
+.panel-font-select:focus{border-color:var(--accent-1);}
+
+/* ─── CANVAS ─── */
+#canvas-wrap{flex:1;padding:32px 24px 80px;display:flex;flex-direction:column;align-items:center;min-height:calc(100vh - 52px);background:var(--bg-page);transition:background .3s;}
+
+/* ─── PAGE ─── */
+.page{
+  width:794px;min-height:1123px;background:var(--bg-canvas);
+  border:1px solid var(--border);border-radius:4px;
+  box-shadow:0 4px 24px var(--shadow),0 1px 4px var(--shadow);
+  padding:64px 72px;position:relative;margin-bottom:24px;
+  transition:background .3s,border-color .3s;
+  overflow:visible;
+}
+.page-num{position:absolute;bottom:28px;right:72px;font-size:11px;color:var(--text-muted);font-family:var(--font-ui);}
+#doc-title-wrap{width:794px;margin-bottom:16px;}
+#doc-title{font-family:var(--font-heading);font-size:13px;font-weight:500;color:var(--text-muted);font-style:italic;background:transparent;border:none;outline:none;width:100%;text-align:center;padding:4px 0 0;letter-spacing:.02em;}
+
+/* ─── COVER PAGE ─── */
+.page.is-cover {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  position:relative;
+  background:var(--bg-canvas);
+}
+.page.is-cover::before {
+  content:'';
+  position:absolute;
+  top:48px; left:48px; right:48px; bottom:48px;
+  border:1.5px solid var(--accent-1);
+  border-radius:2px;
+  opacity:0.35;
+  pointer-events:none;
+}
+.page.is-cover::after {
+  content:'';
+  position:absolute;
+  top:60px; left:60px; right:60px; bottom:60px;
+  border:1px solid var(--border);
+  border-radius:2px;
+  pointer-events:none;
+}
+.cover-kicker {
+  font-family:var(--font-ui);
+  font-size:11px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--accent-2);
+  outline:none;
+  margin-bottom:18px;
+  z-index:1;
+}
+.cover-kicker[contenteditable]:empty::before { content:"SUBJECT / COURSE"; color:var(--text-muted); opacity:.6; }
+.cover-title {
+  font-family:var(--font-heading);
+  font-size:42px;
+  font-weight:700;
+  color:var(--text-primary);
+  line-height:1.2;
+  outline:none;
+  margin-bottom:14px;
+  max-width:560px;
+  z-index:1;
+}
+.cover-title[contenteditable]:empty::before { content:"Document Title"; color:var(--text-muted); }
+.cover-subtitle {
+  font-family:var(--font-heading);
+  font-style:italic;
+  font-size:17px;
+  color:var(--accent-1);
+  outline:none;
+  margin-bottom:36px;
+  max-width:480px;
+  z-index:1;
+}
+.cover-subtitle[contenteditable]:empty::before { content:"Subtitle or topic description"; color:var(--text-muted); opacity:.6; }
+.cover-divider-mark {
+  width:56px; height:2px;
+  background:var(--accent-1);
+  margin-bottom:36px;
+  z-index:1;
+}
+.cover-meta {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-family:var(--font-ui);
+  font-size:12px;
+  color:var(--text-secondary);
+  z-index:1;
+}
+.cover-meta-row { display:flex; gap:8px; justify-content:center; align-items:baseline; }
+.cover-meta-label { color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:.08em; min-width:70px; text-align:right; }
+.cover-meta-value { outline:none; min-width:140px; text-align:left; }
+.cover-meta-value[contenteditable]:empty::before { content:attr(data-ph); color:var(--text-muted); opacity:.5; }
+
+/* ─── TABLE OF CONTENTS PAGE ─── */
+.toc-title {
+  font-family:var(--font-heading);
+  font-size:26px;
+  font-weight:600;
+  color:var(--text-primary);
+  border-bottom:2px solid var(--accent-1);
+  padding-bottom:10px;
+  margin-bottom:24px;
+  outline:none;
+}
+.toc-list { display:flex; flex-direction:column; gap:3px; }
+.toc-row {
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  padding:6px 4px;
+  cursor:pointer;
+  border-radius:5px;
+  transition:background .12s;
+  font-family:var(--font-body);
+}
+.toc-row:hover { background:var(--highlight); }
+.toc-row.toc-h1 { font-size:15px; font-weight:600; color:var(--text-primary); margin-top:10px; }
+.toc-row.toc-h2 { font-size:13.5px; font-weight:500; color:var(--accent-1); padding-left:18px; }
+.toc-row.toc-h3 { font-size:12.5px; color:var(--text-secondary); padding-left:34px; font-style:italic; }
+.toc-num { font-family:var(--font-ui); font-weight:600; opacity:.6; flex-shrink:0; }
+.toc-dots { flex:1; border-bottom:1px dotted var(--border); margin:0 4px; transform:translateY(-3px); }
+.toc-page { font-family:var(--font-ui); font-size:11px; color:var(--text-muted); flex-shrink:0; }
+.toc-empty { font-size:13px; color:var(--text-muted); font-style:italic; font-family:var(--font-ui); padding:20px 0; text-align:center; }
+.toc-refresh-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:11px; padding:5px 11px; margin-bottom:18px;
+  border:1px solid var(--border); border-radius:6px;
+  background:var(--bg-element); color:var(--text-secondary);
+  cursor:pointer; font-family:var(--font-ui); transition:all .13s;
+}
+.toc-refresh-btn:hover { border-color:var(--accent-1); color:var(--accent-1); }
+
+/* ─── NOTE ELEMENTS ─── */
+.note-el{position:relative;margin:0 0 18px 0;outline:none;}
+.note-el:focus-within .el-toolbar,
+.note-el:hover .el-toolbar { opacity:1; pointer-events:all; }
+
+/* Right-edge vertical control strip — visible on hover/focus, touch-friendly */
+.el-toolbar {
+  position:absolute;
+  top:0; right:-38px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .15s;
+  z-index:20;
+  background:var(--bg-toolbar);
+  border-radius:7px;
+  padding:4px 3px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.25);
+}
+.el-tb-btn {
+  width:28px; height:28px;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; border-radius:5px;
+  color:rgba(255,255,255,0.72); cursor:pointer; font-size:12px;
+  transition:background .1s, color .1s;
+  flex-shrink:0;
+}
+.el-tb-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
+.el-tb-btn.del:hover { background:rgba(220,60,60,0.55); color:#fff; }
+.el-tb-sep-v { height:1px; background:rgba(255,255,255,0.12); margin:2px 3px; }
+
+/* ─── SECTION NUMBERS ─── */
+/* injected by JS as ::before pseudo-content via data-attrs */
+body.numbered .el-h1 .sec-num,
+body.numbered .el-h2 .sec-num,
+body.numbered .el-h3 .sec-num {
+  font-family:var(--font-ui);
+  font-weight:600;
+  font-size:0.88em;
+  opacity:0.55;
+  margin-right:0.45em;
+  letter-spacing:.01em;
+  user-select:none;
+}
+.sec-num{ display:none; }
+body.numbered .sec-num{ display:inline; }
+
+/* ─── HEADINGS ─── */
+.el-h1{font-family:var(--font-heading);font-size:28px;font-weight:600;color:var(--text-primary);line-height:1.25;border-bottom:2px solid var(--accent-1);padding-bottom:8px;margin-bottom:4px;outline:none;}
+.el-h1[contenteditable]:empty::before{content:attr(data-ph);color:var(--text-muted);}
+.el-h2{font-family:var(--font-heading);font-size:20px;font-weight:600;color:var(--accent-1);line-height:1.3;margin-bottom:2px;outline:none;}
+.el-h2[contenteditable]:empty::before{content:attr(data-ph);color:var(--text-muted);}
+.el-h3{font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;outline:none;}
+.el-h3[contenteditable]:empty::before{content:attr(data-ph);color:var(--text-muted);}
+
+/* ─── BODY TEXT ─── */
+.el-text{font-family:var(--font-body);font-size:14.5px;line-height:1.75;color:var(--text-primary);outline:none;min-height:1.8em;}
+.el-text[contenteditable]:empty::before{content:attr(data-ph);color:var(--text-muted);font-style:italic;}
+
+/* ─── HIGHLIGHT ─── */
+.el-highlight{background:var(--highlight);border-radius:6px;padding:10px 14px;font-family:var(--font-body);font-size:14.5px;font-style:italic;line-height:1.65;color:var(--text-primary);border-left:3px solid var(--accent-2);outline:none;min-height:1.6em;}
+.el-highlight[contenteditable]:empty::before{content:"Key idea or summary…";color:var(--text-muted);}
+
+/* ─── IMAGE ─── */
+.el-image-zone{display:flex;align-items:center;justify-content:center;min-height:120px;border:2px dashed var(--border);border-radius:8px;background:transparent;cursor:pointer;transition:border-color .15s,background .15s;padding:12px;position:relative;}
+.el-image-zone.has-image{border:1px solid var(--border);background:transparent;}
+.el-image-zone.drag-over{border-color:var(--accent-1);background:var(--highlight);}
+.el-image-zone img{max-width:100%;max-height:500px;display:block;border-radius:4px;}
+.el-image-zone .drop-hint{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);font-family:var(--font-ui);font-size:12px;text-align:center;pointer-events:none;}
+.el-image-zone .drop-hint svg{width:32px;height:32px;opacity:.4;}
+.el-image-zone .drop-hint strong{font-size:13px;color:var(--text-secondary);display:block;}
+.el-image-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.el-image-zone.has-image input[type=file]{display:none;}
+.el-img-caption{font-family:var(--font-ui);font-size:11.5px;color:var(--text-muted);text-align:center;font-style:italic;margin-top:6px;outline:none;min-height:1.4em;}
+.el-img-caption[contenteditable]:empty::before{content:"Add a caption…";color:var(--border);}
+.img-size-bar{display:flex;gap:4px;margin-top:6px;}
+.img-size-btn{font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-muted);cursor:pointer;font-family:var(--font-ui);transition:all .1s;}
+.img-size-btn.active,.img-size-btn:hover{background:var(--accent-1);color:#fff;border-color:var(--accent-1);}
+
+/* ─── TABLE ─── */
+.el-table-wrap{overflow-x:auto;}
+.el-table{width:100%;border-collapse:collapse;font-family:var(--font-ui);font-size:13px;}
+.el-table th{background:var(--accent-1);color:#fff;padding:8px 12px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.02em;}
+.el-table th[contenteditable]{outline:none;}
+.el-table th:first-child{border-radius:6px 0 0 0;}
+.el-table th:last-child{border-radius:0 6px 0 0;}
+.el-table td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-primary);outline:none;vertical-align:top;min-width:60px;}
+.el-table tr:nth-child(even) td{background:var(--highlight);}
+.el-table td:focus{background:var(--callout-info);}
+.table-controls{margin-top:6px;display:flex;gap:6px;}
+.table-ctl-btn{font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-element);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);transition:all .12s;}
+.table-ctl-btn:hover{background:var(--accent-1);color:#fff;border-color:var(--accent-1);}
+
+/* ─── CALLOUT ─── */
+.el-callout{border-left:4px solid var(--callout-info-border);background:var(--callout-info);border-radius:0 8px 8px 0;padding:12px 16px;}
+.el-callout.warn{border-left-color:var(--callout-warn-border);background:var(--callout-warn);}
+.el-callout.tip{border-left-color:var(--callout-tip-border);background:var(--callout-tip);}
+.el-callout .callout-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--callout-info-border);margin-bottom:4px;font-family:var(--font-ui);}
+.el-callout.warn .callout-label{color:var(--callout-warn-border);}
+.el-callout.tip .callout-label{color:var(--callout-tip-border);}
+.el-callout .callout-body{font-family:var(--font-body);font-size:14px;line-height:1.65;color:var(--text-primary);outline:none;min-height:1.6em;}
+.el-callout .callout-body[contenteditable]:empty::before{content:"Type note here…";color:var(--text-muted);font-style:italic;}
+
+/* ─── DEFINITION ─── */
+.el-definition{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.el-definition .def-term{background:var(--accent-1);color:#fff;padding:7px 14px;font-family:var(--font-heading);font-size:14px;font-weight:600;outline:none;}
+.el-definition .def-term[contenteditable]:empty::before{content:"Term / Concept";opacity:.6;}
+.el-definition .def-body{background:var(--bg-element);padding:10px 14px;font-family:var(--font-body);font-size:13.5px;line-height:1.7;color:var(--text-primary);outline:none;min-height:2em;}
+.el-definition .def-body[contenteditable]:empty::before{content:"Definition or explanation…";color:var(--text-muted);font-style:italic;}
+
+/* ─── EQUATION ─── */
+.el-equation-wrap { position:relative; }
+.eq-display {
+  background:var(--bg-element);border:1px solid var(--border);border-radius:8px;
+  padding:16px 20px;text-align:center;min-height:56px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:border-color .15s;
+}
+.eq-display:hover { border-color:var(--accent-1); }
+.eq-display .katex { font-size:1.3em; }
+.eq-display .eq-placeholder {
+  font-size:13px;color:var(--text-muted);font-family:var(--font-ui);font-style:italic;
+  display:flex;align-items:center;gap:8px;
+}
+.eq-display .eq-placeholder svg { opacity:.4; }
+.eq-label{font-size:10px;color:var(--text-muted);font-family:var(--font-ui);
+  text-align:right;margin-top:5px;outline:none;padding:2px 4px;}
+.eq-label[contenteditable]:empty::before{content:"Equation label (optional)";}
+
+/* ─── INK CANVAS MODAL ─── */
+#ink-modal {
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:4000;
+  display:none;align-items:center;justify-content:center;
+}
+#ink-modal.open { display:flex; }
+#ink-box {
+  background:var(--bg-canvas);border:1px solid var(--border);border-radius:16px;
+  width:min(700px, 96vw);max-height:92vh;display:flex;flex-direction:column;
+  overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);
+}
+#ink-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+#ink-header h3 { font-family:var(--font-heading);font-size:17px;color:var(--text-primary); }
+#ink-header p { font-size:11px;color:var(--text-muted);font-family:var(--font-ui);margin-top:2px; }
+#ink-canvas-wrap {
+  background:#fff;position:relative;flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  touch-action:none;
+}
+#ink-canvas {
+  display:block;width:100%;height:200px;cursor:crosshair;touch-action:none;
+}
+#ink-guide {
+  position:absolute;inset:0;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:#bbb;font-family:var(--font-ui);font-style:italic;
+  opacity:1;transition:opacity .2s;
+}
+#ink-canvas-wrap.has-strokes #ink-guide { opacity:0; }
+#ink-controls {
+  display:flex;align-items:center;gap:8px;padding:10px 16px;
+  border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;
+}
+.ink-ctl-btn {
+  padding:5px 12px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg-element);color:var(--text-secondary);
+  font-size:12px;font-family:var(--font-ui);cursor:pointer;transition:all .12s;
+}
+.ink-ctl-btn:hover { border-color:var(--accent-1);color:var(--accent-1); }
+.ink-pen-size {
+  display:flex;align-items:center;gap:6px;margin-left:auto;
+  font-size:11px;color:var(--text-muted);font-family:var(--font-ui);
+}
+#ink-pen-slider { width:70px; }
+#ink-latex-section { padding:14px 20px;flex-shrink:0; }
+#ink-latex-section label {
+  font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-muted);font-family:var(--font-ui);display:block;margin-bottom:6px;
+}
+#ink-latex-out {
+  width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;
+  background:var(--bg-element);color:var(--text-primary);
+  font-family:var(--font-mono);font-size:13px;outline:none;resize:vertical;min-height:48px;
+}
+#ink-preview {
+  margin-top:10px;padding:12px;background:var(--highlight);border-radius:7px;
+  text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;
+}
+#ink-preview .katex { font-size:1.3em; }
+#ink-footer {
+  display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);
+  flex-shrink:0;flex-wrap:wrap;
+}
+#ink-api-wrap {
+  width:100%;display:flex;gap:6px;align-items:center;margin-bottom:8px;
+}
+#ink-api-wrap label { font-size:11px;color:var(--text-muted);font-family:var(--font-ui);white-space:nowrap; }
+#ink-api-key {
+  flex:1;padding:5px 9px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg-element);color:var(--text-primary);font-size:11px;
+  font-family:var(--font-mono);outline:none;
+}
+#ink-recognize-btn {
+  padding:8px 16px;background:var(--accent-1);color:#fff;border:none;
+  border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;
+  font-family:var(--font-ui);transition:opacity .15s;white-space:nowrap;
+}
+#ink-recognize-btn:disabled { opacity:.5;cursor:not-allowed; }
+#ink-recognize-btn:not(:disabled):hover { opacity:.85; }
+#ink-insert-btn {
+  flex:1;padding:8px;background:var(--accent-3);color:#fff;border:none;
+  border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;
+  font-family:var(--font-ui);transition:opacity .15s;
+}
+#ink-insert-btn:hover { opacity:.85; }
+#ink-cancel-btn {
+  padding:8px 16px;background:transparent;border:1px solid var(--border);
+  border-radius:7px;font-size:13px;color:var(--text-secondary);cursor:pointer;
+  font-family:var(--font-ui);
+}
+#ink-status { font-size:11px;color:var(--text-muted);font-family:var(--font-ui);width:100%;text-align:center; }
+
+/* ─── DIVIDER ─── */
+.el-divider{display:flex;align-items:center;gap:12px;margin:8px 0;color:var(--text-muted);font-family:var(--font-ui);font-size:11px;letter-spacing:.06em;}
+.el-divider::before,.el-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ─── LINK BUTTON ─── */
+.el-link-btn-wrap{display:flex;flex-direction:column;gap:6px;}
+.el-link-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--accent-1);color:#fff;text-decoration:none;border-radius:7px;font-family:var(--font-ui);font-size:13px;font-weight:500;border:none;cursor:pointer;transition:opacity .15s;max-width:fit-content;}
+.el-link-btn:hover{opacity:.85;}
+.el-link-btn svg{width:13px;height:13px;}
+.link-inputs{display:flex;gap:6px;flex-wrap:wrap;}
+.link-inputs input{padding:5px 9px;border:1px solid var(--border);border-radius:6px;font-family:var(--font-ui);font-size:12px;background:var(--bg-element);color:var(--text-primary);outline:none;flex:1;min-width:120px;}
+.link-inputs input:focus{border-color:var(--accent-1);}
+
+/* ─── COLUMNS ─── */
+.el-columns{display:grid;gap:20px;}
+.el-columns.cols-2{grid-template-columns:1fr 1fr;}
+.el-columns.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.col-inner{border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--bg-element);font-family:var(--font-body);font-size:13.5px;line-height:1.7;color:var(--text-primary);outline:none;min-height:60px;}
+.col-inner[contenteditable]:empty::before{content:"Column content…";color:var(--text-muted);font-style:italic;}
+
+/* ─── CHECKLIST ─── */
+.el-checklist{list-style:none;padding:0;}
+.check-item{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-family:var(--font-body);font-size:14px;line-height:1.55;color:var(--text-primary);}
+.check-item input[type=checkbox]{width:16px;height:16px;margin-top:2px;accent-color:var(--accent-1);flex-shrink:0;}
+.check-item .check-text{outline:none;flex:1;}
+.check-item .check-text[contenteditable]:empty::before{content:"Task or learning objective…";color:var(--text-muted);font-style:italic;}
+.add-check-btn{font-size:11px;color:var(--accent-1);background:none;border:none;cursor:pointer;padding:0;font-family:var(--font-ui);margin-top:4px;display:flex;align-items:center;gap:4px;}
+.add-check-btn:hover{text-decoration:underline;}
+
+/* ─── ADD BAR ─── */
+.add-el-bar{display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;margin:2px 0;position:relative;}
+.note-el:hover + .add-el-bar,.add-el-bar:hover{opacity:1;}
+.add-el-btn{width:22px;height:22px;border-radius:50%;background:var(--bg-element);border:1px dashed var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;box-shadow:0 1px 4px var(--shadow);font-size:16px;}
+.add-el-btn:hover{background:var(--accent-1);border-color:var(--accent-1);color:#fff;transform:rotate(45deg) scale(1.15);}
+
+/* ─── FLOAT INSERT MENU ─── */
+#float-insert{position:fixed;background:var(--bg-toolbar);border-radius:10px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:900;display:none;flex-direction:column;gap:2px;min-width:190px;}
+#float-insert.visible{display:flex;}
+.fi-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;color:rgba(255,255,255,0.85);font-size:12.5px;font-family:var(--font-ui);cursor:pointer;transition:background .1s;}
+.fi-item:hover{background:rgba(255,255,255,0.12);color:#fff;}
+.fi-item svg{width:14px;height:14px;opacity:.7;}
+
+/* ─── FORMAT BAR ─── */
+.fmt-bar{position:fixed;top:60px;background:var(--bg-toolbar);border-radius:8px;padding:5px 8px;display:none;gap:3px;z-index:800;box-shadow:0 4px 16px rgba(0,0,0,0.3);}
+.fmt-bar.show{display:flex;}
+.fmt-btn{width:26px;height:26px;background:transparent;border:none;border-radius:4px;color:rgba(255,255,255,0.8);cursor:pointer;font-size:12px;font-family:var(--font-ui);font-weight:600;display:flex;align-items:center;justify-content:center;transition:background .1s;}
+.fmt-btn:hover{background:rgba(255,255,255,0.15);color:#fff;}
+
+/* ─── PASTE OVERLAY ─── */
+#paste-overlay{display:none;position:fixed;inset:44px 0 0 220px;background:rgba(0,0,0,0.35);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff;font-family:var(--font-ui);font-size:18px;font-weight:500;pointer-events:none;}
+#paste-overlay svg{width:56px;height:56px;opacity:.7;}
+body.drag-active #paste-overlay{display:flex;}
+
+/* ─── EXPORT MODAL ─── */
+#export-modal{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:none;align-items:center;justify-content:center;}
+#export-modal.open{display:flex;}
+#export-box{background:var(--bg-canvas);border:1px solid var(--border);border-radius:14px;padding:28px 32px;width:380px;max-width:90vw;box-shadow:0 16px 48px rgba(0,0,0,0.3);}
+#export-box h3{font-family:var(--font-heading);font-size:18px;color:var(--text-primary);margin-bottom:4px;}
+#export-box p{font-size:12px;color:var(--text-muted);margin-bottom:20px;font-family:var(--font-ui);}
+.exp-opt{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+.exp-row{display:flex;align-items:center;gap:10px;}
+.exp-row label{font-size:12px;color:var(--text-secondary);font-family:var(--font-ui);min-width:90px;}
+.exp-row select,.exp-row input{flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-element);color:var(--text-primary);font-size:12px;font-family:var(--font-ui);outline:none;}
+.exp-actions{display:flex;gap:8px;justify-content:flex-end;}
+.exp-btn{padding:8px 18px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font-ui);transition:opacity .15s;}
+.exp-btn-primary{background:var(--accent-1);color:#fff;border:none;}
+.exp-btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text-secondary);}
+.exp-btn:hover{opacity:.8;}
+#export-progress{margin-top:14px;font-size:12px;color:var(--text-muted);font-family:var(--font-ui);min-height:16px;text-align:center;}
+
+/* ─── TOAST ─── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg-toolbar);color:rgba(255,255,255,0.9);padding:9px 20px;border-radius:999px;font-family:var(--font-ui);font-size:12px;font-weight:500;z-index:9999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:auto;cursor:default;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ─── PRINT ─── */
+@media print{
+  #toolbar,#left-panel,#float-insert,#paste-overlay,#toast,#export-modal,
+  .el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,
+  .add-check-btn,.fmt-bar,.toc-refresh-btn{display:none!important;}
+  #app{padding-top:0!important;}
+  #canvas-wrap{padding:0;background:white;}
+  .page{width:210mm!important;min-height:297mm!important;box-shadow:none!important;border:none!important;border-radius:0!important;padding:20mm 24mm!important;margin:0!important;page-break-after:always;}
+  .el-image-zone .drop-hint{display:none!important;}
+  .el-image-zone input[type=file]{display:none!important;}
+  [data-theme="forest"]{--bg-page:#fff;--bg-canvas:#fff;--text-primary:#000;--text-secondary:#333;--text-muted:#666;--border:#ccc;--accent-1:#000;--highlight:#f0f0f0;}
+  @page{size:A4;margin:0;}
+}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:900px){
+  #left-panel{width:180px;}
+  .page{width:calc(100vw - 180px - 32px);min-height:auto;padding:40px 36px;}
+  #doc-title-wrap{width:100%;}
+}
+@media(max-width:700px){
+  #left-panel{display:none;}
+  #app{flex-direction:column;}
+  #canvas-wrap{padding:12px 8px 60px;}
+  .page{width:100%;min-height:auto;padding:28px 20px;}
+  #doc-title-wrap{width:100%;}
+  #toolbar{gap:2px;padding:0 8px;}
+  .tb-btn span{display:none;}
+  .tb-label{display:none;}
+  #paste-overlay{left:0;}
+}
+
+/* ═══ VISUAL EQUATION EDITOR ═══ */
+#eq-modal {
+  position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:5000;
+  display:none;align-items:center;justify-content:center;
+}
+#eq-modal.open { display:flex; }
+#eq-box {
+  background:var(--bg-canvas);border:1px solid var(--border);border-radius:16px;
+  width:min(720px,96vw);max-height:94vh;display:flex;flex-direction:column;
+  overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.4);
+}
+/* Preview strip */
+#eq-preview-bar {
+  background:var(--bg-element);border-bottom:1px solid var(--border);
+  padding:16px 24px;min-height:72px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;position:relative;
+}
+#eq-preview-bar .katex { font-size:1.5em; }
+#eq-preview-placeholder {
+  font-size:13px;color:var(--text-muted);font-family:var(--font-ui);font-style:italic;
+}
+#eq-preview-bar .eq-preview-label {
+  position:absolute;top:6px;left:12px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--text-muted);font-family:var(--font-ui);
+}
+/* Tabs */
+#eq-tabs {
+  display:flex;border-bottom:1px solid var(--border);background:var(--bg-panel);
+  flex-shrink:0;overflow-x:auto;
+}
+#eq-tabs::-webkit-scrollbar{height:2px;}
+.eq-tab {
+  padding:9px 16px;font-size:12px;font-family:var(--font-ui);font-weight:500;
+  color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;
+  white-space:nowrap;transition:color .15s,border-color .15s;flex-shrink:0;
+}
+.eq-tab.active { color:var(--accent-1);border-bottom-color:var(--accent-1); }
+.eq-tab:hover { color:var(--text-primary); }
+/* Button palette */
+#eq-palette {
+  flex:1;overflow-y:auto;padding:12px 16px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;
+}
+.eq-btn {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:8px 4px;
+  background:var(--bg-element);border:1px solid var(--border);border-radius:8px;
+  cursor:pointer;transition:all .13s;min-height:58px;
+}
+.eq-btn:hover { background:var(--highlight);border-color:var(--accent-1); }
+.eq-btn:active { transform:scale(0.96); }
+.eq-btn-sym {
+  font-size:18px;line-height:1;color:var(--text-primary);
+  font-family:'KaTeX_Math',serif;
+}
+/* for inline KaTeX in buttons */
+.eq-btn-sym .katex { font-size:1em; }
+.eq-btn-name {
+  font-size:9px;color:var(--text-muted);font-family:var(--font-ui);
+  text-align:center;line-height:1.2;
+}
+/* Input + controls at bottom */
+#eq-input-row {
+  display:flex;align-items:center;gap:8px;padding:12px 16px;
+  border-top:1px solid var(--border);background:var(--bg-panel);flex-shrink:0;flex-wrap:wrap;
+}
+#eq-input {
+  flex:1;min-width:200px;padding:8px 12px;
+  border:1px solid var(--border);border-radius:7px;
+  background:var(--bg-element);color:var(--text-primary);
+  font-family:var(--font-mono);font-size:13px;outline:none;
+}
+#eq-input:focus { border-color:var(--accent-1); }
+.eq-action-btn {
+  padding:8px 16px;border-radius:7px;font-size:12px;font-weight:500;
+  cursor:pointer;font-family:var(--font-ui);transition:opacity .15s;
+  white-space:nowrap;border:none;
+}
+.eq-action-btn.primary { background:var(--accent-1);color:#fff; }
+.eq-action-btn.secondary { background:transparent;border:1px solid var(--border);color:var(--text-secondary); }
+.eq-action-btn:hover { opacity:.82; }
+#eq-ink-launch {
+  display:flex;align-items:center;gap:5px;padding:7px 12px;
+  border:1px solid var(--border);border-radius:7px;background:transparent;
+  color:var(--text-secondary);font-size:12px;font-family:var(--font-ui);cursor:pointer;
+  transition:all .13s;white-space:nowrap;
+}
+#eq-ink-launch:hover { border-color:var(--accent-1);color:var(--accent-1); }
+#eq-input-hint {
+  width:100%;font-size:10px;color:var(--text-muted);font-family:var(--font-ui);
+}
+</style>
+</head>
+<body data-theme="earthy">
+
+<!-- ░░ TOOLBAR ░░ -->
+<div id="toolbar">
+  <span class="tb-brand">NoteForge</span>
+  <div class="tb-sep"></div>
+
+  <!-- INSERT GROUP -->
+  <div class="tb-group" id="grp-insert">
+    <button class="tb-group-btn" onclick="toggleGroup('grp-insert')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+      Insert <span class="caret">▾</span>
+    </button>
+    <div class="tb-dropdown" id="dd-insert">
+      <div class="tb-dropdown-label">Headings</div>
+      <div class="tb-dropdown-item" onclick="insertEl('h1');closeGroups()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="12" font-weight="700">H1</text></svg>Page title</div>
+      <div class="tb-dropdown-item" onclick="insertEl('h2');closeGroups()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="12" font-weight="600">H2</text></svg>Section heading</div>
+      <div class="tb-dropdown-item" onclick="insertEl('h3');closeGroups()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="11">H3</text></svg>Subsection</div>
+      <div class="tb-dropdown-sep"></div>
+      <div class="tb-dropdown-label">Content</div>
+      <div class="tb-dropdown-item" onclick="insertEl('text');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>Body paragraph</div>
+      <div class="tb-dropdown-item" onclick="insertEl('highlight');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="8" rx="2"/></svg>Key idea</div>
+      <div class="tb-dropdown-item" onclick="insertEl('equation');closeGroups()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="13">∑</text></svg>Equation</div>
+      <div class="tb-dropdown-item" onclick="insertEl('checklist');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l2 2 4-4"/><rect x="1" y="4" width="6" height="6" rx="1"/></svg>Checklist</div>
+      <div class="tb-dropdown-sep"></div>
+      <div class="tb-dropdown-label">Media & Layout</div>
+      <div class="tb-dropdown-item" onclick="insertEl('image');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 11l3.5-3 3 3 2.5-2.5 3 3"/></svg>Image / Handwritten</div>
+      <div class="tb-dropdown-item" onclick="insertEl('table');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><path d="M1.5 5.5h13M6 1.5v13"/></svg>Table</div>
+      <div class="tb-dropdown-item" onclick="insertEl('columns');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="5.5" height="10" rx="1"/><rect x="9" y="3" width="5.5" height="10" rx="1"/></svg>Two columns</div>
+      <div class="tb-dropdown-item" onclick="insertEl('definition');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12v3H2zM2 8h12v5H2z"/></svg>Definition box</div>
+      <div class="tb-dropdown-item" onclick="insertEl('callout','info');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="2"/><path d="M8 6v1M8 9v2" stroke-linecap="round"/></svg>Note callout</div>
+      <div class="tb-dropdown-item" onclick="insertEl('callout','warn');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l6 12H2L8 2z"/><path d="M8 7v3M8 11v1" stroke-linecap="round"/></svg>Warning callout</div>
+      <div class="tb-dropdown-item" onclick="insertEl('callout','tip');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v4M8 11v1" stroke-linecap="round"/></svg>Tip callout</div>
+      <div class="tb-dropdown-item" onclick="insertEl('link');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9a3 3 0 004 0l2-2a3 3 0 00-4-4L7 4"/><path d="M10 7a3 3 0 00-4 0L4 9a3 3 0 004 4l1-1"/></svg>Link button</div>
+      <div class="tb-dropdown-item" onclick="insertEl('divider');closeGroups()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12"/></svg>Divider</div>
+    </div>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <!-- THEME GROUP -->
+  <div class="tb-group" id="grp-theme">
+    <button class="tb-group-btn" onclick="toggleGroup('grp-theme')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v12M2 8h12"/></svg>
+      Theme <span class="caret">▾</span>
+    </button>
+    <div class="tb-dropdown" id="dd-theme" style="min-width:140px;">
+      <div class="tb-dropdown-label">Colour profile</div>
+      <div class="tb-dropdown-item" onclick="setTheme('earthy',null);closeGroups()"><span style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#8b5e3c,#c4956a);display:inline-block;flex-shrink:0"></span>Earthy</div>
+      <div class="tb-dropdown-item" onclick="setTheme('forest',null);closeGroups()"><span style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#243027,#7ec8a4);display:inline-block;flex-shrink:0"></span>Forest</div>
+      <div class="tb-dropdown-item" onclick="setTheme('mist',null);closeGroups()"><span style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#4a6fa5,#a0c0e0);display:inline-block;flex-shrink:0"></span>Mist</div>
+      <div class="tb-dropdown-item" onclick="setTheme('vivid',null);closeGroups()"><span style="width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#e63946,#2a9d8f);display:inline-block;flex-shrink:0"></span>Vivid</div>
+      <div class="tb-dropdown-item" onclick="setTheme('print',null);closeGroups()"><span style="width:12px;height:12px;border-radius:50%;background:#fff;border:1px solid #888;display:inline-block;flex-shrink:0"></span>Print</div>
+    </div>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <!-- NUMBERING TOGGLE -->
+  <div class="num-toggle">
+    <input type="checkbox" id="num-toggle-cb" onchange="toggleNumbering(this.checked)">
+    <label for="num-toggle-cb">§ Numbers</label>
+  </div>
+
+  <div class="tb-sep"></div>
+
+  <!-- PAGE -->
+  <button class="tb-btn" title="New page" onclick="addPage()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1.5" width="10" height="13" rx="1.5"/><path d="M8 5v6M5 8h6"/></svg></button>
+  <button class="tb-btn" title="Add cover page" onclick="addCoverPage()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1.5" width="12" height="13" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/><rect x="4.5" y="3" width="7" height="3" rx="0.5" fill="currentColor" stroke="none" opacity="0.3"/></svg></button>
+  <button class="tb-btn" title="Add table of contents" onclick="addTocPage()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h2M7 4h6M3 8h2M7 8h6M3 12h2M7 12h6"/></svg></button>
+
+  <div class="tb-spacer"></div>
+
+  <!-- NOTES MANAGER -->
+  <button class="tb-btn" title="Notes manager" onclick="openNotesManager()" style="width:auto;padding:0 10px;gap:4px;font-size:11px;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h8l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v4h4"/></svg>
+    Notes
+  </button>
+
+  <!-- CLEAR -->
+  <button class="tb-btn" title="Clear document" onclick="clearDocPrompt()" style="width:auto;padding:0 10px;gap:4px;font-size:11px;border-color:rgba(220,80,60,0.35);color:rgba(255,160,140,0.9);">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M5 4V2h6v2M6 7v5M10 7v5M4 4l1 9h6l1-9"/></svg>
+    Clear
+  </button>
+
+  <!-- EXPORT -->
+  <button class="tb-btn" title="Export to PDF" onclick="openExportModal()" style="width:auto;padding:0 10px;gap:4px;font-size:11px;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13V3a1 1 0 011-1h5l3 3v8a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9 2v4h4M8 8v5M6 11l2 2 2-2"/></svg>
+    PDF
+  </button>
+
+  <!-- SAVE -->
+  <button class="tb-btn" title="Save (Cmd+S)" onclick="saveDoc()" style="width:auto;padding:0 10px;gap:4px;font-size:11px;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13V3a1 1 0 011-1h7l2 2v9a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M6 2v4h5V2M6 9h4M6 12h4"/></svg>
+    Save
+  </button>
+</div>
+
+<!-- ░░ FLOAT INSERT ░░ -->
+<div id="float-insert">
+  <div class="fi-item" onclick="insertEl('h1');closeMenu()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="13" font-weight="700">H1</text></svg>Title</div>
+  <div class="fi-item" onclick="insertEl('h2');closeMenu()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="12" font-weight="600">H2</text></svg>Section heading</div>
+  <div class="fi-item" onclick="insertEl('h3');closeMenu()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="11">H3</text></svg>Subsection</div>
+  <div class="fi-item" onclick="insertEl('text');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>Body paragraph</div>
+  <div class="fi-item" onclick="insertEl('highlight');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="8" rx="2"/></svg>Key idea</div>
+  <div class="fi-item" onclick="insertEl('image');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 11l3.5-3 3 3 2.5-2.5 3 3"/></svg>Image / Handwritten</div>
+  <div class="fi-item" onclick="insertEl('table');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><path d="M1.5 5.5h13M6 1.5v13"/></svg>Table</div>
+  <div class="fi-item" onclick="insertEl('callout','info');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="2"/><path d="M8 6v1M8 9v2" stroke-linecap="round"/></svg>Note callout</div>
+  <div class="fi-item" onclick="insertEl('callout','warn');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l6 12H2L8 2z"/><path d="M8 7v3M8 11v1" stroke-linecap="round"/></svg>Warning callout</div>
+  <div class="fi-item" onclick="insertEl('callout','tip');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v4M8 11v1" stroke-linecap="round"/></svg>Tip callout</div>
+  <div class="fi-item" onclick="insertEl('definition');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12v4H2zM2 8h12v5H2z"/></svg>Definition box</div>
+  <div class="fi-item" onclick="insertEl('equation');closeMenu()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="13">∑</text></svg>Equation</div>
+  <div class="fi-item" onclick="insertEl('checklist');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l2 2 4-4M2 5v6M10 6h5M10 13h5"/></svg>Checklist</div>
+  <div class="fi-item" onclick="insertEl('columns');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="5.5" height="10" rx="1"/><rect x="9" y="3" width="5.5" height="10" rx="1"/></svg>Two columns</div>
+  <div class="fi-item" onclick="insertEl('link');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9a3 3 0 004 0l2-2a3 3 0 00-4-4L7 4"/><path d="M10 7a3 3 0 00-4 0L4 9a3 3 0 004 4l1-1"/></svg>Link button</div>
+  <div class="fi-item" onclick="insertEl('divider');closeMenu()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12"/></svg>Divider</div>
+</div>
+
+<!-- ░░ FORMAT BAR ░░ -->
+<div id="fmt-bar" class="fmt-bar">
+  <button class="fmt-btn" onclick="execFmt('bold')" title="Bold"><b>B</b></button>
+  <button class="fmt-btn" onclick="execFmt('italic')" title="Italic"><i>I</i></button>
+  <button class="fmt-btn" onclick="execFmt('underline')" title="Underline"><u>U</u></button>
+  <button class="fmt-btn" style="font-size:10px" onclick="execFmt('hilite')" title="Highlight">HL</button>
+  <button class="fmt-btn" onclick="execFmt('removeFormat')" title="Clear">✕</button>
+</div>
+
+<!-- ░░ DRAG OVERLAY ░░ -->
+<div id="paste-overlay">
+  <svg viewBox="0 0 64 64" fill="none" stroke="white" stroke-width="2"><rect x="8" y="8" width="48" height="48" rx="6"/><path d="M24 32h16M32 24v16"/></svg>
+  Drop image here
+</div>
+
+<!-- ░░ EXPORT MODAL ░░ -->
+<div id="export-modal">
+  <div id="export-box">
+    <h3>Export to PDF</h3>
+    <p>Using jsPDF — renders directly in the browser, no server needed.</p>
+    <div class="exp-opt">
+      <div class="exp-row">
+        <label>Filename</label>
+        <input type="text" id="exp-filename" value="notes" placeholder="notes">
+      </div>
+      <div class="exp-row">
+        <label>Page size</label>
+        <select id="exp-pagesize">
+          <option value="a4" selected>A4 (210×297 mm)</option>
+          <option value="letter">US Letter</option>
+          <option value="a3">A3</option>
+        </select>
+      </div>
+      <div class="exp-row">
+        <label>Orientation</label>
+        <select id="exp-orient">
+          <option value="portrait" selected>Portrait</option>
+          <option value="landscape">Landscape</option>
+        </select>
+      </div>
+      <div class="exp-row">
+        <label>Scale</label>
+        <select id="exp-scale">
+          <option value="1">100% — full fidelity</option>
+          <option value="0.9" selected>90% — safe margins</option>
+          <option value="0.75">75% — compact</option>
+        </select>
+      </div>
+    </div>
+    <div class="exp-actions">
+      <button class="exp-btn exp-btn-secondary" onclick="closeExportModal()">Cancel</button>
+      <button class="exp-btn exp-btn-primary" onclick="runExport()">Generate PDF</button>
+    </div>
+    <div id="export-progress"></div>
+  </div>
+</div>
+
+<!-- ░░ MAIN APP ░░ -->
+<div id="app">
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+
+    <!-- FONT PANEL -->
+    <div class="panel-section">
+      <div class="panel-heading">Typography</div>
+      <div class="font-panel-row">
+        <span class="font-row-label">Headings</span>
+        <select class="panel-font-select" id="font-heading-sel" onchange="applyFont('heading',this.value)">
+          <option value="'Lora',Georgia,serif">Lora (default)</option>
+          <option value="'Playfair Display',serif">Playfair Display</option>
+          <option value="'DM Serif Display',serif">DM Serif Display</option>
+          <option value="'EB Garamond',serif">EB Garamond</option>
+          <option value="'Crimson Pro',serif">Crimson Pro</option>
+          <option value="'Source Serif 4',serif">Source Serif 4</option>
+          <option value="'Libre Baskerville',serif">Libre Baskerville</option>
+          <option value="'Nunito',sans-serif">Nunito (sans)</option>
+          <option value="'Work Sans',sans-serif">Work Sans (sans)</option>
+          <option value="'Inter',sans-serif">Inter (clean)</option>
+        </select>
+      </div>
+      <div class="font-panel-row">
+        <span class="font-row-label">Body text</span>
+        <select class="panel-font-select" id="font-body-sel" onchange="applyFont('body',this.value)">
+          <option value="'Lora',Georgia,serif">Lora (default)</option>
+          <option value="'Crimson Pro',serif">Crimson Pro</option>
+          <option value="'Source Serif 4',serif">Source Serif 4</option>
+          <option value="'EB Garamond',serif">EB Garamond</option>
+          <option value="'Libre Baskerville',serif">Libre Baskerville</option>
+          <option value="'Playfair Display',serif">Playfair Display</option>
+          <option value="'Nunito',sans-serif">Nunito (sans)</option>
+          <option value="'Work Sans',sans-serif">Work Sans</option>
+          <option value="'Inter',sans-serif">Inter</option>
+          <option value="'JetBrains Mono',monospace">JetBrains Mono</option>
+        </select>
+      </div>
+      <div class="font-panel-row">
+        <span class="font-row-label">Table headers</span>
+        <select class="panel-font-select" id="font-table-sel" onchange="applyFont('table',this.value)">
+          <option value="'Inter',sans-serif">Inter (default)</option>
+          <option value="'Work Sans',sans-serif">Work Sans</option>
+          <option value="'Nunito',sans-serif">Nunito</option>
+          <option value="'Lora',serif">Lora</option>
+          <option value="'Source Serif 4',serif">Source Serif 4</option>
+          <option value="'JetBrains Mono',monospace">JetBrains Mono</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-heading">Headings</div>
+      <button class="ins-btn" onclick="insertEl('h1')"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="12" font-weight="700">H1</text></svg>Page title</button>
+      <button class="ins-btn" onclick="insertEl('h2')"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="12" font-weight="600">H2</text></svg>Section heading</button>
+      <button class="ins-btn" onclick="insertEl('h3')"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="11">H3</text></svg>Subsection</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-heading">Content</div>
+      <button class="ins-btn" onclick="insertEl('text')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>Body paragraph</button>
+      <button class="ins-btn" onclick="insertEl('highlight')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="8" rx="2"/></svg>Key idea</button>
+      <button class="ins-btn" onclick="insertEl('equation')"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="13">∑</text></svg>Equation (LaTeX)</button><button class="ins-btn" onclick="openInkModal(null)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13c2-2 3-5 5-5s2 2 4 1"/><path d="M10 3l3 3-8 8H2v-3L10 3z"/></svg>Ink equation</button>
+      <button class="ins-btn" onclick="insertEl('checklist')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8l2 2 4-4"/><rect x="1" y="4" width="6" height="6" rx="1"/><path d="M10 6h5M10 11h5"/></svg>Checklist</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-heading">Media</div>
+      <button class="ins-btn" onclick="insertEl('image')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.5"/><path d="M1.5 11l3.5-3 3 3 2.5-2.5 3 3"/></svg>Handwritten / Image</button>
+      <button class="ins-btn" onclick="insertEl('link')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9a3 3 0 004 0l2-2a3 3 0 00-4-4L7 4"/><path d="M10 7a3 3 0 00-4 0L4 9a3 3 0 004 4l1-1"/></svg>Link button</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-heading">Layout</div>
+      <button class="ins-btn" onclick="insertEl('table')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><path d="M1.5 5.5h13M6 1.5v13"/></svg>Table</button>
+      <button class="ins-btn" onclick="insertEl('columns')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="5.5" height="10" rx="1"/><rect x="9" y="3" width="5.5" height="10" rx="1"/></svg>Two columns</button>
+      <button class="ins-btn" onclick="insertEl('definition')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12v3H2zM2 8h12v5H2z"/></svg>Definition box</button>
+      <button class="ins-btn" onclick="insertEl('callout','info')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="2"/><path d="M8 5v2M8 9v2" stroke-linecap="round"/></svg>Note callout</button>
+      <button class="ins-btn" onclick="insertEl('callout','warn')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l6 12H2L8 2z"/><path d="M8 7v3M8 11v1" stroke-linecap="round"/></svg>Warning callout</button>
+      <button class="ins-btn" onclick="insertEl('callout','tip')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v4M8 11v1" stroke-linecap="round"/></svg>Tip callout</button>
+      <button class="ins-btn" onclick="insertEl('divider')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12"/></svg>Divider</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-heading">Pages</div>
+      <button class="ins-btn" onclick="addPage()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1.5" width="10" height="13" rx="1.5"/><path d="M8 5v6M5 8h6"/></svg>New page</button>
+      <button class="ins-btn" onclick="addCoverPage()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1.5" width="12" height="13" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Cover page</button>
+      <button class="ins-btn" onclick="addTocPage()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h2M7 4h6M3 8h2M7 8h6M3 12h2M7 12h6"/></svg>Table of contents</button>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap">
+    <div id="doc-title-wrap">
+      <input id="doc-title" type="text" placeholder="Document title · click to edit" />
+    </div>
+    <div id="pages-container"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ══════════════════ SCRIPTS ══════════════════ -->
+<!-- jsPDF + html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+/* ═══════ STATE ═══════ */
+let pageCount = 0;
+let currentPage = null;
+let floatMenuTarget = null;
+let numberingOn = false;
+let fontHeading = "'Lora',Georgia,serif";
+let fontBody = "'Lora',Georgia,serif";
+let fontTable = "'Inter',sans-serif";
+
+/* ═══════ INIT ═══════ */
+document.addEventListener('DOMContentLoaded', () => {
+  addPage();
+  setupGlobalPaste();
+  setupDragDrop();
+  setupSelectionBar();
+  loadFromStorage();
+});
+
+/* ═══════ THEME ═══════ */
+function setTheme(name, dot) {
+  document.body.setAttribute('data-theme', name);
+  document.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active'));
+  if (dot) dot.classList.add('active');
+  localStorage.setItem('nf_theme', name);
+}
+
+/* ═══════ FONTS ═══════ */
+function applyFont(role, val) {
+  const root = document.documentElement;
+  if (role === 'heading') {
+    fontHeading = val;
+    root.style.setProperty('--font-heading', val);
+    // update all heading elements live
+    document.querySelectorAll('.el-h1,.el-h2,.el-h3,.def-term').forEach(el => el.style.fontFamily = val);
+  } else if (role === 'body') {
+    fontBody = val;
+    root.style.setProperty('--font-body', val);
+    document.querySelectorAll('.el-text,.el-highlight,.callout-body,.def-body,.col-inner,.check-text').forEach(el => el.style.fontFamily = val);
+  } else if (role === 'table') {
+    fontTable = val;
+    document.querySelectorAll('.el-table th').forEach(el => el.style.fontFamily = val);
+  }
+  autosave();
+}
+
+/* ═══════ SECTION NUMBERING ═══════ */
+function toggleNumbering(on) {
+  numberingOn = on;
+  document.body.classList.toggle('numbered', on);
+  rebuildNumbers();
+  const tocPg = document.querySelector('.page[data-toc]');
+  if (tocPg) refreshToc(tocPg);
+  autosave();
+}
+
+function rebuildNumbers() {
+  if (!numberingOn) {
+    document.querySelectorAll('.sec-num').forEach(n => n.remove());
+    return;
+  }
+  let h1 = 0, h2 = 0, h3 = 0;
+  document.querySelectorAll('.note-el').forEach(el => {
+    const type = el.getAttribute('data-type');
+    if (!['h1','h2','h3'].includes(type)) return;
+    // remove old
+    el.querySelectorAll('.sec-num').forEach(n => n.remove());
+    const editable = el.querySelector('.el-h1,.el-h2,.el-h3');
+    if (!editable) return;
+    const span = document.createElement('span');
+    span.className = 'sec-num';
+    span.setAttribute('contenteditable', 'false');
+    if (type === 'h1') { h1++; h2 = 0; h3 = 0; span.textContent = h1 + '.'; }
+    if (type === 'h2') { h2++; h3 = 0; span.textContent = h1 + '.' + h2; }
+    if (type === 'h3') { h3++; span.textContent = h1 + '.' + h2 + '.' + h3; }
+    editable.insertBefore(span, editable.firstChild);
+  });
+}
+
+/* ═══════ PAGES ═══════ */
+function addPage() {
+  pageCount++;
+  const c = document.getElementById('pages-container');
+  const page = document.createElement('div');
+  page.className = 'page';
+  page.setAttribute('data-page', pageCount);
+  page.innerHTML = `<div class="page-num">— ${pageCount} —</div>`;
+  c.appendChild(page);
+  page.addEventListener('click', () => { currentPage = page; });
+  currentPage = page;
+  return page;
+}
+
+/* ═══════ COVER PAGE ═══════ */
+function addCoverPage() {
+  pageCount++;
+  const c = document.getElementById('pages-container');
+  const page = document.createElement('div');
+  page.className = 'page is-cover';
+  page.setAttribute('data-page', pageCount);
+  page.setAttribute('data-cover', 'true');
+
+  page.innerHTML = `
+    <div class="cover-kicker" contenteditable="true"></div>
+    <div class="cover-title" contenteditable="true"></div>
+    <div class="cover-subtitle" contenteditable="true"></div>
+    <div class="cover-divider-mark"></div>
+    <div class="cover-meta">
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">Prepared by</span>
+        <span class="cover-meta-value" contenteditable="true" data-ph="Your name"></span>
+      </div>
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">Date</span>
+        <span class="cover-meta-value" contenteditable="true" data-ph="${new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}"></span>
+      </div>
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">Class</span>
+        <span class="cover-meta-value" contenteditable="true" data-ph="e.g. Grade 9 — Section A"></span>
+      </div>
+    </div>
+    <div class="page-num">— cover —</div>
+  `;
+
+  // insert at the very start
+  c.insertBefore(page, c.firstChild);
+  page.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+  toast('Cover page added');
+  autosave();
+  return page;
+}
+
+/* ═══════ TABLE OF CONTENTS PAGE ═══════ */
+function addTocPage() {
+  pageCount++;
+  const c = document.getElementById('pages-container');
+  const page = document.createElement('div');
+  page.className = 'page';
+  page.setAttribute('data-page', pageCount);
+  page.setAttribute('data-toc', 'true');
+
+  page.innerHTML = `
+    <button class="toc-refresh-btn" onclick="refreshToc(this.closest('.page'))">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9M13.5 2v3.5H10"/></svg>
+      Refresh index
+    </button>
+    <div class="toc-title" contenteditable="true">Contents</div>
+    <div class="toc-list"><div class="toc-empty">Click "Refresh index" after adding headings to your notes.</div></div>
+    <div class="page-num">— contents —</div>
+  `;
+
+  // insert right after the cover if one exists, else at start
+  const cover = c.querySelector('.page.is-cover');
+  if (cover) c.insertBefore(page, cover.nextSibling);
+  else c.insertBefore(page, c.firstChild);
+
+  page.querySelector('.toc-title').addEventListener('input', autosave);
+  refreshToc(page);
+  toast('Index page added');
+  autosave();
+  return page;
+}
+
+function refreshToc(tocPage) {
+  if (!tocPage) tocPage = document.querySelector('.page[data-toc]');
+  if (!tocPage) return;
+  const list = tocPage.querySelector('.toc-list');
+  list.innerHTML = '';
+
+  // collect headings from all OTHER pages, in document order
+  const pages = Array.from(document.querySelectorAll('.page'));
+  let h1c=0, h2c=0, h3c=0;
+  let rowCount = 0;
+
+  pages.forEach((pg, pgIdx) => {
+    if (pg === tocPage || pg.hasAttribute('data-cover')) return;
+    const pageLabel = pg.hasAttribute('data-toc') ? '' : (pgIdx + 1);
+    pg.querySelectorAll('.note-el').forEach(el => {
+      const type = el.getAttribute('data-type');
+      if (!['h1','h2','h3'].includes(type)) return;
+      const headingEl = el.querySelector('.el-h1,.el-h2,.el-h3');
+      if (!headingEl) return;
+      const text = headingEl.textContent.replace(/^\s*[\d.]+\s*/, '').trim();
+      if (!text) return;
+
+      if (type==='h1') { h1c++; h2c=0; h3c=0; }
+      if (type==='h2') { h2c++; h3c=0; }
+      if (type==='h3') { h3c++; }
+      const numStr = type==='h1' ? `${h1c}.` : type==='h2' ? `${h1c}.${h2c}` : `${h1c}.${h2c}.${h3c}`;
+
+      const row = document.createElement('div');
+      row.className = 'toc-row toc-' + type;
+      row.innerHTML = `
+        <span class="toc-num">${numberingOn ? numStr : ''}</span>
+        <span>${escapeHtml(text)}</span>
+        <span class="toc-dots"></span>
+        <span class="toc-page">p.${pageLabel}</span>
+      `;
+      row.addEventListener('click', () => {
+        el.scrollIntoView({ behavior:'smooth', block:'center' });
+        el.style.transition = 'background .3s';
+        const orig = el.style.background;
+        el.style.background = 'var(--highlight)';
+        setTimeout(() => { el.style.background = orig; }, 900);
+      });
+      list.appendChild(row);
+      rowCount++;
+    });
+  });
+
+  if (!rowCount) {
+    list.innerHTML = '<div class="toc-empty">No headings found yet. Add H1/H2/H3 headings to your notes, then refresh.</div>';
+  }
+  autosave();
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ═══════ INSERT ═══════ */
+function insertEl(type, variant, afterEl, targetPage) {
+  const pg = targetPage || currentPage || document.querySelector('.page');
+  if (!pg) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'note-el';
+  wrapper.setAttribute('data-type', type);
+  if (variant) wrapper.setAttribute('data-variant', variant);
+
+  wrapper.appendChild(makeElToolbar(wrapper));
+
+  let inner;
+  switch(type) {
+    case 'h1': inner = makeH(1); break;
+    case 'h2': inner = makeH(2); break;
+    case 'h3': inner = makeH(3); break;
+    case 'text': inner = makeText(); break;
+    case 'image': inner = makeImage(); break;
+    case 'table': inner = makeTable(); break;
+    case 'callout': inner = makeCallout(variant||'info'); break;
+    case 'definition': inner = makeDefinition(); break;
+    case 'equation': inner = makeEquation(); break;
+    case 'divider': inner = makeDivider(); break;
+    case 'link': inner = makeLink(); break;
+    case 'columns': inner = makeColumns(); break;
+    case 'highlight': inner = makeHighlight(); break;
+    case 'checklist': inner = makeChecklist(); break;
+    default: inner = makeText();
+  }
+  wrapper.appendChild(inner);
+
+  const addBar = makeAddBar(wrapper);
+  const pageNum = pg.querySelector('.page-num');
+  const ref = afterEl ? afterEl.nextSibling : pageNum;
+  pg.insertBefore(wrapper, ref);
+  pg.insertBefore(addBar, wrapper.nextSibling && wrapper.nextSibling !== pageNum ? wrapper.nextSibling : pageNum);
+
+  // apply current fonts
+  applyFontsToEl(wrapper);
+
+  const ed = wrapper.querySelector('[contenteditable="true"]');
+  if (ed) setTimeout(() => { ed.focus(); placeCursorAtEnd(ed); }, 50);
+
+  if (numberingOn) rebuildNumbers();
+  autosave();
+}
+
+function applyFontsToEl(wrapper) {
+  wrapper.querySelectorAll('.el-h1,.el-h2,.el-h3,.def-term').forEach(el => el.style.fontFamily = fontHeading);
+  wrapper.querySelectorAll('.el-text,.el-highlight,.callout-body,.def-body,.col-inner,.check-text').forEach(el => el.style.fontFamily = fontBody);
+  wrapper.querySelectorAll('.el-table th').forEach(el => el.style.fontFamily = fontTable);
+}
+
+/* ═══════ ELEMENT FACTORIES ═══════ */
+function makeH(level) {
+  const el = document.createElement('div');
+  const phs = ['Page title…','Section heading…','Sub-section…'];
+  el.className = 'el-h' + level;
+  el.contentEditable = true;
+  el.setAttribute('data-ph', phs[level-1]);
+  el.style.fontFamily = fontHeading;
+  el.addEventListener('input', () => { if (numberingOn) rebuildNumbers(); autosave(); });
+  return el;
+}
+
+function makeText() {
+  const el = document.createElement('div');
+  el.className = 'el-text';
+  el.contentEditable = true;
+  el.setAttribute('data-ph', 'Begin typing, or paste from Noteful…');
+  el.style.fontFamily = fontBody;
+  el.addEventListener('input', autosave);
+  el.addEventListener('paste', handleRichPaste);
+  return el;
+}
+
+function makeHighlight() {
+  const el = document.createElement('div');
+  el.className = 'el-highlight';
+  el.contentEditable = true;
+  el.style.fontFamily = fontBody;
+  el.addEventListener('input', autosave);
+  return el;
+}
+
+function makeImage() {
+  const wrap = document.createElement('div');
+  const zone = document.createElement('div');
+  zone.className = 'el-image-zone';
+  zone.innerHTML = `<div class="drop-hint"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="40" height="32" rx="4"/><circle cx="16" cy="20" r="4"/><path d="M4 34l12-10 8 8 6-6 14 10"/></svg><strong>Paste or drop handwritten image</strong>Cmd/Ctrl+V · drag &amp; drop · tap to browse</div>`;
+  const fi = document.createElement('input');
+  fi.type = 'file'; fi.accept = 'image/*';
+  fi.addEventListener('change', e => { if (e.target.files[0]) loadImageIntoZone(zone, e.target.files[0]); });
+  zone.appendChild(fi);
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f&&f.type.startsWith('image/')) loadImageIntoZone(zone,f); });
+  const cap = document.createElement('div');
+  cap.className = 'el-img-caption'; cap.contentEditable = true;
+  cap.addEventListener('input', autosave);
+  const sBar = document.createElement('div'); sBar.className = 'img-size-bar';
+  ['25%','50%','75%','100%'].forEach(s => {
+    const b = document.createElement('button'); b.className = 'img-size-btn'+(s==='75%'?' active':'');
+    b.textContent = s;
+    b.onclick = () => { const img = zone.querySelector('img'); if (img) img.style.maxWidth = s; sBar.querySelectorAll('.img-size-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); };
+    sBar.appendChild(b);
+  });
+  wrap.appendChild(zone); wrap.appendChild(sBar); wrap.appendChild(cap);
+  return wrap;
+}
+
+function loadImageIntoZone(zone, file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    zone.querySelector('.drop-hint')?.remove();
+    zone.querySelector('input[type=file]')?.remove();
+    zone.classList.add('has-image');
+    let img = zone.querySelector('img');
+    if (!img) { img = document.createElement('img'); zone.appendChild(img); }
+    img.src = e.target.result;
+    img.style.maxWidth = '75%';
+    autosave();
+  };
+  reader.readAsDataURL(file);
+}
+
+function makeTable(rows=3, cols=3) {
+  const wrap = document.createElement('div');
+  const tw = document.createElement('div'); tw.className = 'el-table-wrap';
+  const t = document.createElement('table'); t.className = 'el-table';
+  const thead = document.createElement('thead');
+  const hrow = document.createElement('tr');
+  const hLabels = ['Term','Definition','Example'];
+  for (let c=0;c<cols;c++) {
+    const th = document.createElement('th'); th.contentEditable = true;
+    th.style.fontFamily = fontTable;
+    th.textContent = hLabels[c]||`Col ${c+1}`;
+    th.addEventListener('input', autosave);
+    hrow.appendChild(th);
+  }
+  thead.appendChild(hrow); t.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  for (let r=0;r<rows;r++) {
+    const tr = document.createElement('tr');
+    for (let c=0;c<cols;c++) { const td = document.createElement('td'); td.contentEditable = true; td.addEventListener('input',autosave); tr.appendChild(td); }
+    tbody.appendChild(tr);
+  }
+  t.appendChild(tbody); tw.appendChild(t); wrap.appendChild(tw);
+  const ctl = document.createElement('div'); ctl.className = 'table-controls';
+  const addR = document.createElement('button'); addR.className='table-ctl-btn'; addR.textContent='+ Row';
+  addR.onclick = () => {
+    const nc = t.querySelector('tr').cells.length;
+    const tr = document.createElement('tr');
+    for (let c=0;c<nc;c++) { const td = document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); tr.appendChild(td); }
+    tbody.appendChild(tr); autosave();
+  };
+  const addC = document.createElement('button'); addC.className='table-ctl-btn'; addC.textContent='+ Col';
+  addC.onclick = () => {
+    const th = document.createElement('th'); th.contentEditable=true; th.textContent='Column'; th.style.fontFamily=fontTable; th.addEventListener('input',autosave); hrow.appendChild(th);
+    tbody.querySelectorAll('tr').forEach(r => { const td=document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); r.appendChild(td); });
+    autosave();
+  };
+  ctl.appendChild(addR); ctl.appendChild(addC); wrap.appendChild(ctl);
+  return wrap;
+}
+
+function makeCallout(variant) {
+  const box = document.createElement('div');
+  box.className = 'el-callout ' + variant;
+  const lb = document.createElement('div'); lb.className = 'callout-label';
+  lb.textContent = {info:'Note', warn:'Warning', tip:'Tip'}[variant]||'Note';
+  const body = document.createElement('div'); body.className = 'callout-body';
+  body.contentEditable = true;
+  body.style.fontFamily = fontBody;
+  body.addEventListener('input', autosave);
+  box.appendChild(lb); box.appendChild(body);
+  return box;
+}
+
+function makeDefinition() {
+  const box = document.createElement('div'); box.className = 'el-definition';
+  const term = document.createElement('div'); term.className = 'def-term';
+  term.contentEditable = true; term.style.fontFamily = fontHeading;
+  term.addEventListener('input', autosave);
+  const body = document.createElement('div'); body.className = 'def-body';
+  body.contentEditable = true; body.style.fontFamily = fontBody;
+  body.addEventListener('input', autosave);
+  box.appendChild(term); box.appendChild(body);
+  return box;
+}
+
+function makeEquation(latex) {
+  const wrap = document.createElement('div'); wrap.className='el-equation-wrap';
+
+  // clickable display
+  const display = document.createElement('div'); display.className='eq-display';
+  display.setAttribute('data-latex', latex || '');
+  display.title = 'Click to edit equation';
+  display.addEventListener('click', () => openEqEditor(wrap));
+
+  if (latex) {
+    renderEqInEl(display, latex);
+  } else {
+    display.innerHTML = `<span class="eq-placeholder">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+      Click to add equation
+    </span>`;
+  }
+
+  const lbl = document.createElement('div'); lbl.className='eq-label';
+  lbl.contentEditable=true; lbl.addEventListener('input', autosave);
+
+  wrap.appendChild(display);
+  wrap.appendChild(lbl);
+  return wrap;
+}
+
+function renderEqInEl(el, latex) {
+  try {
+    el.innerHTML = '';
+    katex.render(latex.trim(), el, { throwOnError:false, displayMode:true });
+    el.setAttribute('data-latex', latex);
+  } catch(e) {
+    el.innerHTML = `<span class="eq-placeholder" style="color:#c44;font-style:normal;">${e.message}</span>`;
+  }
+}
+
+function renderAllEquations() {
+  document.querySelectorAll('.eq-display[data-latex]').forEach(el => {
+    const latex = el.getAttribute('data-latex');
+    if (latex) renderEqInEl(el, latex);
+  });
+}
+
+function makeDivider() {
+  const d = document.createElement('div'); d.className = 'el-divider'; d.innerHTML = '◆';
+  return d;
+}
+
+function makeLink() {
+  const wrap = document.createElement('div'); wrap.className = 'el-link-btn-wrap';
+  const inputs = document.createElement('div'); inputs.className = 'link-inputs';
+  const li = document.createElement('input'); li.type='text'; li.placeholder='Button label'; li.value='Open Resource';
+  const ui = document.createElement('input'); ui.type='text'; ui.placeholder='https://…';
+  inputs.appendChild(li); inputs.appendChild(ui);
+  const btn = document.createElement('a'); btn.className = 'el-link-btn'; btn.target='_blank';
+  const update = () => {
+    btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h4v4M13 3l-7 7M5 5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1v-2"/></svg> ${li.value||'Open Resource'}`;
+    btn.href = ui.value||'#'; autosave();
+  };
+  li.addEventListener('input', update); ui.addEventListener('input', update);
+  update();
+  wrap.appendChild(inputs); wrap.appendChild(btn);
+  return wrap;
+}
+
+function makeColumns() {
+  const grid = document.createElement('div'); grid.className = 'el-columns cols-2';
+  for (let i=0;i<2;i++) {
+    const col = document.createElement('div'); col.className = 'col-inner';
+    col.contentEditable = true; col.style.fontFamily = fontBody;
+    col.addEventListener('input', autosave);
+    grid.appendChild(col);
+  }
+  return grid;
+}
+
+function makeChecklist() {
+  const wrap = document.createElement('div');
+  const list = document.createElement('ul'); list.className = 'el-checklist';
+  const addItem = () => {
+    const li = document.createElement('li'); li.className = 'check-item';
+    const cb = document.createElement('input'); cb.type = 'checkbox';
+    cb.addEventListener('change', autosave);
+    const txt = document.createElement('div'); txt.className = 'check-text';
+    txt.contentEditable = true; txt.style.fontFamily = fontBody;
+    txt.addEventListener('input', autosave);
+    txt.addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); addItem(); } });
+    li.appendChild(cb); li.appendChild(txt);
+    list.appendChild(li);
+    setTimeout(() => txt.focus(), 30);
+    autosave();
+  };
+  const addBtn = document.createElement('button'); addBtn.className = 'add-check-btn';
+  addBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v12M2 8h12"/></svg> Add item`;
+  addBtn.onclick = addItem;
+  wrap.appendChild(list); wrap.appendChild(addBtn);
+  addItem();
+  return wrap;
+}
+
+/* ═══════ EL TOOLBAR ═══════ */
+function makeElToolbar(wrapper) {
+  const tb = document.createElement('div'); tb.className = 'el-toolbar';
+  const sepV1 = document.createElement('div'); sepV1.className='el-tb-sep-v';
+  const sepV2 = document.createElement('div'); sepV2.className='el-tb-sep-v';
+  tb.appendChild(makeEtBtn('↑','Move up', () => moveEl(wrapper,-1)));
+  tb.appendChild(makeEtBtn('↓','Move down', () => moveEl(wrapper,1)));
+  tb.appendChild(sepV1);
+  tb.appendChild(makeEtBtn('⧉','Duplicate', () => duplicateEl(wrapper)));
+  tb.appendChild(sepV2);
+  const delBtn = makeEtBtn('🗑','Delete element', () => deleteEl(wrapper));
+  delBtn.classList.add('del');
+  delBtn.textContent = '';
+  delBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M5 4V2h6v2M6 7v5M10 7v5M4 4l1 9h6l1-9"/></svg>';
+  tb.appendChild(delBtn);
+  return tb;
+}
+function makeEtBtn(icon, title, fn) {
+  const b = document.createElement('button'); b.className='el-tb-btn'; b.textContent=icon; b.title=title;
+  b.addEventListener('mousedown', e => { e.preventDefault(); fn(); });
+  return b;
+}
+
+/* ── UNDO DELETE ── */
+let _undoStack = null;
+function deleteEl(wrapper) {
+  const parent = wrapper.parentElement;
+  const nextBar = wrapper.nextSibling;
+  const sibAfter = nextBar?.classList?.contains('add-el-bar') ? nextBar.nextSibling : nextBar;
+
+  // snapshot position for undo
+  _undoStack = {
+    wrapperHTML: wrapper.outerHTML,
+    barHTML: nextBar?.classList?.contains('add-el-bar') ? nextBar.outerHTML : null,
+    parent,
+    before: sibAfter  // node that was after the add-bar
+  };
+
+  if (nextBar?.classList?.contains('add-el-bar')) nextBar.remove();
+  wrapper.remove();
+  if (numberingOn) rebuildNumbers();
+  autosave();
+
+  toastUndo('Element deleted. <a onclick="undoDelete()" style="color:var(--accent-2);cursor:pointer;text-decoration:underline;font-weight:600;">Undo</a>');
+}
+
+function undoDelete() {
+  if (!_undoStack) return;
+  const { wrapperHTML, barHTML, parent, before } = _undoStack;
+  _undoStack = null;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = wrapperHTML;
+  const wrapper = tmp.firstChild;
+  wrapper.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+  wrapper.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', autosave));
+
+  if (before && before.parentNode === parent) {
+    parent.insertBefore(wrapper, before);
+  } else {
+    const pn = parent.querySelector('.page-num');
+    parent.insertBefore(wrapper, pn);
+  }
+  attachElToolbar(wrapper);
+
+  if (barHTML) {
+    const tmp2 = document.createElement('div');
+    tmp2.innerHTML = barHTML;
+    const bar = tmp2.firstChild;
+    // re-wire the + button
+    const newBar = makeAddBar(wrapper);
+    parent.insertBefore(newBar, wrapper.nextSibling);
+  }
+
+  if (numberingOn) rebuildNumbers();
+  autosave();
+  clearToast();
+  toast('Restored ✓');
+}
+function moveEl(el, dir) {
+  const p = el.parentElement;
+  if (dir === -1) {
+    let prev = el.previousSibling;
+    while (prev && !prev.classList?.contains('note-el')) prev = prev.previousSibling;
+    if (prev) p.insertBefore(el, prev);
+  } else {
+    let next = el.nextSibling;
+    while (next && !next.classList?.contains('note-el')) next = next.nextSibling;
+    if (next) p.insertBefore(el, next.nextSibling);
+  }
+  if (numberingOn) rebuildNumbers();
+  autosave();
+}
+function duplicateEl(el) {
+  const clone = el.cloneNode(true);
+  el.parentNode.insertBefore(clone, el.nextSibling);
+  el.parentNode.insertBefore(makeAddBar(clone), clone.nextSibling);
+  attachElToolbar(clone);
+  if (numberingOn) rebuildNumbers();
+  autosave();
+}
+function attachElToolbar(w) {
+  w.querySelector('.el-toolbar')?.remove();
+  w.insertBefore(makeElToolbar(w), w.firstChild);
+}
+
+/* ═══════ ADD BAR ═══════ */
+function makeAddBar(afterEl) {
+  const bar = document.createElement('div'); bar.className = 'add-el-bar';
+  const btn = document.createElement('button'); btn.className = 'add-el-btn'; btn.textContent = '+';
+  btn.title = 'Insert element here';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const r = btn.getBoundingClientRect();
+    showFloatMenu(r.left, r.top + 28, afterEl);
+  });
+  bar.appendChild(btn);
+  return bar;
+}
+
+/* ═══════ FLOAT MENU ═══════ */
+function showFloatMenu(x, y, afterEl) {
+  floatMenuTarget = afterEl;
+  const m = document.getElementById('float-insert');
+  m.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+  m.style.top = Math.min(y, window.innerHeight - 480) + 'px';
+  m.classList.add('visible');
+}
+function closeMenu() { document.getElementById('float-insert').classList.remove('visible'); }
+document.addEventListener('click', e => {
+  if (!e.target.closest('#float-insert') && !e.target.closest('.add-el-btn')) closeMenu();
+});
+
+/* ═══════ FORMAT BAR ═══════ */
+function setupSelectionBar() {
+  document.addEventListener('mouseup', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+      document.getElementById('fmt-bar').classList.remove('show'); return;
+    }
+    const r = sel.getRangeAt(0).getBoundingClientRect();
+    const fb = document.getElementById('fmt-bar');
+    fb.style.left = (r.left + r.width/2 - 65) + 'px';
+    fb.style.top = (r.top + window.scrollY - 44) + 'px';
+    fb.classList.add('show');
+  });
+  document.addEventListener('mousedown', e => {
+    if (!e.target.closest('#fmt-bar')) document.getElementById('fmt-bar').classList.remove('show');
+  });
+}
+function execFmt(cmd) {
+  if (cmd === 'hilite') document.execCommand('hiliteColor', false, 'rgba(255,220,60,0.5)');
+  else document.execCommand(cmd, false, null);
+  autosave();
+}
+
+/* ═══════ PASTE / DROP ═══════ */
+function setupGlobalPaste() {
+  document.addEventListener('paste', e => {
+    const imgItem = Array.from(e.clipboardData.items||[]).find(i => i.type.startsWith('image/'));
+    if (!imgItem) return;
+    let zone = document.activeElement?.closest?.('.el-image-zone');
+    if (!zone) {
+      insertEl('image');
+      zone = document.querySelector('.page:last-child .el-image-zone:not(.has-image)');
+    }
+    if (!zone) return;
+    e.preventDefault();
+    const f = imgItem.getAsFile();
+    if (f) loadImageIntoZone(zone, f);
+  });
+}
+function setupDragDrop() {
+  document.body.addEventListener('dragenter', e => {
+    if ([...e.dataTransfer.types].includes('Files')) document.body.classList.add('drag-active');
+  });
+  document.body.addEventListener('dragleave', e => {
+    if (e.target === document.body || e.target === document.documentElement) document.body.classList.remove('drag-active');
+  });
+  document.body.addEventListener('dragover', e => e.preventDefault());
+  document.body.addEventListener('drop', e => {
+    document.body.classList.remove('drag-active');
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    e.preventDefault();
+    files.forEach(f => {
+      insertEl('image');
+      setTimeout(() => {
+        const z = document.querySelector('.el-image-zone:not(.has-image)');
+        if (z) loadImageIntoZone(z, f);
+      }, 80);
+    });
+  });
+}
+function handleRichPaste(e) {
+  const html = e.clipboardData.getData('text/html');
+  if (html) return;
+  const txt = e.clipboardData.getData('text/plain');
+  if (txt) { e.preventDefault(); document.execCommand('insertText', false, txt); }
+}
+
+/* ═══════ EXPORT PDF (jsPDF + html2canvas) ═══════ */
+function openExportModal() {
+  document.getElementById('export-modal').classList.add('open');
+  document.getElementById('export-progress').textContent = '';
+  const title = document.getElementById('doc-title').value;
+  if (title) document.getElementById('exp-filename').value = title.replace(/\s+/g,'-').toLowerCase();
+}
+function closeExportModal() { document.getElementById('export-modal').classList.remove('open'); }
+
+async function runExport() {
+  const prog = document.getElementById('export-progress');
+  const filename = (document.getElementById('exp-filename').value || 'notes') + '.pdf';
+  const pageSize = document.getElementById('exp-pagesize').value;
+  const orient = document.getElementById('exp-orient').value;
+  const scale = parseFloat(document.getElementById('exp-scale').value);
+
+  prog.textContent = 'Initialising…';
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: orient, unit: 'mm', format: pageSize });
+
+  const pages = document.querySelectorAll('.page');
+  const pdfW = pdf.internal.pageSize.getWidth();
+  const pdfH = pdf.internal.pageSize.getHeight();
+
+  // temporarily hide editor chrome
+  document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='hidden');
+
+  try {
+    for (let i = 0; i < pages.length; i++) {
+      prog.textContent = `Rendering page ${i+1} of ${pages.length}…`;
+      const pg = pages[i];
+      const canvas = await html2canvas(pg, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        logging: false,
+        width: pg.scrollWidth,
+        height: pg.scrollHeight
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const canvasW = canvas.width / 2; // device pixels → CSS pixels
+      const canvasH = canvas.height / 2;
+
+      // fit into pdf page with margin
+      const margin = (1 - scale) * pdfW / 2;
+      const availW = pdfW * scale;
+      const availH = pdfH * scale;
+      const ratio = Math.min(availW / canvasW, availH / canvasH);
+      const imgW = canvasW * ratio;
+      const imgH = canvasH * ratio;
+      const x = margin + (availW - imgW) / 2;
+      const y = (pdfH - imgH) / 2;
+
+      if (i > 0) pdf.addPage(pageSize, orient);
+      pdf.addImage(imgData, 'PNG', x, y, imgW, imgH, undefined, 'FAST');
+    }
+    prog.textContent = 'Saving…';
+    pdf.save(filename);
+    prog.textContent = 'Done ✓';
+    setTimeout(closeExportModal, 1200);
+  } catch (err) {
+    prog.textContent = 'Error: ' + err.message;
+    console.error(err);
+  } finally {
+    document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='');
+  }
+}
+
+/* ═══════ SAVE / LOAD ═══════ */
+let saveTimer;
+function autosave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveDoc, 2000); }
+
+function saveDoc() {
+  const data = collectDocData();
+  try {
+    localStorage.setItem('noteforge_doc', JSON.stringify(data));
+    toast('Saved ✓');
+  } catch(e) { toast('Save failed — storage full?'); }
+}
+
+function loadFromStorage() {
+  const raw = localStorage.getItem('noteforge_doc');
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (!data.pages?.length) return;
+    document.getElementById('pages-container').innerHTML = '';
+    pageCount = 0;
+    restoreDocData(data);
+    if (data.title) document.getElementById('doc-title').value = data.title;
+    toast('Notes restored');
+  } catch(e) { console.error('Load error', e); }
+}
+
+/* ═══════ UTILS ═══════ */
+function placeCursorAtEnd(el) {
+  try { const r = document.createRange(); const s = window.getSelection(); r.selectNodeContents(el); r.collapse(false); s.removeAllRanges(); s.addRange(r); } catch(e) {}
+}
+let _toastTimer;
+function toast(msg, dur=1800) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { t.classList.remove('show'); _undoStack = null; }, dur);
+}
+function toastUndo(html, dur=5000) {
+  const t = document.getElementById('toast');
+  t.innerHTML = html;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { t.classList.remove('show'); _undoStack = null; }, dur);
+}
+function clearToast() {
+  clearTimeout(_toastTimer);
+  document.getElementById('toast').classList.remove('show');
+}
+
+/* ═══════ NOTES MANAGER ═══════ */
+const NM_KEY = 'noteforge_slots';
+
+function getNMSlots() {
+  try { return JSON.parse(localStorage.getItem(NM_KEY) || '{}'); } catch(e) { return {}; }
+}
+function setNMSlots(obj) {
+  localStorage.setItem(NM_KEY, JSON.stringify(obj));
+}
+
+function openNotesManager() {
+  renderNMList();
+  document.getElementById('notes-modal').style.display = 'flex';
+  const title = document.getElementById('doc-title').value;
+  if (title) document.getElementById('nm-slot-name').value = title;
+}
+function closeNotesManager() {
+  document.getElementById('notes-modal').style.display = 'none';
+}
+
+function renderNMList() {
+  const slots = getNMSlots();
+  const list = document.getElementById('nm-list');
+  const empty = document.getElementById('nm-empty');
+  const keys = Object.keys(slots).sort((a,b) => slots[b].ts - slots[a].ts);
+  list.innerHTML = '';
+  if (!keys.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  keys.forEach(k => {
+    const s = slots[k];
+    const date = new Date(s.ts).toLocaleString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-element);border:1px solid var(--border);border-radius:9px;';
+    row.innerHTML = `
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:500;color:var(--text-primary);font-family:var(--font-ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${k}</div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-ui);margin-top:2px;">${date} · ${s.pages || 1} page${(s.pages||1)>1?'s':''}</div>
+      </div>
+      <button onclick="nmLoad('${k.replace(/'/g,"\\'")}')" style="padding:5px 10px;background:var(--accent-1);color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--font-ui);white-space:nowrap;">Open</button>
+      <button onclick="nmDelete('${k.replace(/'/g,"\\'")}')" style="padding:5px 8px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-muted);cursor:pointer;font-family:var(--font-ui);">✕</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function nmSaveCurrent() {
+  const name = document.getElementById('nm-slot-name').value.trim();
+  if (!name) { toast('Enter a name for this note'); return; }
+  const data = collectDocData();
+  data.ts = Date.now();
+  data.pages = document.querySelectorAll('.page').length;
+  const slots = getNMSlots();
+  slots[name] = data;
+  setNMSlots(slots);
+  saveDoc(); // also update main autosave slot
+  renderNMList();
+  toast('Saved as "' + name + '" ✓');
+}
+
+function nmLoad(name) {
+  if (!confirm('Open "' + name + '"? Unsaved changes to the current canvas will be lost.')) return;
+  const slots = getNMSlots();
+  const data = slots[name];
+  if (!data) { toast('Note not found'); return; }
+  restoreDocData(data);
+  document.getElementById('doc-title').value = name;
+  closeNotesManager();
+  toast('Opened "' + name + '"');
+}
+
+function nmDelete(name) {
+  if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+  const slots = getNMSlots();
+  delete slots[name];
+  setNMSlots(slots);
+  renderNMList();
+  toast('Deleted "' + name + '"');
+}
+
+function nmNewBlank() {
+  if (!confirm('Start a new blank note? Save the current one first if needed.')) return;
+  clearCanvas();
+  document.getElementById('doc-title').value = '';
+  closeNotesManager();
+  toast('New blank note ready');
+}
+
+function nmClearCanvas() {
+  if (!confirm('Clear the canvas? This removes all elements but keeps saved notes.')) return;
+  clearCanvas();
+  closeNotesManager();
+  toast('Canvas cleared');
+}
+
+function clearDocPrompt() {
+  if (!confirm('Clear the entire document?\n\nAll unsaved content will be lost. Use Notes → Save first to keep a copy.')) return;
+  clearCanvas();
+  document.getElementById('doc-title').value = '';
+  toast('Document cleared');
+}
+
+function clearCanvas() {
+  document.getElementById('pages-container').innerHTML = '';
+  pageCount = 0;
+  numberingOn = false;
+  document.getElementById('num-toggle-cb').checked = false;
+  document.body.classList.remove('numbered');
+  addPage();
+}
+
+function collectDocData() {
+  const data = {
+    theme: document.body.getAttribute('data-theme'),
+    title: document.getElementById('doc-title').value,
+    numbering: numberingOn,
+    fontHeading, fontBody, fontTable,
+    pages: []
+  };
+  document.querySelectorAll('.page').forEach(pg => {
+    if (pg.hasAttribute('data-cover')) {
+      data.pages.push({
+        special: 'cover',
+        kicker: pg.querySelector('.cover-kicker')?.innerHTML || '',
+        title: pg.querySelector('.cover-title')?.innerHTML || '',
+        subtitle: pg.querySelector('.cover-subtitle')?.innerHTML || '',
+        meta: Array.from(pg.querySelectorAll('.cover-meta-value')).map(v => v.innerHTML)
+      });
+      return;
+    }
+    if (pg.hasAttribute('data-toc')) {
+      data.pages.push({
+        special: 'toc',
+        tocTitle: pg.querySelector('.toc-title')?.innerHTML || 'Contents'
+      });
+      return;
+    }
+    const els = [];
+    pg.querySelectorAll('.note-el').forEach(el => {
+      els.push({ type: el.getAttribute('data-type'), variant: el.getAttribute('data-variant'), html: el.innerHTML });
+    });
+    data.pages.push(els);
+  });
+  return data;
+}
+
+function restoreDocData(data) {
+  if (data.theme) setTheme(data.theme, null);
+  if (data.fontHeading) { fontHeading = data.fontHeading; document.documentElement.style.setProperty('--font-heading', fontHeading); try{document.getElementById('font-heading-sel').value=fontHeading;}catch(e){} }
+  if (data.fontBody) { fontBody = data.fontBody; document.documentElement.style.setProperty('--font-body', fontBody); try{document.getElementById('font-body-sel').value=fontBody;}catch(e){} }
+  if (data.fontTable) { fontTable = data.fontTable; try{document.getElementById('font-table-sel').value=fontTable;}catch(e){} }
+  document.getElementById('pages-container').innerHTML = '';
+  pageCount = 0;
+  (data.pages||[]).forEach(pgEls => {
+    // Handle special page types (cover / table of contents)
+    if (pgEls && pgEls.special === 'cover') {
+      const pg = addCoverPageSilent();
+      if (pgEls.kicker) pg.querySelector('.cover-kicker').innerHTML = pgEls.kicker;
+      if (pgEls.title) pg.querySelector('.cover-title').innerHTML = pgEls.title;
+      if (pgEls.subtitle) pg.querySelector('.cover-subtitle').innerHTML = pgEls.subtitle;
+      const metaVals = pg.querySelectorAll('.cover-meta-value');
+      (pgEls.meta||[]).forEach((v,i) => { if (metaVals[i]) metaVals[i].innerHTML = v; });
+      return;
+    }
+    if (pgEls && pgEls.special === 'toc') {
+      const pg = addTocPageSilent();
+      if (pgEls.tocTitle) pg.querySelector('.toc-title').innerHTML = pgEls.tocTitle;
+      return;
+    }
+
+    const pg = addPage();
+    (pgEls||[]).forEach(elData => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'note-el';
+      wrapper.setAttribute('data-type', elData.type);
+      if (elData.variant) wrapper.setAttribute('data-variant', elData.variant);
+      wrapper.innerHTML = elData.html;
+      forceEditableState(wrapper);
+      wrapper.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+      wrapper.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', autosave));
+      // re-wire table add row/col buttons (imported HTML buttons have no listeners)
+      rewireTableControls(wrapper);
+      // re-wire equation display click-to-edit
+      rewireEquationDisplay(wrapper);
+      // re-wire checklist add-item button
+      rewireChecklistButton(wrapper);
+      // re-wire link button live preview
+      rewireLinkButton(wrapper);
+      const pageNum = pg.querySelector('.page-num');
+      pg.insertBefore(wrapper, pageNum);
+      pg.insertBefore(makeAddBar(wrapper), pageNum);
+      attachElToolbar(wrapper);
+    });
+  });
+  if (data.numbering) {
+    numberingOn = true;
+    document.getElementById('num-toggle-cb').checked = true;
+    document.body.classList.add('numbered');
+    rebuildNumbers();
+  }
+  // refresh any TOC page now that all headings are in the DOM
+  const tocPg = document.querySelector('.page[data-toc]');
+  if (tocPg) refreshToc(tocPg);
+}
+
+/* Silent variants used during restore — same structure as addCoverPage/addTocPage
+   but appended in document order (not forced to start) and without toasts. */
+function addCoverPageSilent() {
+  pageCount++;
+  const c = document.getElementById('pages-container');
+  const page = document.createElement('div');
+  page.className = 'page is-cover';
+  page.setAttribute('data-page', pageCount);
+  page.setAttribute('data-cover', 'true');
+  page.innerHTML = `
+    <div class="cover-kicker" contenteditable="true"></div>
+    <div class="cover-title" contenteditable="true"></div>
+    <div class="cover-subtitle" contenteditable="true"></div>
+    <div class="cover-divider-mark"></div>
+    <div class="cover-meta">
+      <div class="cover-meta-row"><span class="cover-meta-label">Prepared by</span><span class="cover-meta-value" contenteditable="true" data-ph="Your name"></span></div>
+      <div class="cover-meta-row"><span class="cover-meta-label">Date</span><span class="cover-meta-value" contenteditable="true" data-ph="Date"></span></div>
+      <div class="cover-meta-row"><span class="cover-meta-label">Class</span><span class="cover-meta-value" contenteditable="true" data-ph="Class / Section"></span></div>
+    </div>
+    <div class="page-num">— cover —</div>
+  `;
+  c.appendChild(page);
+  page.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+  return page;
+}
+
+function addTocPageSilent() {
+  pageCount++;
+  const c = document.getElementById('pages-container');
+  const page = document.createElement('div');
+  page.className = 'page';
+  page.setAttribute('data-page', pageCount);
+  page.setAttribute('data-toc', 'true');
+  page.innerHTML = `
+    <button class="toc-refresh-btn" onclick="refreshToc(this.closest('.page'))">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9M13.5 2v3.5H10"/></svg>
+      Refresh index
+    </button>
+    <div class="toc-title" contenteditable="true">Contents</div>
+    <div class="toc-list"><div class="toc-empty">Refresh to populate.</div></div>
+    <div class="page-num">— contents —</div>
+  `;
+  c.appendChild(page);
+  page.querySelector('.toc-title').addEventListener('input', autosave);
+  return page;
+}
+
+/* Force contentEditable=true on every known editable class, regardless of
+   whether the imported HTML string included the attribute. This guards
+   against AI-generated or hand-written JSON that omits contenteditable
+   on some elements — without this, those elements load as static text. */
+const EDITABLE_SELECTORS = [
+  '.el-h1', '.el-h2', '.el-h3',
+  '.el-text', '.el-highlight',
+  '.def-term', '.def-body',
+  '.callout-body',
+  '.col-inner',
+  '.check-text',
+  '.eq-label',
+  '.el-img-caption',
+  '.el-table th', '.el-table td'
+].join(',');
+
+function forceEditableState(wrapper) {
+  wrapper.querySelectorAll(EDITABLE_SELECTORS).forEach(el => {
+    el.contentEditable = 'true';
+    el.setAttribute('contenteditable', 'true');
+  });
+}
+
+function rewireTableControls(wrapper) {
+  const tableWrap = wrapper.querySelector('.el-table-wrap');
+  if (!tableWrap) return;
+  const table = tableWrap.querySelector('.el-table');
+  const hrow = table.querySelector('thead tr');
+  const tbody = table.querySelector('tbody');
+  const ctl = wrapper.querySelector('.table-controls');
+  if (!ctl) return;
+  const btns = ctl.querySelectorAll('.table-ctl-btn');
+  if (btns[0]) btns[0].onclick = () => {
+    const nc = hrow.cells.length;
+    const tr = document.createElement('tr');
+    for (let c=0;c<nc;c++) { const td=document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); tr.appendChild(td); }
+    tbody.appendChild(tr); autosave();
+  };
+  if (btns[1]) btns[1].onclick = () => {
+    const th = document.createElement('th'); th.contentEditable=true; th.textContent='Column'; th.style.fontFamily=fontTable; th.addEventListener('input',autosave); hrow.appendChild(th);
+    tbody.querySelectorAll('tr').forEach(r => { const td=document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); r.appendChild(td); });
+    autosave();
+  };
+}
+
+function rewireEquationDisplay(wrapper) {
+  const display = wrapper.querySelector('.eq-display');
+  if (!display) return;
+  display.style.cursor = 'pointer';
+  display.title = 'Click to edit equation';
+  display.addEventListener('click', () => openEqEditor(wrapper));
+  const latex = display.getAttribute('data-latex');
+  if (latex) renderEqInEl(display, latex);
+  else display.innerHTML = `<span class="eq-placeholder"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>Click to add equation</span>`;
+}
+
+function rewireChecklistButton(wrapper) {
+  const list = wrapper.querySelector('.el-checklist');
+  const addBtn = wrapper.querySelector('.add-check-btn');
+  if (!list || !addBtn) return;
+  addBtn.onclick = () => {
+    const li = document.createElement('li'); li.className = 'check-item';
+    const cb = document.createElement('input'); cb.type = 'checkbox';
+    cb.addEventListener('change', autosave);
+    const txt = document.createElement('div'); txt.className = 'check-text';
+    txt.contentEditable = true; txt.style.fontFamily = fontBody;
+    txt.addEventListener('input', autosave);
+    txt.addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); addBtn.onclick(); } });
+    li.appendChild(cb); li.appendChild(txt);
+    list.appendChild(li);
+    setTimeout(() => txt.focus(), 30);
+    autosave();
+  };
+}
+
+function rewireLinkButton(wrapper) {
+  const linkWrap = wrapper.querySelector('.el-link-btn-wrap');
+  if (!linkWrap) return;
+  const inputs = linkWrap.querySelectorAll('.link-inputs input');
+  const btn = linkWrap.querySelector('.el-link-btn');
+  if (!inputs.length || !btn) return;
+  const [li, ui] = inputs;
+  const update = () => {
+    btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h4v4M13 3l-7 7M5 5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1v-2"/></svg> ${li.value||'Open Resource'}`;
+    btn.href = ui.value||'#'; autosave();
+  };
+  li.addEventListener('input', update);
+  ui.addEventListener('input', update);
+}
+
+
+/* ═══════ TOOLBAR GROUPS ═══════ */
+function toggleGroup(id) {
+  const group = document.getElementById(id);
+  const dd = group.querySelector('.tb-dropdown');
+  const btn = group.querySelector('.tb-group-btn');
+  const isOpen = dd.classList.contains('open');
+  closeGroups();
+  if (!isOpen) { dd.classList.add('open'); btn.classList.add('open'); }
+}
+function closeGroups() {
+  document.querySelectorAll('.tb-dropdown').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.tb-group-btn').forEach(b => b.classList.remove('open'));
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.tb-group')) closeGroups();
+});
+
+
+/* ═══════ INK EQUATION MODAL ═══════ */
+let _inkTargetWrap = null;
+let _inkStrokes = [];   // array of arrays of {x,y,p}
+let _inkCurrentStroke = null;
+let _inkCtx = null;
+let _inkDrawing = false;
+const INK_BG = '#ffffff';
+
+function openInkModal(eqWrap) {
+  _inkTargetWrap = eqWrap;
+  document.getElementById('ink-modal').classList.add('open');
+
+  // pre-fill latex if any
+  const src = eqWrap ? eqWrap.querySelector('.eq-source') : null;
+  const existing = src ? src.textContent.trim() : '';
+  document.getElementById('ink-latex-out').value = existing;
+  inkPreviewLatex();
+
+  // restore api key
+  const saved = localStorage.getItem('nf_mathpix_key') || '';
+  document.getElementById('ink-api-key').value = saved;
+
+  // init canvas
+  const canvas = document.getElementById('ink-canvas');
+  const wrap = document.getElementById('ink-canvas-wrap');
+  canvas.width = wrap.clientWidth * (window.devicePixelRatio || 1);
+  canvas.height = 200 * (window.devicePixelRatio || 1);
+  canvas.style.height = '200px';
+  _inkCtx = canvas.getContext('2d');
+  _inkCtx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+  inkClear();
+  setupInkCanvas(canvas);
+
+  document.getElementById('ink-pen-slider').addEventListener('input', function(){
+    document.getElementById('ink-pen-label').textContent = this.value + 'px';
+  });
+}
+
+function closeInkModal() {
+  document.getElementById('ink-modal').classList.remove('open');
+  _inkTargetWrap = null;
+}
+
+function setupInkCanvas(canvas) {
+  const pencilOnly = () => document.getElementById('ink-pencil-only').checked;
+
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top, p: t.force || 0.5 };
+  };
+
+  const start = (e) => {
+    if (pencilOnly() && e.pointerType && e.pointerType !== 'pen') return;
+    e.preventDefault();
+    _inkDrawing = true;
+    const pos = getPos(e);
+    _inkCurrentStroke = [pos];
+    _inkCtx.beginPath();
+    _inkCtx.moveTo(pos.x, pos.y);
+    document.getElementById('ink-canvas-wrap').classList.add('has-strokes');
+  };
+  const move = (e) => {
+    if (!_inkDrawing) return;
+    if (pencilOnly() && e.pointerType && e.pointerType !== 'pen') return;
+    e.preventDefault();
+    const pos = getPos(e);
+    _inkCurrentStroke.push(pos);
+    const pen = parseFloat(document.getElementById('ink-pen-slider').value);
+    _inkCtx.lineWidth = pen;
+    _inkCtx.strokeStyle = '#1a1a2e';
+    _inkCtx.lineCap = 'round';
+    _inkCtx.lineJoin = 'round';
+    const prev = _inkCurrentStroke[_inkCurrentStroke.length - 2];
+    _inkCtx.beginPath();
+    _inkCtx.moveTo(prev.x, prev.y);
+    _inkCtx.lineTo(pos.x, pos.y);
+    _inkCtx.stroke();
+  };
+  const end = (e) => {
+    if (!_inkDrawing) return;
+    e.preventDefault();
+    _inkDrawing = false;
+    if (_inkCurrentStroke && _inkCurrentStroke.length > 1) {
+      _inkStrokes.push([..._inkCurrentStroke]);
+    }
+    _inkCurrentStroke = null;
+  };
+
+  // pointer events (works for Pencil + touch + mouse)
+  canvas.addEventListener('pointerdown', start, { passive:false });
+  canvas.addEventListener('pointermove', move, { passive:false });
+  canvas.addEventListener('pointerup', end, { passive:false });
+  canvas.addEventListener('pointercancel', end, { passive:false });
+}
+
+function inkClear() {
+  _inkStrokes = [];
+  _inkCurrentStroke = null;
+  _inkDrawing = false;
+  if (_inkCtx) {
+    const canvas = document.getElementById('ink-canvas');
+    _inkCtx.fillStyle = INK_BG;
+    _inkCtx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  document.getElementById('ink-canvas-wrap').classList.remove('has-strokes');
+  document.getElementById('ink-status').textContent = '';
+}
+
+function inkUndo() {
+  if (!_inkStrokes.length) return;
+  _inkStrokes.pop();
+  // redraw all
+  const canvas = document.getElementById('ink-canvas');
+  _inkCtx.fillStyle = INK_BG;
+  _inkCtx.fillRect(0, 0, canvas.width, canvas.height);
+  const pen = parseFloat(document.getElementById('ink-pen-slider').value);
+  _inkStrokes.forEach(stroke => {
+    _inkCtx.beginPath();
+    stroke.forEach((pt, i) => { if (i===0) _inkCtx.moveTo(pt.x, pt.y); else _inkCtx.lineTo(pt.x, pt.y); });
+    _inkCtx.lineWidth = pen; _inkCtx.strokeStyle='#1a1a2e'; _inkCtx.lineCap='round'; _inkCtx.lineJoin='round';
+    _inkCtx.stroke();
+  });
+  if (!_inkStrokes.length) document.getElementById('ink-canvas-wrap').classList.remove('has-strokes');
+}
+
+function saveApiKey() {
+  const key = document.getElementById('ink-api-key').value.trim();
+  if (key) localStorage.setItem('nf_mathpix_key', key);
+}
+
+async function inkRecognize() {
+  const canvas = document.getElementById('ink-canvas');
+  const apiKeyRaw = document.getElementById('ink-api-key').value.trim();
+  const status = document.getElementById('ink-status');
+
+  if (!_inkStrokes.length) { status.textContent = 'Draw an equation first.'; return; }
+
+  const btn = document.getElementById('ink-recognize-btn');
+  btn.disabled = true; status.textContent = 'Recognising…';
+
+  try {
+    // Convert canvas to base64
+    const imgData = canvas.toDataURL('image/png').split(',')[1];
+
+    let latex = '';
+
+    if (apiKeyRaw && apiKeyRaw.includes(':')) {
+      // MathPix API
+      const [app_id, app_key] = apiKeyRaw.split(':').map(s => s.trim());
+      const resp = await fetch('https://api.mathpix.com/v3/text', {
+        method:'POST',
+        headers:{
+          'app_id': app_id,
+          'app_key': app_key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          src: 'data:image/png;base64,' + imgData,
+          formats: ['latex_simplified'],
+          data_options: { include_latex: true }
+        })
+      });
+      const data = await resp.json();
+      latex = data.latex_simplified || data.text || '';
+      if (!latex) throw new Error(data.error || 'No result from MathPix');
+      status.textContent = 'Recognised ✓ — edit as needed';
+    } else {
+      // No API key — show helpful message
+      status.innerHTML = 'No MathPix key. <a href="https://mathpix.com" target="_blank" style="color:var(--accent-2);text-decoration:underline;">Get a free key</a>, paste as <code>app_id:app_key</code>. Or type LaTeX directly below.';
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById('ink-latex-out').value = latex;
+    inkPreviewLatex();
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+function inkPreviewLatex() {
+  const latex = document.getElementById('ink-latex-out').value.trim();
+  const preview = document.getElementById('ink-preview');
+  if (!latex) {
+    preview.innerHTML = '<span style="font-size:12px;color:#bbb;font-family:var(--font-ui);font-style:italic;">Preview appears here</span>';
+    return;
+  }
+  try {
+    preview.innerHTML = '';
+    katex.render(latex, preview, { throwOnError:false, displayMode:true });
+  } catch(e) {
+    preview.innerHTML = `<span style="color:#c44;font-size:12px;">${e.message}</span>`;
+  }
+}
+
+function inkInsert() {
+  const latex = document.getElementById('ink-latex-out').value.trim();
+  if (!latex) { document.getElementById('ink-status').textContent = 'Nothing to insert — write or recognise first.'; return; }
+
+  if (_inkTargetWrap) {
+    // insert into existing equation block
+    const src = _inkTargetWrap.querySelector('.eq-source');
+    if (src) { src.textContent = latex; renderEq(_inkTargetWrap); autosave(); }
+  } else {
+    // insert a new equation block
+    insertEl('equation');
+    setTimeout(() => {
+      const wraps = document.querySelectorAll('.el-equation-wrap');
+      const last = wraps[wraps.length-1];
+      if (last) { const src = last.querySelector('.eq-source'); if(src){src.textContent=latex; renderEq(last); autosave();} }
+    }, 100);
+  }
+  closeInkModal();
+  toast('Equation inserted ✓');
+}
+
+// Re-render equations after load (KaTeX deferred)
+window.addEventListener('load', () => {
+  setTimeout(renderAllEquations, 400);
+});
+
+
+/* ══════════════════════════════════════════
+   VISUAL EQUATION EDITOR
+══════════════════════════════════════════ */
+let _eqTargetWrap = null;
+
+/* ── Palette definitions ── */
+const EQ_PALETTES = {
+  basic: [
+    { sym:'x + y',  name:'Add',      latex:'+' },
+    { sym:'x − y',  name:'Subtract', latex:'-' },
+    { sym:'x × y',  name:'Multiply', latex:'\\times' },
+    { sym:'x ÷ y',  name:'Divide',   latex:'\\div' },
+    { sym:'x · y',  name:'Dot',      latex:'\\cdot' },
+    { sym:'x = y',  name:'Equals',   latex:'=' },
+    { sym:'x ≠ y',  name:'Not equal',latex:'\\neq' },
+    { sym:'x < y',  name:'Less',     latex:'<' },
+    { sym:'x > y',  name:'Greater',  latex:'>' },
+    { sym:'x ≤ y',  name:'Less/eq',  latex:'\\leq' },
+    { sym:'x ≥ y',  name:'Greater/eq',latex:'\\geq' },
+    { sym:'x ≈ y',  name:'Approx',   latex:'\\approx' },
+    { sym:'±',      name:'Plus/minus',latex:'\\pm' },
+    { sym:'∞',      name:'Infinity', latex:'\\infty' },
+    { sym:'( )',    name:'Brackets', latex:'\\left(  \\right)' },
+    { sym:'[ ]',   name:'Square br',latex:'\\left[  \\right]' },
+    { sym:'| |',   name:'Abs value', latex:'\\left|  \\right|' },
+    { sym:'%',      name:'Percent',  latex:'\\%' },
+    { sym:'°',      name:'Degree',   latex:'^{\\circ}' },
+  ],
+  fractions: [
+    { katex:'\\frac{a}{b}',      name:'Fraction',    latex:'\\frac{}{}',    cursor:-3 },
+    { katex:'\\frac{a}{b}+c',    name:'Frac + term', latex:'\\frac{}{} + ',  cursor:-5 },
+    { katex:'a^{n}',             name:'Superscript', latex:'^{}',            cursor:-1 },
+    { katex:'a_{n}',             name:'Subscript',   latex:'_{}',            cursor:-1 },
+    { katex:'a^{2}',             name:'Squared',     latex:'^{2}' },
+    { katex:'a^{3}',             name:'Cubed',       latex:'^{3}' },
+    { katex:'a^{n}_{m}',        name:'Sub+Super',   latex:'^{}_{}'          },
+    { katex:'\\sqrt{x}',         name:'Square root', latex:'\\sqrt{}',       cursor:-1 },
+    { katex:'\\sqrt[n]{x}',      name:'nth root',    latex:'\\sqrt[n]{}',    cursor:-1 },
+    { katex:'\\left(\\frac{a}{b}\\right)^n', name:'(frac)ⁿ', latex:'\\left(\\frac{}{}\\right)^{}' },
+    { katex:'a^{\\frac{m}{n}}',  name:'Frac power',  latex:'^{\\frac{}{}}' },
+    { katex:'\\overline{AB}',    name:'Overline',    latex:'\\overline{}',   cursor:-1 },
+    { katex:'\\vec{v}',          name:'Vector',      latex:'\\vec{}',        cursor:-1 },
+    { katex:'\\hat{x}',          name:'Hat',         latex:'\\hat{}',        cursor:-1 },
+    { katex:'\\dot{x}',          name:'Dot above',   latex:'\\dot{}',        cursor:-1 },
+    { katex:'\\ddot{x}',         name:'Double dot',  latex:'\\ddot{}',       cursor:-1 },
+  ],
+  greek: [
+    { sym:'α', name:'alpha',   latex:'\\alpha' },
+    { sym:'β', name:'beta',    latex:'\\beta' },
+    { sym:'γ', name:'gamma',   latex:'\\gamma' },
+    { sym:'δ', name:'delta',   latex:'\\delta' },
+    { sym:'ε', name:'epsilon', latex:'\\epsilon' },
+    { sym:'ζ', name:'zeta',    latex:'\\zeta' },
+    { sym:'η', name:'eta',     latex:'\\eta' },
+    { sym:'θ', name:'theta',   latex:'\\theta' },
+    { sym:'κ', name:'kappa',   latex:'\\kappa' },
+    { sym:'λ', name:'lambda',  latex:'\\lambda' },
+    { sym:'μ', name:'mu',      latex:'\\mu' },
+    { sym:'ν', name:'nu',      latex:'\\nu' },
+    { sym:'ξ', name:'xi',      latex:'\\xi' },
+    { sym:'π', name:'pi',      latex:'\\pi' },
+    { sym:'ρ', name:'rho',     latex:'\\rho' },
+    { sym:'σ', name:'sigma',   latex:'\\sigma' },
+    { sym:'τ', name:'tau',     latex:'\\tau' },
+    { sym:'φ', name:'phi',     latex:'\\phi' },
+    { sym:'χ', name:'chi',     latex:'\\chi' },
+    { sym:'ψ', name:'psi',     latex:'\\psi' },
+    { sym:'ω', name:'omega',   latex:'\\omega' },
+    { sym:'Γ', name:'Gamma',   latex:'\\Gamma' },
+    { sym:'Δ', name:'Delta',   latex:'\\Delta' },
+    { sym:'Θ', name:'Theta',   latex:'\\Theta' },
+    { sym:'Λ', name:'Lambda',  latex:'\\Lambda' },
+    { sym:'Π', name:'Pi',      latex:'\\Pi' },
+    { sym:'Σ', name:'Sigma',   latex:'\\Sigma' },
+    { sym:'Φ', name:'Phi',     latex:'\\Phi' },
+    { sym:'Ψ', name:'Psi',     latex:'\\Psi' },
+    { sym:'Ω', name:'Omega',   latex:'\\Omega' },
+  ],
+  calculus: [
+    { katex:'\\int',               name:'Integral',     latex:'\\int ' },
+    { katex:'\\int_a^b',           name:'Def. integral',latex:'\\int_{a}^{b} ', cursor:-2 },
+    { katex:'\\iint',              name:'Double int',   latex:'\\iint ' },
+    { katex:'\\oint',              name:'Contour int',  latex:'\\oint ' },
+    { katex:'\\sum',               name:'Sum',          latex:'\\sum ' },
+    { katex:'\\sum_{i=0}^{n}',     name:'Sum i to n',   latex:'\\sum_{i=0}^{n} ' },
+    { katex:'\\prod',              name:'Product',      latex:'\\prod ' },
+    { katex:'\\prod_{i=1}^{n}',    name:'Prod i to n',  latex:'\\prod_{i=1}^{n} ' },
+    { katex:'\\lim_{x\\to 0}',     name:'Limit',        latex:'\\lim_{x \\to 0} ' },
+    { katex:'\\lim_{x\\to\\infty}',name:'Limit ∞',      latex:'\\lim_{x \\to \\infty} ' },
+    { katex:'\\frac{d}{dx}',       name:'Derivative',   latex:'\\frac{d}{dx}' },
+    { katex:'\\frac{dy}{dx}',      name:'dy/dx',        latex:'\\frac{dy}{dx}' },
+    { katex:'\\frac{d^2y}{dx^2}',  name:'2nd deriv',    latex:'\\frac{d^2y}{dx^2}' },
+    { katex:'\\frac{\\partial}{\\partial x}', name:'Partial ∂/∂x', latex:'\\frac{\\partial}{\\partial x}' },
+    { katex:'\\nabla',             name:'Nabla ∇',      latex:'\\nabla' },
+    { katex:'\\partial',           name:'Partial ∂',    latex:'\\partial' },
+    { katex:'\\Delta',             name:'Delta',        latex:'\\Delta' },
+    { katex:'\\infty',             name:'Infinity',     latex:'\\infty' },
+    { katex:'f\'(x)',              name:"f prime",      latex:"f'(x)" },
+    { katex:'f\'\'(x)',            name:"f double prime",latex:"f''(x)" },
+    { katex:'\\dot{x}',            name:'ẋ dot',        latex:'\\dot{x}' },
+  ],
+  trig: [
+    { sym:'sin',   name:'sine',      latex:'\\sin' },
+    { sym:'cos',   name:'cosine',    latex:'\\cos' },
+    { sym:'tan',   name:'tangent',   latex:'\\tan' },
+    { sym:'cot',   name:'cotangent', latex:'\\cot' },
+    { sym:'sec',   name:'secant',    latex:'\\sec' },
+    { sym:'csc',   name:'cosecant',  latex:'\\csc' },
+    { sym:'sin⁻¹', name:'arcsin',    latex:'\\sin^{-1}' },
+    { sym:'cos⁻¹', name:'arccos',    latex:'\\cos^{-1}' },
+    { sym:'tan⁻¹', name:'arctan',    latex:'\\tan^{-1}' },
+    { sym:'sinh',  name:'sinh',      latex:'\\sinh' },
+    { sym:'cosh',  name:'cosh',      latex:'\\cosh' },
+    { sym:'tanh',  name:'tanh',      latex:'\\tanh' },
+    { sym:'log',   name:'log',       latex:'\\log' },
+    { sym:'ln',    name:'ln',        latex:'\\ln' },
+    { sym:'log₂',  name:'log base 2',latex:'\\log_2' },
+    { sym:'exp',   name:'exp',       latex:'\\exp' },
+    { katex:'e^x', name:'eˣ',        latex:'e^{x}' },
+    { sym:'π',     name:'pi',        latex:'\\pi' },
+  ],
+  sets: [
+    { sym:'∈',  name:'element of', latex:'\\in' },
+    { sym:'∉',  name:'not in',     latex:'\\notin' },
+    { sym:'⊂',  name:'subset',     latex:'\\subset' },
+    { sym:'⊆',  name:'subset/eq',  latex:'\\subseteq' },
+    { sym:'⊃',  name:'superset',   latex:'\\supset' },
+    { sym:'∪',  name:'union',      latex:'\\cup' },
+    { sym:'∩',  name:'intersect',  latex:'\\cap' },
+    { sym:'∅',  name:'empty set',  latex:'\\emptyset' },
+    { sym:'ℝ',  name:'reals',      latex:'\\mathbb{R}' },
+    { sym:'ℤ',  name:'integers',   latex:'\\mathbb{Z}' },
+    { sym:'ℕ',  name:'naturals',   latex:'\\mathbb{N}' },
+    { sym:'ℚ',  name:'rationals',  latex:'\\mathbb{Q}' },
+    { sym:'ℂ',  name:'complex',    latex:'\\mathbb{C}' },
+    { sym:'∀',  name:'for all',    latex:'\\forall' },
+    { sym:'∃',  name:'exists',     latex:'\\exists' },
+    { sym:'¬',  name:'not',        latex:'\\neg' },
+    { sym:'∧',  name:'and',        latex:'\\land' },
+    { sym:'∨',  name:'or',         latex:'\\lor' },
+    { sym:'⇒',  name:'implies',    latex:'\\Rightarrow' },
+    { sym:'⇔',  name:'iff',        latex:'\\Leftrightarrow' },
+    { sym:'∴',  name:'therefore',  latex:'\\therefore' },
+    { sym:'∵',  name:'because',    latex:'\\because' },
+  ],
+  arrows: [
+    { sym:'→',  name:'right',      latex:'\\rightarrow' },
+    { sym:'←',  name:'left',       latex:'\\leftarrow' },
+    { sym:'↔',  name:'both',       latex:'\\leftrightarrow' },
+    { sym:'↑',  name:'up',         latex:'\\uparrow' },
+    { sym:'↓',  name:'down',       latex:'\\downarrow' },
+    { sym:'⇒',  name:'fat right',  latex:'\\Rightarrow' },
+    { sym:'⇐',  name:'fat left',   latex:'\\Leftarrow' },
+    { sym:'⇔',  name:'fat both',   latex:'\\Leftrightarrow' },
+    { sym:'↗',  name:'ne',         latex:'\\nearrow' },
+    { sym:'↘',  name:'se',         latex:'\\searrow' },
+    { sym:'↩',  name:'hook right', latex:'\\hookleftarrow' },
+    { sym:'↦',  name:'mapsto',     latex:'\\mapsto' },
+    { sym:'⟹',  name:'long right', latex:'\\Longrightarrow' },
+    { sym:'⟺',  name:'long both',  latex:'\\Longleftrightarrow' },
+  ],
+};
+
+let _eqCurrentTab = 'basic';
+
+function openEqEditor(wrap) {
+  _eqTargetWrap = wrap;
+  const existing = wrap.querySelector('.eq-display')?.getAttribute('data-latex') || '';
+  document.getElementById('eq-input').value = existing;
+  eqRefreshPreview();
+  eqTab('basic', document.querySelector('.eq-tab.active') || document.querySelector('.eq-tab'));
+  document.getElementById('eq-modal').classList.add('open');
+  setTimeout(() => document.getElementById('eq-input').focus(), 100);
+}
+
+function closeEqEditor() {
+  document.getElementById('eq-modal').classList.remove('open');
+  _eqTargetWrap = null;
+}
+
+function eqTab(name, el) {
+  _eqCurrentTab = name;
+  document.querySelectorAll('.eq-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderEqPalette(name);
+}
+
+function renderEqPalette(name) {
+  const palette = document.getElementById('eq-palette');
+  palette.innerHTML = '';
+  const items = EQ_PALETTES[name] || [];
+  items.forEach(item => {
+    const btn = document.createElement('div');
+    btn.className = 'eq-btn';
+    btn.title = item.latex;
+
+    let symEl;
+    if (item.katex) {
+      // render with KaTeX for structure buttons
+      symEl = document.createElement('div');
+      symEl.className = 'eq-btn-sym';
+      try { katex.render(item.katex, symEl, { throwOnError:false, displayMode:false }); }
+      catch(e) { symEl.textContent = item.name; }
+    } else {
+      symEl = document.createElement('div');
+      symEl.className = 'eq-btn-sym';
+      symEl.textContent = item.sym || item.name;
+    }
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'eq-btn-name';
+    nameEl.textContent = item.name;
+
+    btn.appendChild(symEl);
+    btn.appendChild(nameEl);
+    btn.addEventListener('click', () => eqInsertFragment(item.latex, item.cursor));
+    palette.appendChild(btn);
+  });
+}
+
+function eqInsertFragment(latex, cursorBack) {
+  const inp = document.getElementById('eq-input');
+  const start = inp.selectionStart;
+  const end   = inp.selectionEnd;
+  const val   = inp.value;
+  const newVal = val.slice(0, start) + latex + val.slice(end);
+  inp.value = newVal;
+  // place cursor inside first {} if present, else at end
+  let pos = start + latex.length;
+  if (cursorBack) {
+    pos = start + latex.length + cursorBack;
+  } else {
+    const firstBrace = latex.indexOf('{}');
+    if (firstBrace !== -1) pos = start + firstBrace + 1;
+  }
+  inp.setSelectionRange(pos, pos);
+  inp.focus();
+  eqRefreshPreview();
+}
+
+function eqInputChanged() { eqRefreshPreview(); }
+
+function eqInputKey(e) {
+  if (e.key === 'Enter') { e.preventDefault(); eqInsert(); }
+}
+
+function eqRefreshPreview() {
+  const latex = document.getElementById('eq-input').value.trim();
+  const out = document.getElementById('eq-preview-out');
+  if (!latex) {
+    out.innerHTML = '<span id="eq-preview-placeholder">Your equation appears here as you build it</span>';
+    return;
+  }
+  try {
+    out.innerHTML = '';
+    katex.render(latex, out, { throwOnError:false, displayMode:true });
+  } catch(e) {
+    out.innerHTML = `<span style="color:#c44;font-size:12px;font-family:var(--font-ui);">${e.message}</span>`;
+  }
+}
+
+function eqClearInput() {
+  document.getElementById('eq-input').value = '';
+  eqRefreshPreview();
+  document.getElementById('eq-input').focus();
+}
+
+function eqBackspace() {
+  const inp = document.getElementById('eq-input');
+  const pos = inp.selectionStart;
+  if (pos === 0) return;
+  inp.value = inp.value.slice(0, pos - 1) + inp.value.slice(pos);
+  inp.setSelectionRange(pos - 1, pos - 1);
+  inp.focus();
+  eqRefreshPreview();
+}
+
+function eqInsert() {
+  const latex = document.getElementById('eq-input').value.trim();
+  if (!latex) { closeEqEditor(); return; }
+
+  if (_eqTargetWrap) {
+    const display = _eqTargetWrap.querySelector('.eq-display');
+    if (display) renderEqInEl(display, latex);
+    autosave();
+  } else {
+    // insert brand new block
+    insertEl('equation');
+    setTimeout(() => {
+      const wraps = document.querySelectorAll('.el-equation-wrap');
+      const last = wraps[wraps.length - 1];
+      if (last) {
+        const display = last.querySelector('.eq-display');
+        if (display) renderEqInEl(display, latex);
+        autosave();
+      }
+    }, 120);
+  }
+  closeEqEditor();
+  toast('Equation inserted ✓');
+}
+
+function eqLaunchInk() {
+  // store latex so ink result can flow back to eq editor
+  closeEqEditor();
+  openInkModal(_eqTargetWrap);
+}
+
+// override ink insert to re-open eq editor with result
+const _origInkInsert = typeof inkInsert === 'function' ? inkInsert : null;
+function inkInsert() {
+  const latex = document.getElementById('ink-latex-out').value.trim();
+  closeInkModal();
+  if (latex) {
+    document.getElementById('eq-input').value = latex;
+    eqRefreshPreview();
+    document.getElementById('eq-modal').classList.add('open');
+    setTimeout(() => document.getElementById('eq-input').focus(), 100);
+  }
+}
+
+// Re-render on load
+window.addEventListener('load', () => {
+  setTimeout(renderAllEquations, 500);
+});
+
+
+/* ═══════ IMPORT JSON ═══════ */
+function nmImportJSON() {
+  closeNotesManager();
+  document.getElementById('import-json-input').value = '';
+  document.getElementById('import-error').style.display = 'none';
+  document.getElementById('import-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('import-json-input').focus(), 100);
+}
+function closeImportModal() {
+  document.getElementById('import-modal').style.display = 'none';
+}
+function runImportJSON() {
+  const raw = document.getElementById('import-json-input').value.trim();
+  const errEl = document.getElementById('import-error');
+  errEl.style.display = 'none';
+
+  // strip markdown code fences if pasted with them
+  let cleaned = raw.replace(/^```json\s*/i,'').replace(/```\s*$/,'').trim();
+
+  let data;
+  try {
+    data = JSON.parse(cleaned);
+  } catch(e) {
+    errEl.textContent = 'Invalid JSON: ' + e.message + '. Check for missing commas or unclosed brackets.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!data.pages || !Array.isArray(data.pages)) {
+    errEl.textContent = 'JSON parsed but missing "pages" array. Make sure the AI output the full schema.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  closeImportModal();
+  document.getElementById('pages-container').innerHTML = '';
+  pageCount = 0;
+  restoreDocData(data);
+  if (data.title) document.getElementById('doc-title').value = data.title;
+  renderAllEquations();
+  saveDoc();
+  toast('Note imported ✓ — ' + (data.pages.length) + ' page' + (data.pages.length>1?'s':'') + ' loaded');
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveDoc(); }
+  if (e.key==='Escape') { closeMenu(); closeExportModal(); closeInkModal(); closeEqEditor(); closeImportModal(); }
+});
+</script>
+
+<!-- ░░ NOTES MANAGER MODAL ░░ -->
+<div id="notes-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:none;align-items:center;justify-content:center;">
+  <div id="notes-box" style="background:var(--bg-canvas);border:1px solid var(--border);border-radius:16px;padding:0;width:520px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.35);overflow:hidden;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div>
+        <div style="font-family:var(--font-heading);font-size:18px;font-weight:600;color:var(--text-primary);">Notes Manager</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;font-family:var(--font-ui);">Save, switch, and clear note sessions</div>
+      </div>
+      <button onclick="closeNotesManager()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;width:28px;height:28px;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <!-- Save current as named slot -->
+    <div style="padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);font-family:var(--font-ui);margin-bottom:8px;">Save current note as</div>
+      <div style="display:flex;gap:8px;">
+        <input id="nm-slot-name" type="text" placeholder="e.g. Chapter 3 — Photosynthesis" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-size:13px;font-family:var(--font-ui);outline:none;">
+        <button onclick="nmSaveCurrent()" style="padding:7px 16px;background:var(--accent-1);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-ui);white-space:nowrap;">Save note</button>
+      </div>
+    </div>
+    <!-- Saved notes list -->
+    <div style="flex:1;overflow-y:auto;padding:12px 24px 16px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-muted);font-family:var(--font-ui);margin-bottom:10px;">Saved notes</div>
+      <div id="nm-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+      <div id="nm-empty" style="font-size:13px;color:var(--text-muted);font-family:var(--font-ui);font-style:italic;padding:12px 0;display:none;">No saved notes yet. Save the current canvas above.</div>
+    </div>
+    <!-- New blank note -->
+    <div style="padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;">
+      <button onclick="nmNewBlank()" style="flex:1;padding:9px;background:var(--highlight);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-ui);">+ New blank note</button>
+      <button onclick="nmClearCanvas()" style="flex:1;padding:9px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:var(--font-ui);">Clear canvas only</button>
+      <button onclick="nmImportJSON()" style="flex:1;padding:9px;background:var(--accent-3);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-ui);">⬆ Import JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ INK EQUATION MODAL ░░ -->
+<div id="ink-modal">
+  <div id="ink-box">
+    <div id="ink-header">
+      <div>
+        <h3>Ink an Equation</h3>
+        <p>Draw with Apple Pencil or finger · recognise with MathPix · insert as LaTeX</p>
+      </div>
+      <button onclick="closeInkModal()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;width:28px;height:28px;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+
+    <div id="ink-canvas-wrap">
+      <canvas id="ink-canvas"></canvas>
+      <div id="ink-guide">Draw your equation here with Pencil or finger</div>
+    </div>
+
+    <div id="ink-controls">
+      <button class="ink-ctl-btn" onclick="inkClear()">Clear</button>
+      <button class="ink-ctl-btn" onclick="inkUndo()">Undo stroke</button>
+      <div class="ink-pen-size">
+        <span>Pen</span>
+        <input type="range" id="ink-pen-slider" min="1" max="6" value="2" step="0.5">
+        <span id="ink-pen-label">2px</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:5px;margin-left:8px;font-size:11px;color:var(--text-muted);font-family:var(--font-ui);cursor:pointer;">
+        <input type="checkbox" id="ink-pencil-only"> Pencil only
+      </label>
+    </div>
+
+    <div id="ink-latex-section">
+      <label>LaTeX output — edit freely after recognition</label>
+      <textarea id="ink-latex-out" placeholder="LaTeX will appear here after recognition, or type directly…" oninput="inkPreviewLatex()"></textarea>
+      <div id="ink-preview"><span style="font-size:12px;color:#bbb;font-family:var(--font-ui);font-style:italic;">Preview appears here</span></div>
+    </div>
+
+    <div id="ink-footer">
+      <div id="ink-api-wrap">
+        <label>MathPix App ID + Key:</label>
+        <input type="text" id="ink-api-key" placeholder="app_id:app_key  (free at mathpix.com)" oninput="saveApiKey()">
+        <button id="ink-recognize-btn" onclick="inkRecognize()">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-2px;margin-right:4px"><path d="M3 8a5 5 0 1010 0A5 5 0 003 8z"/><path d="M8 5v3l2 2"/></svg>
+          Recognise
+        </button>
+      </div>
+      <button id="ink-cancel-btn" onclick="closeInkModal()">Cancel</button>
+      <button id="ink-insert-btn" onclick="inkInsert()">Insert equation</button>
+      <div id="ink-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ VISUAL EQUATION EDITOR ░░ -->
+<div id="eq-modal">
+  <div id="eq-box">
+    <!-- Live preview -->
+    <div id="eq-preview-bar">
+      <span class="eq-preview-label">Live preview</span>
+      <div id="eq-preview-out"><span id="eq-preview-placeholder">Your equation appears here as you build it</span></div>
+    </div>
+
+    <!-- Category tabs -->
+    <div id="eq-tabs">
+      <div class="eq-tab active" onclick="eqTab('basic',this)">Basic</div>
+      <div class="eq-tab" onclick="eqTab('fractions',this)">Fractions &amp; Powers</div>
+      <div class="eq-tab" onclick="eqTab('greek',this)">Greek</div>
+      <div class="eq-tab" onclick="eqTab('calculus',this)">Calculus</div>
+      <div class="eq-tab" onclick="eqTab('trig',this)">Trig</div>
+      <div class="eq-tab" onclick="eqTab('sets',this)">Sets &amp; Logic</div>
+      <div class="eq-tab" onclick="eqTab('arrows',this)">Arrows</div>
+    </div>
+
+    <!-- Palette grid (filled by JS) -->
+    <div id="eq-palette"></div>
+
+    <!-- Input + actions -->
+    <div id="eq-input-row">
+      <input id="eq-input" type="text" placeholder="Equation input — click buttons above or type LaTeX directly"
+        oninput="eqInputChanged()" onkeydown="eqInputKey(event)">
+      <button id="eq-ink-launch" onclick="eqLaunchInk()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M10 3l3 3-8 8H2v-3L10 3z"/>
+        </svg>
+        Ink
+      </button>
+      <button class="eq-action-btn secondary" onclick="eqClearInput()">Clear</button>
+      <button class="eq-action-btn secondary" onclick="eqBackspace()">⌫</button>
+      <button class="eq-action-btn primary" onclick="eqInsert()">Insert ✓</button>
+      <button class="eq-action-btn secondary" onclick="closeEqEditor()">Cancel</button>
+      <div id="eq-input-hint">Tip: click a button to insert · use ← → to move cursor · Backspace to delete</div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ IMPORT JSON MODAL ░░ -->
+<div id="import-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:6000;display:none;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-canvas);border:1px solid var(--border);border-radius:16px;padding:0;width:min(600px,94vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
+    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-family:var(--font-heading);font-size:18px;font-weight:600;color:var(--text-primary);">Import from AI Studio</div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-ui);margin-top:3px;">Paste the JSON generated by Gemini and click Load. Unsaved canvas content will be replaced.</div>
+    </div>
+    <div style="flex:1;padding:16px 24px;overflow-y:auto;">
+      <textarea id="import-json-input" style="width:100%;height:260px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-element);color:var(--text-primary);font-family:var(--font-mono);font-size:12px;outline:none;resize:vertical;" placeholder='Paste NoteForge JSON here…&#10;&#10;{ "title": "Motion", "theme": "earthy", "pages": [...] }'></textarea>
+      <div id="import-error" style="margin-top:8px;font-size:12px;color:#c44;font-family:var(--font-ui);display:none;"></div>
+    </div>
+    <div style="display:flex;gap:8px;padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+      <button onclick="runImportJSON()" style="flex:1;padding:10px;background:var(--accent-1);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font-ui);">Load note</button>
+      <button onclick="closeImportModal()" style="padding:10px 20px;background:transparent;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);">Cancel</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
