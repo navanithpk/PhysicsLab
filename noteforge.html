@@ -616,7 +616,7 @@ body.drag-active #paste-overlay{display:flex;}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg-toolbar);color:rgba(255,255,255,0.9);padding:9px 20px;border-radius:999px;font-family:var(--font-ui);font-size:12px;font-weight:500;z-index:9999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:auto;cursor:default;}
 #toast.show{transform:translateX(-50%) translateY(0);}
 
-/* ─── PRINT ─── */
+/* ─── PRINT (native browser print / share sheet only) ─── */
 @media print{
   #toolbar,#left-panel,#float-insert,#paste-overlay,#toast,#export-modal,
   .el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,
@@ -628,35 +628,39 @@ body.drag-active #paste-overlay{display:flex;}
   .el-image-zone input[type=file]{display:none!important;}
   [data-theme="forest"]{--bg-page:#fff;--bg-canvas:#fff;--text-primary:#000;--text-secondary:#333;--text-muted:#666;--border:#ccc;--accent-1:#000;--highlight:#f0f0f0;}
   @page{size:A4;margin:0;}
-
-  /* ── Suppress every placeholder hint in print: never show prompt text ── */
-  .el-h1[contenteditable]:empty::before,
-  .el-h2[contenteditable]:empty::before,
-  .el-h3[contenteditable]:empty::before,
-  .el-text[contenteditable]:empty::before,
-  .el-highlight[contenteditable]:empty::before,
-  .el-img-caption[contenteditable]:empty::before,
-  .el-callout .callout-body[contenteditable]:empty::before,
-  .el-definition .def-term[contenteditable]:empty::before,
-  .el-definition .def-body[contenteditable]:empty::before,
-  .eq-label[contenteditable]:empty::before,
-  .col-inner[contenteditable]:empty::before,
-  .check-item .check-text[contenteditable]:empty::before,
-  .cover-kicker[contenteditable]:empty::before,
-  .cover-title[contenteditable]:empty::before,
-  .cover-subtitle[contenteditable]:empty::before,
-  .cover-meta-value[contenteditable]:empty::before,
-  .eq-display .eq-placeholder,
-  .el-image-zone .eq-placeholder {
-    content: "" !important;
-    display: none !important;
-  }
 }
 
-/* ─── EMPTY-ELEMENT HIDING (for print + PDF export) ───
+/* ─── EXPORT MODE (jsPDF / html2canvas capture) ───
+   body.exporting is toggled on right before html2canvas snapshots each
+   page, and removed right after. html2canvas renders the live DOM and
+   does NOT honour @media print, so every placeholder/empty-state rule
+   that must affect the exported PDF lives here instead. */
+body.exporting .el-h1[contenteditable]:empty::before,
+body.exporting .el-h2[contenteditable]:empty::before,
+body.exporting .el-h3[contenteditable]:empty::before,
+body.exporting .el-text[contenteditable]:empty::before,
+body.exporting .el-highlight[contenteditable]:empty::before,
+body.exporting .el-img-caption[contenteditable]:empty::before,
+body.exporting .el-callout .callout-body[contenteditable]:empty::before,
+body.exporting .el-definition .def-term[contenteditable]:empty::before,
+body.exporting .el-definition .def-body[contenteditable]:empty::before,
+body.exporting .eq-label[contenteditable]:empty::before,
+body.exporting .col-inner[contenteditable]:empty::before,
+body.exporting .check-item .check-text[contenteditable]:empty::before,
+body.exporting .cover-kicker[contenteditable]:empty::before,
+body.exporting .cover-title[contenteditable]:empty::before,
+body.exporting .cover-subtitle[contenteditable]:empty::before,
+body.exporting .cover-meta-value[contenteditable]:empty::before,
+body.exporting .eq-display .eq-placeholder,
+body.exporting .el-image-zone .eq-placeholder {
+  content: "" !important;
+  display: none !important;
+}
+
+/* ─── EMPTY-ELEMENT HIDING (print + PDF export) ───
    JS tags genuinely-empty elements with data-empty="true" right before
-   capture/print, then removes the tag afterward. This class works
-   outside @media print too, since html2canvas doesn't honour print media. */
+   capture/print, then removes the tag afterward. Unscoped so it works
+   for both the native print dialog and the html2canvas/jsPDF path. */
 .note-el[data-empty="true"],
 .eq-label[data-empty="true"] {
   display: none !important;
@@ -1799,6 +1803,7 @@ async function runExport() {
   // temporarily hide editor chrome
   document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='hidden');
   markEmptyElements();
+  document.body.classList.add('exporting');
 
   try {
     for (let i = 0; i < pages.length; i++) {
@@ -1840,6 +1845,7 @@ async function runExport() {
   } finally {
     document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='');
     unmarkEmptyElements();
+    document.body.classList.remove('exporting');
   }
 }
 
@@ -2878,9 +2884,13 @@ function markEmptyElements() {
         const display = wrapper.querySelector('.eq-display');
         const latex = display ? (display.getAttribute('data-latex') || '').trim() : '';
         empty = !latex;
-        // also hide the label if the equation itself is empty
+        // the label's own emptiness is independent of the equation's —
+        // an equation can be filled with an empty (optional) label, or vice versa.
         const lbl = wrapper.querySelector('.eq-label');
-        if (lbl) lbl.setAttribute('data-empty', empty ? 'true' : 'false');
+        if (lbl) {
+          const labelEmpty = empty || isTextEmpty(lbl);
+          lbl.setAttribute('data-empty', labelEmpty ? 'true' : 'false');
+        }
         break;
       }
       case 'image': {
@@ -2925,8 +2935,8 @@ function unmarkEmptyElements() {
 }
 
 // Native browser printing (Cmd+P, Share → Print on iPad)
-window.addEventListener('beforeprint', markEmptyElements);
-window.addEventListener('afterprint', unmarkEmptyElements);
+window.addEventListener('beforeprint', () => { markEmptyElements(); document.body.classList.add('exporting'); });
+window.addEventListener('afterprint', () => { unmarkEmptyElements(); document.body.classList.remove('exporting'); });
 
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveDoc(); }
