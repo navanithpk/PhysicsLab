@@ -392,6 +392,24 @@ body{font-family:var(--font-ui);background:var(--bg-page);color:var(--text-prima
 .el-tb-btn.del:hover { background:rgba(220,60,60,0.55); color:#fff; }
 .el-tb-sep-v { height:1px; background:rgba(255,255,255,0.12); margin:2px 3px; }
 
+/* Alignment mini-grid inside the element toolbar */
+.el-tb-align-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1px;
+  padding:1px;
+}
+.el-tb-align-btn {
+  width:28px; height:24px;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; border-radius:4px;
+  color:rgba(255,255,255,0.65); cursor:pointer;
+  transition:background .1s, color .1s;
+}
+.el-tb-align-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
+.el-tb-align-btn.active { background:var(--accent-2); color:#fff; }
+.el-tb-align-btn svg { width:14px; height:14px; }
+
 /* ─── SECTION NUMBERS ─── */
 /* injected by JS as ::before pseudo-content via data-attrs */
 body.numbered .el-h1 .sec-num,
@@ -426,6 +444,9 @@ body.numbered .sec-num{ display:inline; }
 
 /* ─── IMAGE ─── */
 .el-image-zone{display:flex;align-items:center;justify-content:center;min-height:120px;border:2px dashed var(--border);border-radius:8px;background:transparent;cursor:pointer;transition:border-color .15s,background .15s;padding:12px;position:relative;}
+.el-image-zone.align-left{justify-content:flex-start;}
+.el-image-zone.align-right{justify-content:flex-end;}
+.el-image-zone.align-justify img{max-width:100% !important;width:100%;}
 .el-image-zone.has-image{border:1px solid var(--border);background:transparent;}
 .el-image-zone.drag-over{border-color:var(--accent-1);background:var(--highlight);}
 .el-image-zone img{max-width:100%;max-height:500px;display:block;border-radius:4px;}
@@ -435,6 +456,9 @@ body.numbered .sec-num{ display:inline; }
 .el-image-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .el-image-zone.has-image input[type=file]{display:none;}
 .el-img-caption{font-family:var(--font-ui);font-size:11.5px;color:var(--text-muted);text-align:center;font-style:italic;margin-top:6px;outline:none;min-height:1.4em;}
+.note-el[data-align="left"] .el-img-caption{text-align:left;}
+.note-el[data-align="right"] .el-img-caption{text-align:right;}
+.note-el[data-align="justify"] .el-img-caption{text-align:center;}
 .el-img-caption[contenteditable]:empty::before{content:"Add a caption…";color:var(--border);}
 .img-size-bar{display:flex;gap:4px;margin-top:6px;}
 .img-size-btn{font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-muted);cursor:pointer;font-family:var(--font-ui);transition:all .1s;}
@@ -1712,9 +1736,19 @@ function makeElToolbar(wrapper) {
   const sepV2 = document.createElement('div'); sepV2.className='el-tb-sep-v';
   tb.appendChild(makeEtBtn('↑','Move up', () => moveEl(wrapper,-1)));
   tb.appendChild(makeEtBtn('↓','Move down', () => moveEl(wrapper,1)));
-  tb.appendChild(sepV1);
-  tb.appendChild(makeEtBtn('⧉','Duplicate', () => duplicateEl(wrapper)));
+
+  // Alignment controls — only for element types where alignment is meaningful
+  const type = wrapper.getAttribute('data-type');
+  const ALIGNABLE_TYPES = ['h1','h2','h3','text','highlight','image'];
+  if (ALIGNABLE_TYPES.includes(type)) {
+    tb.appendChild(sepV1.cloneNode());
+    tb.appendChild(makeAlignGrid(wrapper));
+  }
+
   tb.appendChild(sepV2);
+  tb.appendChild(makeEtBtn('⧉','Duplicate', () => duplicateEl(wrapper)));
+  const sepV3 = document.createElement('div'); sepV3.className='el-tb-sep-v';
+  tb.appendChild(sepV3);
   const delBtn = makeEtBtn('🗑','Delete element', () => deleteEl(wrapper));
   delBtn.classList.add('del');
   delBtn.textContent = '';
@@ -1722,6 +1756,58 @@ function makeElToolbar(wrapper) {
   tb.appendChild(delBtn);
   return tb;
 }
+
+function makeAlignGrid(wrapper) {
+  const grid = document.createElement('div');
+  grid.className = 'el-tb-align-grid';
+  const opts = [
+    { key:'left',    title:'Align left',    svg:'<path d="M2 3h12M2 6.5h7M2 10h12M2 13.5h7"/>' },
+    { key:'center',  title:'Align center',  svg:'<path d="M2 3h12M4.5 6.5h7M2 10h12M4.5 13.5h7"/>' },
+    { key:'right',   title:'Align right',   svg:'<path d="M2 3h12M7 6.5h7M2 10h12M7 13.5h7"/>' },
+    { key:'justify', title:'Justify',       svg:'<path d="M2 3h12M2 6.5h12M2 10h12M2 13.5h12"/>' },
+  ];
+  const currentAlign = wrapper.getAttribute('data-align') || 'left';
+  opts.forEach(opt => {
+    const b = document.createElement('button');
+    b.className = 'el-tb-align-btn' + (opt.key === currentAlign ? ' active' : '');
+    b.title = opt.title;
+    b.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">${opt.svg}</svg>`;
+    b.addEventListener('mousedown', e => {
+      e.preventDefault();
+      setAlign(wrapper, opt.key);
+      grid.querySelectorAll('.el-tb-align-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+    grid.appendChild(b);
+  });
+  return grid;
+}
+
+function setAlign(wrapper, align) {
+  wrapper.setAttribute('data-align', align);
+  const type = wrapper.getAttribute('data-type');
+
+  if (type === 'image') {
+    const zone = wrapper.querySelector('.el-image-zone');
+    if (zone) {
+      zone.classList.remove('align-left','align-right','align-justify');
+      if (align === 'left') zone.classList.add('align-left');
+      else if (align === 'right') zone.classList.add('align-right');
+      else if (align === 'justify') zone.classList.add('align-justify');
+      // 'center' needs no extra class — it's the flex default
+    }
+  } else {
+    const textAlignMap = { left:'left', center:'center', right:'right', justify:'justify' };
+    const innerSelectors = {
+      h1: '.el-h1', h2: '.el-h2', h3: '.el-h3',
+      text: '.el-text', highlight: '.el-highlight'
+    };
+    const inner = wrapper.querySelector(innerSelectors[type]);
+    if (inner) inner.style.textAlign = textAlignMap[align];
+  }
+  autosave();
+}
+
 function makeEtBtn(icon, title, fn) {
   const b = document.createElement('button'); b.className='el-tb-btn'; b.textContent=icon; b.title=title;
   b.addEventListener('mousedown', e => { e.preventDefault(); fn(); });
@@ -2168,7 +2254,12 @@ function collectDocData() {
     }
     const els = [];
     pg.querySelectorAll('.note-el').forEach(el => {
-      els.push({ type: el.getAttribute('data-type'), variant: el.getAttribute('data-variant'), html: el.innerHTML });
+      els.push({
+        type: el.getAttribute('data-type'),
+        variant: el.getAttribute('data-variant'),
+        align: el.getAttribute('data-align') || null,
+        html: el.innerHTML
+      });
     });
     data.pages.push(els);
   });
@@ -2205,6 +2296,7 @@ function restoreDocData(data) {
       wrapper.className = 'note-el';
       wrapper.setAttribute('data-type', elData.type);
       if (elData.variant) wrapper.setAttribute('data-variant', elData.variant);
+      if (elData.align) wrapper.setAttribute('data-align', elData.align);
       wrapper.innerHTML = elData.html;
       forceEditableState(wrapper);
       wrapper.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
