@@ -683,6 +683,8 @@ body.drag-active #paste-overlay{display:flex;}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg-toolbar);color:rgba(255,255,255,0.9);padding:9px 20px;border-radius:999px;font-family:var(--font-ui);font-size:12px;font-weight:500;z-index:9999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:auto;cursor:default;}
 #toast.show{transform:translateX(-50%) translateY(0);}
 
+@keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
 /* ─── PRINT (native browser print / share sheet only) ─── */
 @media print{
   #toolbar,#left-panel,#float-insert,#paste-overlay,#toast,#export-modal,
@@ -917,6 +919,12 @@ body.exporting .el-image-zone .eq-placeholder {
   <button class="tb-btn" title="Add table of contents" onclick="addTocPage()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h2M7 4h6M3 8h2M7 8h6M3 12h2M7 12h6"/></svg></button>
 
   <div class="tb-spacer"></div>
+
+  <!-- AI GENERATE -->
+  <button class="tb-btn" title="Generate note from syllabus text using Gemini" onclick="openAiGenModal()" style="width:auto;padding:0 11px;gap:5px;font-size:11px;background:linear-gradient(135deg, rgba(74,111,165,0.25), rgba(126,200,164,0.2));border-color:var(--accent-2);color:#fff;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5l1.4 3.6L13 6.5l-3.6 1.4L8 11.5l-1.4-3.6L3 6.5l3.6-1.4L8 1.5z"/><path d="M13 11l.7 1.8L15.5 13.5l-1.8.7L13 16l-.7-1.8-1.8-.7 1.8-.7L13 11z"/></svg>
+    Generate Note
+  </button>
 
   <!-- NOTES MANAGER -->
   <button class="tb-btn" title="Notes manager" onclick="openNotesManager()" style="width:auto;padding:0 10px;gap:4px;font-size:11px;">
@@ -3082,6 +3090,188 @@ function runImportJSON() {
   toast('Note imported ✓ — ' + (data.pages.length) + ' page' + (data.pages.length>1?'s':'') + ' loaded');
 }
 
+/* ══════════════════════════════════════════════════════════
+   AI GENERATE — calls the Gemini API directly from the browser
+   to turn pasted syllabus text into a NoteForge JSON document.
+══════════════════════════════════════════════════════════ */
+
+const AIGEN_SYSTEM_PROMPT = `You are NoteForge, an expert teacher and curriculum note designer. Convert the supplied syllabus text or learning objectives into a single, valid JSON object that the NoteForge app can load directly. Output ONLY the JSON object — no markdown fences, no preamble, no explanation, no trailing text.
+
+JSON SCHEMA:
+{
+  "title": "string",
+  "theme": "earthy"|"mist"|"forest"|"vivid"|"print",
+  "numbering": true,
+  "fontHeading": "'Lora',Georgia,serif",
+  "fontBody": "'Lora',Georgia,serif",
+  "fontTable": "'Inter',sans-serif",
+  "pages": [ [ {"type":"...","variant":"...","html":"..."} , ... ] ]
+}
+
+Each page is an array of elements. Every element has "type", optional "variant", and "html" (the raw inner HTML injected into the element wrapper). Always include contenteditable="true" on every editable inner div/span/th/td — this is required for the note to remain editable after import.
+
+ELEMENT TYPES AND EXACT HTML SHAPES:
+
+h1: {"type":"h1","html":"<div class=\\"el-h1\\" contenteditable=\\"true\\">Page Title</div>"}
+
+h2: {"type":"h2","html":"<div class=\\"el-h2\\" contenteditable=\\"true\\">Section Heading</div>"}
+
+h3: {"type":"h3","html":"<div class=\\"el-h3\\" contenteditable=\\"true\\">Subsection</div>"}
+
+text: {"type":"text","html":"<div class=\\"el-text\\" contenteditable=\\"true\\">Full sentence paragraph. Can include <strong>bold</strong> and <em>italic</em>.</div>"}
+
+highlight (key idea pull-quote): {"type":"highlight","html":"<div class=\\"el-highlight\\" contenteditable=\\"true\\">Single most important takeaway, in italics style.</div>"}
+
+definition (two-part term+explanation box): {"type":"definition","html":"<div class=\\"el-definition\\"><div class=\\"def-term\\" contenteditable=\\"true\\">Term</div><div class=\\"def-body\\" contenteditable=\\"true\\">Explanation with SI units if relevant.</div></div>"}
+
+callout (variant: info=green note, warn=amber warning, tip=blue tip): {"type":"callout","variant":"tip","html":"<div class=\\"el-callout tip\\"><div class=\\"callout-label\\">Tip</div><div class=\\"callout-body\\" contenteditable=\\"true\\">Memory aid or method steps.</div></div>"}
+
+table: {"type":"table","html":"<div class=\\"el-table-wrap\\"><table class=\\"el-table\\"><thead><tr><th contenteditable=\\"true\\">Col1</th><th contenteditable=\\"true\\">Col2</th></tr></thead><tbody><tr><td contenteditable=\\"true\\">A</td><td contenteditable=\\"true\\">B</td></tr></tbody></table></div><div class=\\"table-controls\\"><button class=\\"table-ctl-btn\\">+ Row</button><button class=\\"table-ctl-btn\\">+ Col</button></div>"}
+
+equation (LaTeX, rendered by KaTeX — data-latex on eq-display, display itself stays empty): {"type":"equation","html":"<div class=\\"el-equation-wrap\\"><div class=\\"eq-display\\" data-latex=\\"v = \\\\frac{s}{t}\\"></div><div class=\\"eq-label\\" contenteditable=\\"true\\">Speed formula</div></div>"}
+
+columns (two-column comparison): {"type":"columns","html":"<div class=\\"el-columns cols-2\\"><div class=\\"col-inner\\" contenteditable=\\"true\\"><strong>Heading A</strong><br>point 1<br>point 2</div><div class=\\"col-inner\\" contenteditable=\\"true\\"><strong>Heading B</strong><br>point 1<br>point 2</div></div>"}
+
+checklist (always the LAST element, one item per learning objective phrased as self-assessment "I can..."): {"type":"checklist","html":"<div><ul class=\\"el-checklist\\"><li class=\\"check-item\\"><input type=\\"checkbox\\"><div class=\\"check-text\\" contenteditable=\\"true\\">I can define speed as distance per unit time</div></li></ul><button class=\\"add-check-btn\\">+ Add item</button></div>"}
+
+divider: {"type":"divider","html":"<div class=\\"el-divider\\">◆</div>"}
+
+DESIGN RULES:
+1. One topic per page, 1-3 pages typical for a syllabus chapter.
+2. Open each page with h1 (first page) or h2 (continuation).
+3. Lead each major concept with a definition box for key terms, including SI units.
+4. Place an equation block immediately after introducing any formula in text.
+5. Use tables for any list of 3+ comparable items.
+6. callout variant "info" for clarifications/common mistakes, "warn" for commonly confused ideas or Supplement/HL-only content, "tip" for memory aids and method steps.
+7. One highlight block per major section for its single most important takeaway.
+8. Use columns for comparing two related concepts (e.g. distance vs displacement).
+9. The LAST element on the LAST page must always be a checklist covering every learning objective given, phrased as "I can...".
+10. Write text blocks as full sentences from a knowledgeable teacher's voice, not fragments.
+11. Use proper LaTeX in equations: \\\\frac{}{}. \\\\Delta, \\\\approx, \\\\cdot, subscripts via _{}, superscripts via ^{}.
+12. Distinguish Core vs Supplement/Higher content with a "warn" callout labelled accordingly before such content, if the source text marks any such distinction.
+13. Set "numbering": true always.`;
+
+function openAiGenModal() {
+  document.getElementById('aigen-modal').style.display = 'flex';
+  document.getElementById('aigen-error').style.display = 'none';
+  document.getElementById('aigen-progress').style.display = 'none';
+  const savedKey = localStorage.getItem('nf_gemini_key') || '';
+  document.getElementById('aigen-api-key').value = savedKey;
+  aigenUpdateCharCount();
+  setTimeout(() => document.getElementById('aigen-source').focus(), 100);
+}
+function closeAiGenModal() {
+  document.getElementById('aigen-modal').style.display = 'none';
+}
+function saveAiGenKey() {
+  const key = document.getElementById('aigen-api-key').value.trim();
+  if (key) localStorage.setItem('nf_gemini_key', key);
+}
+function toggleAiGenKeyVisibility() {
+  const inp = document.getElementById('aigen-api-key');
+  const btn = document.getElementById('aigen-key-toggle');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+function aigenUpdateCharCount() {
+  const len = document.getElementById('aigen-source').value.length;
+  const el = document.getElementById('aigen-char-count');
+  el.textContent = len + ' characters' + (len > 3000 ? ' — consider trimming for best results' : '');
+  el.style.color = len > 3000 ? '#c44' : 'var(--text-muted)';
+}
+
+async function runAiGenerate() {
+  const apiKey = document.getElementById('aigen-api-key').value.trim();
+  const model = document.getElementById('aigen-model').value;
+  const theme = document.getElementById('aigen-theme').value;
+  const subject = document.getElementById('aigen-subject').value.trim();
+  const topic = document.getElementById('aigen-topic').value.trim();
+  const source = document.getElementById('aigen-source').value.trim();
+  const context = document.getElementById('aigen-context').value.trim();
+
+  const errEl = document.getElementById('aigen-error');
+  const progEl = document.getElementById('aigen-progress');
+  const btn = document.getElementById('aigen-generate-btn');
+  errEl.style.display = 'none';
+
+  if (!apiKey) { errEl.textContent = 'Paste your Gemini API key first.'; errEl.style.display = 'block'; return; }
+  if (!source) { errEl.textContent = 'Paste some syllabus text or learning objectives first.'; errEl.style.display = 'block'; return; }
+
+  let userMessage = `Generate a complete NoteForge note for the following syllabus content.\n\n`;
+  if (subject) userMessage += `SUBJECT: ${subject}\n`;
+  if (topic) userMessage += `TOPIC: ${topic}\n`;
+  userMessage += `\nSYLLABUS TEXT / LEARNING OBJECTIVES:\n${source}\n`;
+  if (context) userMessage += `\nADDITIONAL CONTEXT:\n${context}\n`;
+  userMessage += `\nUse "theme": "${theme}" in the output. Output only the JSON object, nothing else.`;
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M8 2a6 6 0 016 6"/></svg> Generating…';
+  progEl.style.display = 'block';
+  progEl.textContent = 'Sending to Gemini (' + model + ')…';
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: userMessage }] }],
+        systemInstruction: { parts: [{ text: AIGEN_SYSTEM_PROMPT }] },
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 8192,
+          responseMimeType: 'application/json'
+        }
+      })
+    });
+
+    if (!resp.ok) {
+      const errBody = await resp.json().catch(() => ({}));
+      const msg = errBody?.error?.message || `HTTP ${resp.status}`;
+      throw new Error(msg);
+    }
+
+    const data = await resp.json();
+    const candidate = data?.candidates?.[0];
+    if (!candidate) throw new Error('No response from Gemini. The content may have been blocked — try rephrasing.');
+
+    let text = candidate.content?.parts?.map(p => p.text || '').join('') || '';
+    text = text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+
+    progEl.textContent = 'Parsing response…';
+
+    let noteData;
+    try {
+      noteData = JSON.parse(text);
+    } catch(parseErr) {
+      throw new Error('Gemini returned invalid JSON. Try again, or switch to Gemini 1.5 Pro for more reliable structure.');
+    }
+
+    if (!noteData.pages || !Array.isArray(noteData.pages)) {
+      throw new Error('Response was valid JSON but missing the "pages" array.');
+    }
+
+    progEl.textContent = 'Loading into canvas…';
+    closeAiGenModal();
+    document.getElementById('pages-container').innerHTML = '';
+    pageCount = 0;
+    restoreDocData(noteData);
+    if (noteData.title) document.getElementById('doc-title').value = noteData.title;
+    renderAllEquations();
+    saveDoc();
+    toast('Note generated ✓ — ' + noteData.pages.length + ' page' + (noteData.pages.length > 1 ? 's' : '') + ' created');
+
+  } catch (err) {
+    progEl.style.display = 'none';
+    errEl.textContent = 'Error: ' + err.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5l1.4 3.6L13 6.5l-3.6 1.4L8 11.5l-1.4-3.6L3 6.5l3.6-1.4L8 1.5z"/></svg> Generate Note';
+  }
+}
+
+
 /* ═══════ EMPTY ELEMENT DETECTION (print / PDF export) ═══════
    Tags any inserted-but-never-filled element with data-empty="true"
    so it's hidden from print and PDF output, without affecting the
@@ -3169,7 +3359,7 @@ window.addEventListener('afterprint', () => { unmarkEmptyElements(); document.bo
 
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveDoc(); }
-  if (e.key==='Escape') { closeMenu(); closeExportModal(); closeInkModal(); closeEqEditor(); closeImportModal(); }
+  if (e.key==='Escape') { closeMenu(); closeExportModal(); closeInkModal(); closeEqEditor(); closeImportModal(); closeAiGenModal(); }
 });
 
 </script>
@@ -3297,6 +3487,88 @@ document.addEventListener('keydown', e => {
       <button class="eq-action-btn primary" onclick="eqInsert()">Insert ✓</button>
       <button class="eq-action-btn secondary" onclick="closeEqEditor()">Cancel</button>
       <div id="eq-input-hint">Tip: click a button to insert · use ← → to move cursor · Backspace to delete</div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ AI GENERATE MODAL ░░ -->
+<div id="aigen-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:6500;display:none;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--bg-canvas);border:1px solid var(--border);border-radius:16px;padding:0;width:min(640px,96vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
+
+    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="var(--accent-1)"><path d="M8 1.5l1.4 3.6L13 6.5l-3.6 1.4L8 11.5l-1.4-3.6L3 6.5l3.6-1.4L8 1.5z"/></svg>
+        <div style="font-family:var(--font-heading);font-size:18px;font-weight:600;color:var(--text-primary);">Generate Note from Syllabus</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-ui);margin-top:4px;">Paste learning objectives or syllabus text. Gemini builds a complete, structured note directly into NoteForge.</div>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;padding:18px 24px;">
+
+      <!-- API Key -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--font-ui);display:block;margin-bottom:5px;">Gemini API Key</label>
+        <div style="display:flex;gap:6px;">
+          <input type="password" id="aigen-api-key" placeholder="Paste your Google AI Studio API key" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-family:var(--font-mono);font-size:12px;outline:none;" oninput="saveAiGenKey()">
+          <button onclick="toggleAiGenKeyVisibility()" id="aigen-key-toggle" type="button" style="padding:7px 11px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-muted);cursor:pointer;font-size:11px;font-family:var(--font-ui);white-space:nowrap;">Show</button>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-ui);margin-top:4px;">
+          Stored only on this device. Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent-2);text-decoration:underline;">aistudio.google.com/app/apikey</a>
+        </div>
+      </div>
+
+      <!-- Model + context row -->
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:160px;">
+          <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--font-ui);display:block;margin-bottom:5px;">Model</label>
+          <select id="aigen-model" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-size:12px;font-family:var(--font-ui);outline:none;">
+            <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash — fast</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro — richest detail</option>
+            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--font-ui);display:block;margin-bottom:5px;">Theme for note</label>
+          <select id="aigen-theme" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-size:12px;font-family:var(--font-ui);outline:none;">
+            <option value="mist" selected>Mist</option>
+            <option value="earthy">Earthy</option>
+            <option value="forest">Forest</option>
+            <option value="vivid">Vivid</option>
+            <option value="print">Print</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;">
+          <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--font-ui);display:block;margin-bottom:5px;">Subject / Course</label>
+          <input type="text" id="aigen-subject" placeholder="e.g. IGCSE Physics" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-size:12px;font-family:var(--font-ui);outline:none;">
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--font-ui);display:block;margin-bottom:5px;">Topic / Chapter</label>
+          <input type="text" id="aigen-topic" placeholder="e.g. Motion" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-size:12px;font-family:var(--font-ui);outline:none;">
+        </div>
+      </div>
+
+      <!-- Syllabus paste box -->
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--font-ui);display:block;margin-bottom:5px;">Syllabus text / Learning objectives</label>
+      <textarea id="aigen-source" placeholder="Paste learning objectives or scheme-of-work text here (around 1,500–2,500 characters works best)…" style="width:100%;height:200px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-element);color:var(--text-primary);font-family:var(--font-body);font-size:13px;outline:none;resize:vertical;" oninput="aigenUpdateCharCount()"></textarea>
+      <div id="aigen-char-count" style="font-size:10px;color:var(--text-muted);font-family:var(--font-ui);margin-top:4px;text-align:right;">0 characters</div>
+
+      <!-- Additional context -->
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-family:var(--font-ui);display:block;margin:12px 0 5px;">Additional context (optional)</label>
+      <textarea id="aigen-context" placeholder="e.g. Students are Grade 9. Emphasise graphical interpretation — heavily tested in past papers." style="width:100%;height:56px;padding:8px 11px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-family:var(--font-ui);font-size:12px;outline:none;resize:vertical;"></textarea>
+
+      <div id="aigen-error" style="margin-top:10px;font-size:12px;color:#c44;font-family:var(--font-ui);display:none;"></div>
+      <div id="aigen-progress" style="margin-top:10px;font-size:12px;color:var(--text-muted);font-family:var(--font-ui);display:none;"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+      <button id="aigen-generate-btn" onclick="runAiGenerate()" style="flex:1;padding:11px;background:var(--accent-1);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-ui);display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5l1.4 3.6L13 6.5l-3.6 1.4L8 11.5l-1.4-3.6L3 6.5l3.6-1.4L8 1.5z"/></svg>
+        Generate Note
+      </button>
+      <button onclick="closeAiGenModal()" style="padding:11px 20px;background:transparent;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);">Cancel</button>
     </div>
   </div>
 </div>
