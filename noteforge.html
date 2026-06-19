@@ -651,11 +651,26 @@ body.numbered .sec-num{ display:inline; }
 .fi-item:hover{background:rgba(255,255,255,0.12);color:#fff;}
 .fi-item svg{width:14px;height:14px;opacity:.7;}
 
-/* ─── FORMAT BAR ─── */
-.fmt-bar{position:fixed;top:60px;background:var(--bg-toolbar);border-radius:8px;padding:5px 8px;display:none;gap:3px;z-index:800;box-shadow:0 4px 16px rgba(0,0,0,0.3);}
-.fmt-bar.show{display:flex;}
-.fmt-btn{width:26px;height:26px;background:transparent;border:none;border-radius:4px;color:rgba(255,255,255,0.8);cursor:pointer;font-size:12px;font-family:var(--font-ui);font-weight:600;display:flex;align-items:center;justify-content:center;transition:background .1s;}
+/* ─── FORMAT BAR — docked under the top toolbar, never over body text ─── */
+.fmt-bar{
+  position:fixed;
+  top:0; left:50%;
+  transform:translate(-50%, -100%);
+  background:var(--bg-toolbar);
+  border-radius:0 0 10px 10px;
+  padding:7px 10px;
+  display:flex;
+  gap:4px;
+  align-items:center;
+  z-index:1100;
+  box-shadow:0 6px 18px rgba(0,0,0,0.3);
+  transition:transform .18s ease;
+}
+.fmt-bar.show{ transform:translate(-50%, 44px); }
+.fmt-btn{width:30px;height:30px;background:transparent;border:none;border-radius:6px;color:rgba(255,255,255,0.8);cursor:pointer;font-size:13px;font-family:var(--font-ui);font-weight:600;display:flex;align-items:center;justify-content:center;transition:background .1s;}
 .fmt-btn:hover{background:rgba(255,255,255,0.15);color:#fff;}
+.fmt-bar-sep{width:1px;height:20px;background:rgba(255,255,255,0.15);margin:0 2px;}
+.fmt-bar-label{font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:.08em;padding:0 4px 0 2px;white-space:nowrap;}
 
 /* ─── PASTE OVERLAY ─── */
 #paste-overlay{display:none;position:fixed;inset:44px 0 0 220px;background:rgba(0,0,0,0.35);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff;font-family:var(--font-ui);font-size:18px;font-weight:500;pointer-events:none;}
@@ -920,12 +935,6 @@ body.exporting .el-image-zone .eq-placeholder {
 
   <div class="tb-spacer"></div>
 
-  <!-- AI GENERATE -->
-  <button class="tb-btn" title="Generate note from syllabus text using Gemini" onclick="openAiGenModal()" style="width:auto;padding:0 11px;gap:5px;font-size:11px;background:linear-gradient(135deg, rgba(74,111,165,0.25), rgba(126,200,164,0.2));border-color:var(--accent-2);color:#fff;">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5l1.4 3.6L13 6.5l-3.6 1.4L8 11.5l-1.4-3.6L3 6.5l3.6-1.4L8 1.5z"/><path d="M13 11l.7 1.8L15.5 13.5l-1.8.7L13 16l-.7-1.8-1.8-.7 1.8-.7L13 11z"/></svg>
-    Generate Note
-  </button>
-
   <!-- NOTES MANAGER -->
   <button class="tb-btn" title="Notes manager" onclick="openNotesManager()" style="width:auto;padding:0 10px;gap:4px;font-size:11px;">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h8l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v4h4"/></svg>
@@ -973,11 +982,13 @@ body.exporting .el-image-zone .eq-placeholder {
 
 <!-- ░░ FORMAT BAR ░░ -->
 <div id="fmt-bar" class="fmt-bar">
-  <button class="fmt-btn" onclick="execFmt('bold')" title="Bold"><b>B</b></button>
-  <button class="fmt-btn" onclick="execFmt('italic')" title="Italic"><i>I</i></button>
-  <button class="fmt-btn" onclick="execFmt('underline')" title="Underline"><u>U</u></button>
-  <button class="fmt-btn" style="font-size:10px" onclick="execFmt('hilite')" title="Highlight">HL</button>
-  <button class="fmt-btn" onclick="execFmt('removeFormat')" title="Clear">✕</button>
+  <span class="fmt-bar-label">Format</span>
+  <button class="fmt-btn" onmousedown="event.preventDefault();execFmt('bold')" title="Bold"><b>B</b></button>
+  <button class="fmt-btn" onmousedown="event.preventDefault();execFmt('italic')" title="Italic"><i>I</i></button>
+  <button class="fmt-btn" onmousedown="event.preventDefault();execFmt('underline')" title="Underline"><u>U</u></button>
+  <div class="fmt-bar-sep"></div>
+  <button class="fmt-btn" style="font-size:10px" onmousedown="event.preventDefault();execFmt('hilite')" title="Highlight">HL</button>
+  <button class="fmt-btn" onmousedown="event.preventDefault();execFmt('removeFormat')" title="Clear">✕</button>
 </div>
 
 <!-- ░░ DRAG OVERLAY ░░ -->
@@ -1936,14 +1947,23 @@ document.addEventListener('click', e => {
 function setupSelectionBar() {
   document.addEventListener('mouseup', () => {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-      document.getElementById('fmt-bar').classList.remove('show'); return;
-    }
-    const r = sel.getRangeAt(0).getBoundingClientRect();
     const fb = document.getElementById('fmt-bar');
-    fb.style.left = (r.left + r.width/2 - 65) + 'px';
-    fb.style.top = (r.top + window.scrollY - 44) + 'px';
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+      fb.classList.remove('show');
+      return;
+    }
+    // Only show for selections inside editable note content, not toolbars/modals
+    const anchor = sel.anchorNode;
+    const withinNote = anchor && anchor.parentElement?.closest?.('[contenteditable="true"]');
+    if (!withinNote) { fb.classList.remove('show'); return; }
     fb.classList.add('show');
+  });
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    const fb = document.getElementById('fmt-bar');
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+      fb.classList.remove('show');
+    }
   });
   document.addEventListener('mousedown', e => {
     if (!e.target.closest('#fmt-bar')) document.getElementById('fmt-bar').classList.remove('show');
@@ -3382,6 +3402,13 @@ document.addEventListener('keydown', e => {
         <input id="nm-slot-name" type="text" placeholder="e.g. Chapter 3 — Photosynthesis" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-element);color:var(--text-primary);font-size:13px;font-family:var(--font-ui);outline:none;">
         <button onclick="nmSaveCurrent()" style="padding:7px 16px;background:var(--accent-1);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-ui);white-space:nowrap;">Save note</button>
       </div>
+    </div>
+    <!-- Generate with AI -->
+    <div style="padding:14px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <button onclick="closeNotesManager();openAiGenModal()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;background:linear-gradient(135deg, rgba(74,111,165,0.18), rgba(126,200,164,0.14));border:1px solid var(--accent-2);border-radius:9px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-ui);">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="var(--accent-1)"><path d="M8 1.5l1.4 3.6L13 6.5l-3.6 1.4L8 11.5l-1.4-3.6L3 6.5l3.6-1.4L8 1.5z"/><path d="M13 11l.7 1.8L15.5 13.5l-1.8.7L13 16l-.7-1.8-1.8-.7 1.8-.7L13 11z"/></svg>
+        Generate Note from Syllabus (Gemini)
+      </button>
     </div>
     <!-- Saved notes list -->
     <div style="flex:1;overflow-y:auto;padding:12px 24px 16px;">
