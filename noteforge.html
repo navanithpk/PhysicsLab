@@ -474,9 +474,43 @@ body.numbered .sec-num{ display:inline; }
 .el-table td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-primary);outline:none;vertical-align:top;min-width:60px;}
 .el-table tr:nth-child(even) td{background:var(--highlight);}
 .el-table td:focus{background:var(--callout-info);}
-.table-controls{margin-top:6px;display:flex;gap:6px;}
+.table-controls{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;}
 .table-ctl-btn{font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-element);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);transition:all .12s;}
 .table-ctl-btn:hover{background:var(--accent-1);color:#fff;border-color:var(--accent-1);}
+.table-ctl-btn.danger:hover{background:#c44;border-color:#c44;}
+
+/* Cell selection highlight, used while choosing merge targets */
+.el-table td.cell-selected, .el-table th.cell-selected {
+  outline: 2px solid var(--accent-1);
+  outline-offset: -2px;
+  background: var(--highlight) !important;
+}
+
+/* ─── TABLE CONTEXT MENU ─── */
+#table-ctx-menu {
+  position: fixed;
+  background: var(--bg-toolbar);
+  border-radius: 9px;
+  padding: 6px;
+  box-shadow: 0 10px 32px rgba(0,0,0,0.4);
+  z-index: 5500;
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 190px;
+}
+#table-ctx-menu.open { display: flex; }
+.tcm-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 11px; border-radius: 6px;
+  color: rgba(255,255,255,0.85); font-size: 12.5px; font-family: var(--font-ui);
+  cursor: pointer; transition: background .1s; white-space: nowrap;
+}
+.tcm-item:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.tcm-item.danger:hover { background: rgba(220,60,60,0.55); }
+.tcm-item svg { width: 14px; height: 14px; opacity: .75; flex-shrink: 0; }
+.tcm-sep { height: 1px; background: rgba(255,255,255,0.12); margin: 3px 4px; }
+.tcm-label { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: .08em; padding: 5px 11px 2px; }
 
 /* ─── CALLOUT ─── */
 .el-callout{border-left:4px solid var(--callout-info-border);background:var(--callout-info);border-radius:0 8px 8px 0;padding:12px 16px;}
@@ -704,7 +738,7 @@ body.drag-active #paste-overlay{display:flex;}
 @media print{
   #toolbar,#left-panel,#float-insert,#paste-overlay,#toast,#export-modal,
   .el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,
-  .add-check-btn,.fmt-bar,.toc-refresh-btn,.page-toolbar{display:none!important;}
+  .add-check-btn,.fmt-bar,.toc-refresh-btn,.page-toolbar,#table-ctx-menu{display:none!important;}
   #app{padding-top:0!important;}
   #canvas-wrap{padding:0;background:white;}
   .page{width:210mm!important;min-height:297mm!important;box-shadow:none!important;border:none!important;border-radius:0!important;padding:20mm 24mm!important;margin:0!important;page-break-after:always;}
@@ -960,6 +994,24 @@ body.exporting .el-image-zone .eq-placeholder {
   </button>
 </div>
 
+<!-- ░░ TABLE CONTEXT MENU ░░ -->
+<div id="table-ctx-menu">
+  <div class="tcm-label">Cell</div>
+  <div class="tcm-item" onclick="tcmAction('merge-right')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="4" width="6" height="8" rx="1"/><rect x="8.5" y="4" width="6" height="8" rx="1"/><path d="M6.5 8h3" stroke-width="1.8"/></svg>Merge with right</div>
+  <div class="tcm-item" onclick="tcmAction('merge-down')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="1.5" width="8" height="6" rx="1"/><rect x="4" y="8.5" width="8" height="6" rx="1"/><path d="M8 6.5v3" stroke-width="1.8"/></svg>Merge with below</div>
+  <div class="tcm-item" onclick="tcmAction('split')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><path d="M8 1.5v13M1.5 8h13" stroke-width="1.2" stroke-dasharray="2 1.5"/></svg>Split cell</div>
+  <div class="tcm-sep"></div>
+  <div class="tcm-label">Row</div>
+  <div class="tcm-item" onclick="tcmAction('row-above')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="12" height="6.5" rx="1"/><path d="M8 1.5v3.5M5.5 3h5" stroke-linecap="round"/></svg>Insert row above</div>
+  <div class="tcm-item" onclick="tcmAction('row-below')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="12" height="6.5" rx="1"/><path d="M8 11v3.5M5.5 13h5" stroke-linecap="round"/></svg>Insert row below</div>
+  <div class="tcm-item danger" onclick="tcmAction('delete-row')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="6" rx="1"/><path d="M5 5l-2-2M11 5l2-2" stroke-linecap="round"/></svg>Delete row</div>
+  <div class="tcm-sep"></div>
+  <div class="tcm-label">Column</div>
+  <div class="tcm-item" onclick="tcmAction('col-left')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="7" y="2" width="6.5" height="12" rx="1"/><path d="M1.5 8H5M3 5.5v5" stroke-linecap="round"/></svg>Insert column left</div>
+  <div class="tcm-item" onclick="tcmAction('col-right')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2" width="6.5" height="12" rx="1"/><path d="M11 8h3.5M13 5.5v5" stroke-linecap="round"/></svg>Insert column right</div>
+  <div class="tcm-item danger" onclick="tcmAction('delete-col')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="6" height="12" rx="1"/><path d="M5 5l-2-2M11 5l2-2" stroke-linecap="round"/></svg>Delete column</div>
+</div>
+
 <!-- ░░ FLOAT INSERT ░░ -->
 <div id="float-insert">
   <div class="fi-item" onclick="insertEl('h1');closeMenu()"><svg viewBox="0 0 16 16" fill="currentColor"><text y="13" font-size="13" font-weight="700">H1</text></svg>Title</div>
@@ -1001,7 +1053,7 @@ body.exporting .el-image-zone .eq-placeholder {
 <div id="export-modal">
   <div id="export-box">
     <h3>Export to PDF</h3>
-    <p>Using jsPDF — renders directly in the browser, no server needed.</p>
+    <p>Renders each page at print resolution (~280 DPI), lossless. Larger files, sharper output — worth the extra second per page.</p>
     <div class="exp-opt">
       <div class="exp-row">
         <label>Filename</label>
@@ -1497,6 +1549,9 @@ function insertEl(type, variant, afterEl, targetPage) {
   // apply current fonts
   applyFontsToEl(wrapper);
 
+  // wire up table merge/split/delete behaviors for freshly inserted tables
+  if (type === 'table') initTableBehaviors(wrapper);
+
   const ed = wrapper.querySelector('[contenteditable="true"]');
   if (ed) setTimeout(() => { ed.focus(); placeCursorAtEnd(ed); }, 50);
 
@@ -1605,22 +1660,308 @@ function makeTable(rows=3, cols=3) {
     tbody.appendChild(tr);
   }
   t.appendChild(tbody); tw.appendChild(t); wrap.appendChild(tw);
+
   const ctl = document.createElement('div'); ctl.className = 'table-controls';
-  const addR = document.createElement('button'); addR.className='table-ctl-btn'; addR.textContent='+ Row';
-  addR.onclick = () => {
-    const nc = t.querySelector('tr').cells.length;
-    const tr = document.createElement('tr');
-    for (let c=0;c<nc;c++) { const td = document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); tr.appendChild(td); }
-    tbody.appendChild(tr); autosave();
-  };
-  const addC = document.createElement('button'); addC.className='table-ctl-btn'; addC.textContent='+ Col';
-  addC.onclick = () => {
-    const th = document.createElement('th'); th.contentEditable=true; th.textContent='Column'; th.style.fontFamily=fontTable; th.addEventListener('input',autosave); hrow.appendChild(th);
-    tbody.querySelectorAll('tr').forEach(r => { const td=document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); r.appendChild(td); });
-    autosave();
-  };
-  ctl.appendChild(addR); ctl.appendChild(addC); wrap.appendChild(ctl);
+  ctl.innerHTML = `
+    <button class="table-ctl-btn" data-act="add-row">+ Row</button>
+    <button class="table-ctl-btn" data-act="add-col">+ Col</button>
+    <button class="table-ctl-btn danger" data-act="del-row">– Row</button>
+    <button class="table-ctl-btn danger" data-act="del-col">– Col</button>
+  `;
+  wrap.appendChild(ctl);
+
+  // wrapper for initTableBehaviors is attached later by insertEl's caller via attachTableLogic
   return wrap;
+}
+
+/* ═══════ SHARED TABLE BEHAVIOR ENGINE ═══════
+   Handles add/delete row+col buttons, merge/split via context menu,
+   and right-click (desktop) / long-press (iPad) cell targeting.
+   Called after every table is created, restored, duplicated, or imported. */
+function initTableBehaviors(wrapper) {
+  const tableWrap = wrapper.querySelector('.el-table-wrap');
+  if (!tableWrap) return;
+  const table = tableWrap.querySelector('.el-table');
+  const tbody = table.querySelector('tbody');
+  const ctl = wrapper.querySelector('.table-controls');
+
+  function headerRow() { return table.querySelector('thead tr'); }
+  function allRows() { return [table.querySelector('thead tr'), ...tbody.querySelectorAll('tr')].filter(Boolean); }
+  function colCount() { return Array.from(headerRow().cells).reduce((sum,c) => sum + (c.colSpan||1), 0); }
+
+  function makeCell(isHeader) {
+    const cell = document.createElement(isHeader ? 'th' : 'td');
+    cell.contentEditable = true;
+    if (isHeader) cell.style.fontFamily = fontTable;
+    cell.addEventListener('input', autosave);
+    return cell;
+  }
+
+  function addRow() {
+    const nc = colCount();
+    const tr = document.createElement('tr');
+    for (let c=0;c<nc;c++) tr.appendChild(makeCell(false));
+    tbody.appendChild(tr);
+    autosave();
+  }
+
+  function addCol() {
+    const th = makeCell(true); th.textContent = 'Column';
+    headerRow().appendChild(th);
+    tbody.querySelectorAll('tr').forEach(r => r.appendChild(makeCell(false)));
+    autosave();
+  }
+
+  function deleteLastRow() {
+    const rows = tbody.querySelectorAll('tr');
+    if (rows.length <= 1) { toast('Table needs at least one row.'); return; }
+    rows[rows.length-1].remove();
+    autosave();
+  }
+
+  function deleteLastCol() {
+    if (colCount() <= 1) { toast('Table needs at least one column.'); return; }
+    headerRow().lastElementChild?.remove();
+    tbody.querySelectorAll('tr').forEach(r => r.lastElementChild?.remove());
+    autosave();
+  }
+
+  function deleteRowAt(tr) {
+    if (allRows().length <= 1) { toast('Table needs at least one row.'); return; }
+    tr.remove();
+    autosave();
+  }
+
+  function deleteColAt(cellIndex) {
+    if (colCount() <= 1) { toast('Table needs at least one column.'); return; }
+    allRows().forEach(row => {
+      let idx = 0;
+      for (const cell of Array.from(row.cells)) {
+        const span = cell.colSpan || 1;
+        if (cellIndex >= idx && cellIndex < idx + span) {
+          if (span > 1) cell.colSpan = span - 1;
+          else cell.remove();
+          break;
+        }
+        idx += span;
+      }
+    });
+    autosave();
+  }
+
+  function insertRowAt(tr, position) {
+    const nc = colCount();
+    const newRow = document.createElement('tr');
+    for (let c=0;c<nc;c++) newRow.appendChild(makeCell(false));
+    if (tr.parentElement.tagName === 'THEAD') {
+      // inserting relative to header row — always lands in tbody
+      if (position === 'above') tbody.insertBefore(newRow, tbody.firstChild);
+      else tbody.insertBefore(newRow, tbody.firstChild);
+    } else {
+      if (position === 'above') tr.parentElement.insertBefore(newRow, tr);
+      else tr.parentElement.insertBefore(newRow, tr.nextSibling);
+    }
+    autosave();
+  }
+
+  function insertColAt(cellIndex, position) {
+    allRows().forEach((row, rowIdx) => {
+      const isHeader = row.parentElement.tagName === 'THEAD';
+      let idx = 0;
+      let targetCell = null;
+      for (const cell of Array.from(row.cells)) {
+        const span = cell.colSpan || 1;
+        if (cellIndex >= idx && cellIndex < idx + span) { targetCell = cell; break; }
+        idx += span;
+      }
+      const newCell = makeCell(isHeader);
+      if (isHeader) newCell.textContent = 'Column';
+      if (!targetCell) { row.appendChild(newCell); return; }
+      if (position === 'left') row.insertBefore(newCell, targetCell);
+      else row.insertBefore(newCell, targetCell.nextSibling);
+    });
+    autosave();
+  }
+
+  function cellColIndex(cell) {
+    const row = cell.parentElement;
+    let idx = 0;
+    for (const c of Array.from(row.cells)) {
+      if (c === cell) return idx;
+      idx += c.colSpan || 1;
+    }
+    return idx;
+  }
+
+  function mergeRight(cell) {
+    const row = cell.parentElement;
+    const next = cell.nextElementSibling;
+    if (!next) { toast('No cell to the right.'); return; }
+    const cellText = cell.textContent.trim();
+    const nextText = next.textContent.trim();
+    cell.colSpan = (cell.colSpan||1) + (next.colSpan||1);
+    cell.textContent = [cellText, nextText].filter(Boolean).join(' ');
+    cell.contentEditable = true;
+    next.remove();
+    autosave();
+  }
+
+  function mergeDown(cell) {
+    const colIdx = cellColIndex(cell);
+    const row = cell.parentElement;
+    const isHeaderRow = row.parentElement.tagName === 'THEAD';
+    // merging from header row into body isn't supported structurally — restrict to tbody rows
+    if (isHeaderRow) { toast("Header row can't merge downward."); return; }
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const rowIdx = rows.indexOf(row);
+    if (rowIdx === -1 || rowIdx === rows.length - 1) { toast('No cell below.'); return; }
+    const belowRow = rows[rowIdx+1];
+    // find the cell in belowRow at the same column index
+    let idx = 0, belowCell = null;
+    for (const c of Array.from(belowRow.cells)) {
+      if (colIdx >= idx && colIdx < idx + (c.colSpan||1)) { belowCell = c; break; }
+      idx += c.colSpan||1;
+    }
+    if (!belowCell) { toast('No cell below.'); return; }
+    const cellText = cell.textContent.trim();
+    const belowText = belowCell.textContent.trim();
+    cell.rowSpan = (cell.rowSpan||1) + (belowCell.rowSpan||1);
+    cell.textContent = [cellText, belowText].filter(Boolean).join(' ');
+    cell.contentEditable = true;
+    belowCell.remove();
+    autosave();
+  }
+
+  function splitCell(cell) {
+    const wasColSpan = cell.colSpan || 1;
+    const wasRowSpan = cell.rowSpan || 1;
+    if (wasColSpan <= 1 && wasRowSpan <= 1) { toast('This cell is not merged.'); return; }
+
+    const isHeader = cell.tagName === 'TH';
+    const row = cell.parentElement;
+
+    if (wasColSpan > 1) {
+      cell.colSpan = 1;
+      for (let i=1;i<wasColSpan;i++) {
+        const newCell = makeCell(isHeader);
+        row.insertBefore(newCell, cell.nextSibling);
+      }
+    }
+    if (wasRowSpan > 1) {
+      cell.rowSpan = 1;
+      const colIdx = cellColIndex(cell);
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const rowIdx = rows.indexOf(row);
+      for (let i=1;i<wasRowSpan;i++) {
+        const targetRow = rows[rowIdx+i];
+        if (!targetRow) continue;
+        // insert at the correct column position within that row
+        let idx = 0, refCell = null;
+        for (const c of Array.from(targetRow.cells)) {
+          if (idx >= colIdx) { refCell = c; break; }
+          idx += c.colSpan||1;
+        }
+        const newCell = makeCell(false);
+        if (refCell) targetRow.insertBefore(newCell, refCell);
+        else targetRow.appendChild(newCell);
+      }
+    }
+    autosave();
+  }
+
+  // ── Wire up the +Row / +Col / -Row / -Col buttons ──
+  if (ctl) {
+    ctl.querySelectorAll('.table-ctl-btn').forEach(btn => {
+      const act = btn.getAttribute('data-act');
+      btn.onclick = null;
+      btn.addEventListener('click', () => {
+        if (act === 'add-row') addRow();
+        else if (act === 'add-col') addCol();
+        else if (act === 'del-row') deleteLastRow();
+        else if (act === 'del-col') deleteLastCol();
+      });
+    });
+  }
+
+  // ── Right-click / long-press context menu on individual cells ──
+  table.querySelectorAll('th, td').forEach(cell => {
+    attachCellContextTrigger(cell, table, {
+      mergeRight, mergeDown, splitCell,
+      insertRowAt, insertColAt, deleteRowAt, deleteColAt, cellColIndex
+    });
+  });
+
+  // expose for context menu re-attachment after structural edits
+  table._tableOps = { mergeRight, mergeDown, splitCell, insertRowAt, insertColAt, deleteRowAt, deleteColAt, cellColIndex, addRow, addCol };
+}
+
+function attachCellContextTrigger(cell, table, ops) {
+  let longPressTimer = null;
+  let longPressFired = false;
+
+  const openMenu = (clientX, clientY) => {
+    showTableContextMenu(clientX, clientY, cell, table, ops);
+  };
+
+  cell.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    openMenu(e.clientX, e.clientY);
+  });
+
+  cell.addEventListener('touchstart', e => {
+    longPressFired = false;
+    const touch = e.touches[0];
+    const x = touch.clientX, y = touch.clientY;
+    longPressTimer = setTimeout(() => {
+      longPressFired = true;
+      openMenu(x, y);
+    }, 480);
+  }, { passive: true });
+
+  cell.addEventListener('touchend', () => { clearTimeout(longPressTimer); });
+  cell.addEventListener('touchmove', () => { clearTimeout(longPressTimer); });
+}
+
+let _tcmTarget = null; // { cell, table, ops }
+function showTableContextMenu(x, y, cell, table, ops) {
+  _tcmTarget = { cell, table, ops };
+  const menu = document.getElementById('table-ctx-menu');
+  menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
+  menu.style.top = Math.min(y, window.innerHeight - 360) + 'px';
+  menu.classList.add('open');
+  cell.classList.add('cell-selected');
+}
+function closeTableContextMenu() {
+  document.getElementById('table-ctx-menu').classList.remove('open');
+  if (_tcmTarget) _tcmTarget.cell.classList.remove('cell-selected');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#table-ctx-menu') && !e.target.closest('.el-table')) closeTableContextMenu();
+});
+document.addEventListener('scroll', closeTableContextMenu, true);
+
+function tcmAction(action) {
+  if (!_tcmTarget) return;
+  const { cell, ops } = _tcmTarget;
+  closeTableContextMenu();
+
+  switch(action) {
+    case 'merge-right': ops.mergeRight(cell); break;
+    case 'merge-down': ops.mergeDown(cell); break;
+    case 'split': ops.splitCell(cell); break;
+    case 'row-above': ops.insertRowAt(cell.parentElement, 'above'); break;
+    case 'row-below': ops.insertRowAt(cell.parentElement, 'below'); break;
+    case 'delete-row': ops.deleteRowAt(cell.parentElement); break;
+    case 'col-left': ops.insertColAt(ops.cellColIndex(cell), 'left'); break;
+    case 'col-right': ops.insertColAt(ops.cellColIndex(cell), 'right'); break;
+    case 'delete-col': ops.deleteColAt(ops.cellColIndex(cell)); break;
+  }
+
+  // re-wire context-menu triggers on any newly created cells
+  const wrapper = cell.closest('.note-el');
+  if (wrapper) {
+    setTimeout(() => initTableBehaviors(wrapper), 30);
+  }
 }
 
 function makeCallout(variant) {
@@ -1874,6 +2215,7 @@ function undoDelete() {
     parent.insertBefore(wrapper, pn);
   }
   attachElToolbar(wrapper);
+  if (wrapper.getAttribute('data-type') === 'table') rewireTableControls(wrapper);
 
   if (barHTML) {
     const tmp2 = document.createElement('div');
@@ -1908,6 +2250,12 @@ function duplicateEl(el) {
   el.parentNode.insertBefore(clone, el.nextSibling);
   el.parentNode.insertBefore(makeAddBar(clone), clone.nextSibling);
   attachElToolbar(clone);
+  // cloneNode copies attributes (colspan/rowspan) but not event listeners —
+  // tables need their behaviors re-wired or merge/split/delete silently break
+  if (clone.getAttribute('data-type') === 'table') {
+    clone.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+    rewireTableControls(clone);
+  }
   if (numberingOn) rebuildNumbers();
   autosave();
 }
@@ -2047,6 +2395,7 @@ async function runExport() {
 
   // temporarily hide editor chrome
   document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn,.page-toolbar').forEach(el => el.style.visibility='hidden');
+  closeTableContextMenu();
   markEmptyElements();
   document.body.classList.add('exporting');
 
@@ -2054,18 +2403,21 @@ async function runExport() {
     for (let i = 0; i < pages.length; i++) {
       prog.textContent = `Rendering page ${i+1} of ${pages.length}…`;
       const pg = pages[i];
+      // scale:3 gives ~280 DPI on an A4 page — sharp enough for print and
+      // zoomed PDF viewing. scale:2 (the old value) undershoots print quality.
+      const captureScale = 3;
       const canvas = await html2canvas(pg, {
-        scale: 2,
+        scale: captureScale,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: null,
+        backgroundColor: '#ffffff',
         logging: false,
         width: pg.scrollWidth,
         height: pg.scrollHeight
       });
-      const imgData = canvas.toDataURL('image/png');
-      const canvasW = canvas.width / 2; // device pixels → CSS pixels
-      const canvasH = canvas.height / 2;
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const canvasW = canvas.width / captureScale; // device pixels → CSS pixels
+      const canvasH = canvas.height / captureScale;
 
       // fit into pdf page with margin
       const margin = (1 - scale) * pdfW / 2;
@@ -2078,7 +2430,10 @@ async function runExport() {
       const y = (pdfH - imgH) / 2;
 
       if (i > 0) pdf.addPage(pageSize, orient);
-      pdf.addImage(imgData, 'PNG', x, y, imgW, imgH, undefined, 'FAST');
+      // 'NONE' = lossless embedding. 'FAST' (the old value) applies lossy
+      // JPEG-style compression to the PNG, which is the main cause of
+      // visible softness in exported text and table borders.
+      pdf.addImage(imgData, 'PNG', x, y, imgW, imgH, undefined, 'NONE');
     }
     prog.textContent = 'Saving…';
     pdf.save(filename);
@@ -2431,23 +2786,42 @@ function forceEditableState(wrapper) {
 function rewireTableControls(wrapper) {
   const tableWrap = wrapper.querySelector('.el-table-wrap');
   if (!tableWrap) return;
-  const table = tableWrap.querySelector('.el-table');
-  const hrow = table.querySelector('thead tr');
-  const tbody = table.querySelector('tbody');
   const ctl = wrapper.querySelector('.table-controls');
-  if (!ctl) return;
-  const btns = ctl.querySelectorAll('.table-ctl-btn');
-  if (btns[0]) btns[0].onclick = () => {
-    const nc = hrow.cells.length;
-    const tr = document.createElement('tr');
-    for (let c=0;c<nc;c++) { const td=document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); tr.appendChild(td); }
-    tbody.appendChild(tr); autosave();
-  };
-  if (btns[1]) btns[1].onclick = () => {
-    const th = document.createElement('th'); th.contentEditable=true; th.textContent='Column'; th.style.fontFamily=fontTable; th.addEventListener('input',autosave); hrow.appendChild(th);
-    tbody.querySelectorAll('tr').forEach(r => { const td=document.createElement('td'); td.contentEditable=true; td.addEventListener('input',autosave); r.appendChild(td); });
-    autosave();
-  };
+
+  // Upgrade legacy tables (from older saves or AI-generated JSON) that only
+  // have "+ Row"/"+ Col" buttons — add the delete-row/delete-col buttons so
+  // every table gets the full control set regardless of when it was created.
+  if (ctl) {
+    const hasAddRow = ctl.querySelector('[data-act="add-row"]') || Array.from(ctl.querySelectorAll('.table-ctl-btn')).some(b => b.textContent.trim() === '+ Row');
+    const hasDelRow = ctl.querySelector('[data-act="del-row"]');
+    const hasDelCol = ctl.querySelector('[data-act="del-col"]');
+
+    // normalize existing buttons to carry data-act if they don't already
+    ctl.querySelectorAll('.table-ctl-btn').forEach(b => {
+      if (!b.hasAttribute('data-act')) {
+        const txt = b.textContent.trim();
+        if (txt === '+ Row') b.setAttribute('data-act','add-row');
+        else if (txt === '+ Col') b.setAttribute('data-act','add-col');
+      }
+    });
+
+    if (!hasDelRow) {
+      const b = document.createElement('button');
+      b.className = 'table-ctl-btn danger';
+      b.setAttribute('data-act','del-row');
+      b.textContent = '– Row';
+      ctl.appendChild(b);
+    }
+    if (!hasDelCol) {
+      const b = document.createElement('button');
+      b.className = 'table-ctl-btn danger';
+      b.setAttribute('data-act','del-col');
+      b.textContent = '– Col';
+      ctl.appendChild(b);
+    }
+  }
+
+  initTableBehaviors(wrapper);
 }
 
 function rewireEquationDisplay(wrapper) {
@@ -3379,7 +3753,7 @@ window.addEventListener('afterprint', () => { unmarkEmptyElements(); document.bo
 
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveDoc(); }
-  if (e.key==='Escape') { closeMenu(); closeExportModal(); closeInkModal(); closeEqEditor(); closeImportModal(); closeAiGenModal(); }
+  if (e.key==='Escape') { closeMenu(); closeExportModal(); closeInkModal(); closeEqEditor(); closeImportModal(); closeAiGenModal(); closeTableContextMenu(); }
 });
 
 </script>
