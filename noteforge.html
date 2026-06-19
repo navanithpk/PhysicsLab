@@ -190,6 +190,39 @@ body{font-family:var(--font-ui);background:var(--bg-page);color:var(--text-prima
 #doc-title-wrap{width:794px;margin-bottom:16px;}
 #doc-title{font-family:var(--font-heading);font-size:13px;font-weight:500;color:var(--text-muted);font-style:italic;background:transparent;border:none;outline:none;width:100%;text-align:center;padding:4px 0 0;letter-spacing:.02em;}
 
+/* ─── PER-PAGE CONTROLS ─── */
+.page-toolbar {
+  position:absolute;
+  top:14px; right:-46px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .15s;
+  z-index:30;
+  background:var(--bg-toolbar);
+  border-radius:8px;
+  padding:4px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.28);
+}
+.page:hover .page-toolbar,
+.page:focus-within .page-toolbar { opacity:1; pointer-events:all; }
+.page-tb-btn {
+  width:30px; height:30px;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; border-radius:6px;
+  color:rgba(255,255,255,0.72); cursor:pointer;
+  transition:background .1s, color .1s;
+}
+.page-tb-btn:hover { background:rgba(220,60,60,0.55); color:#fff; }
+.page-tb-label {
+  font-size:8px; color:rgba(255,255,255,0.4);
+  text-align:center; text-transform:uppercase; letter-spacing:.06em;
+  padding:3px 0 1px;
+  font-family:var(--font-ui);
+}
+
 /* ─── COVER PAGE ─── */
 .page.is-cover {
   display:flex;
@@ -620,7 +653,7 @@ body.drag-active #paste-overlay{display:flex;}
 @media print{
   #toolbar,#left-panel,#float-insert,#paste-overlay,#toast,#export-modal,
   .el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,
-  .add-check-btn,.fmt-bar,.toc-refresh-btn{display:none!important;}
+  .add-check-btn,.fmt-bar,.toc-refresh-btn,.page-toolbar{display:none!important;}
   #app{padding-top:0!important;}
   #canvas-wrap{padding:0;background:white;}
   .page{width:210mm!important;min-height:297mm!important;box-shadow:none!important;border:none!important;border-radius:0!important;padding:20mm 24mm!important;margin:0!important;page-break-after:always;}
@@ -1140,6 +1173,89 @@ function rebuildNumbers() {
 }
 
 /* ═══════ PAGES ═══════ */
+function attachPageToolbar(page) {
+  page.querySelector('.page-toolbar')?.remove();
+  const tb = document.createElement('div');
+  tb.className = 'page-toolbar';
+  const btn = document.createElement('button');
+  btn.className = 'page-tb-btn';
+  btn.title = 'Delete this page';
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M5 4V2h6v2M6 7v5M10 7v5M4 4l1 9h6l1-9"/></svg>';
+  btn.addEventListener('mousedown', e => { e.preventDefault(); deletePage(page); });
+  const label = document.createElement('div');
+  label.className = 'page-tb-label';
+  label.textContent = 'Page';
+  tb.appendChild(btn);
+  tb.appendChild(label);
+  page.appendChild(tb);
+}
+
+function deletePage(page) {
+  const pages = document.querySelectorAll('.page');
+  if (pages.length <= 1) {
+    toast("Can't delete the only page — clear it instead, or add another page first.");
+    return;
+  }
+
+  const c = document.getElementById('pages-container');
+  const allPages = Array.from(c.children);
+  const idx = allPages.indexOf(page);
+  const nextSiblingNode = page.nextSibling;
+
+  _pageUndoStack = {
+    html: page.outerHTML,
+    index: idx,
+    container: c
+  };
+
+  page.remove();
+  if (numberingOn) rebuildNumbers();
+  const tocPg = document.querySelector('.page[data-toc]');
+  if (tocPg) refreshToc(tocPg);
+  autosave();
+
+  toastUndo('Page deleted. <a onclick="undoDeletePage()" style="color:var(--accent-2);cursor:pointer;text-decoration:underline;font-weight:600;">Undo</a>');
+}
+
+let _pageUndoStack = null;
+function undoDeletePage() {
+  if (!_pageUndoStack) return;
+  const { html, index, container } = _pageUndoStack;
+  _pageUndoStack = null;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const page = tmp.firstChild;
+
+  const children = Array.from(container.children);
+  if (index >= children.length) container.appendChild(page);
+  else container.insertBefore(page, children[index]);
+
+  // re-wire everything that needs live JS listeners
+  page.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+  page.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', autosave));
+  page.querySelectorAll('.note-el').forEach(wrapper => {
+    rewireTableControls(wrapper);
+    rewireEquationDisplay(wrapper);
+    rewireChecklistButton(wrapper);
+    rewireLinkButton(wrapper);
+    attachElToolbar(wrapper);
+  });
+  if (page.hasAttribute('data-toc')) {
+    const refreshBtn = page.querySelector('.toc-refresh-btn');
+    if (refreshBtn) refreshBtn.onclick = () => refreshToc(page);
+  }
+  attachPageToolbar(page);
+  page.addEventListener('click', () => { currentPage = page; });
+
+  if (numberingOn) rebuildNumbers();
+  const tocPg = document.querySelector('.page[data-toc]');
+  if (tocPg) refreshToc(tocPg);
+  autosave();
+  clearToast();
+  toast('Page restored ✓');
+}
+
 function addPage() {
   pageCount++;
   const c = document.getElementById('pages-container');
@@ -1148,6 +1264,7 @@ function addPage() {
   page.setAttribute('data-page', pageCount);
   page.innerHTML = `<div class="page-num">— ${pageCount} —</div>`;
   c.appendChild(page);
+  attachPageToolbar(page);
   page.addEventListener('click', () => { currentPage = page; });
   currentPage = page;
   return page;
@@ -1187,6 +1304,8 @@ function addCoverPage() {
   // insert at the very start
   c.insertBefore(page, c.firstChild);
   page.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+  attachPageToolbar(page);
+  page.addEventListener('click', () => { currentPage = page; });
   toast('Cover page added');
   autosave();
   return page;
@@ -1217,6 +1336,8 @@ function addTocPage() {
   else c.insertBefore(page, c.firstChild);
 
   page.querySelector('.toc-title').addEventListener('input', autosave);
+  attachPageToolbar(page);
+  page.addEventListener('click', () => { currentPage = page; });
   refreshToc(page);
   toast('Index page added');
   autosave();
@@ -1801,7 +1922,7 @@ async function runExport() {
   const pdfH = pdf.internal.pageSize.getHeight();
 
   // temporarily hide editor chrome
-  document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='hidden');
+  document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn,.page-toolbar').forEach(el => el.style.visibility='hidden');
   markEmptyElements();
   document.body.classList.add('exporting');
 
@@ -1843,7 +1964,7 @@ async function runExport() {
     prog.textContent = 'Error: ' + err.message;
     console.error(err);
   } finally {
-    document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='');
+    document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn,.page-toolbar').forEach(el => el.style.visibility='');
     unmarkEmptyElements();
     document.body.classList.remove('exporting');
   }
@@ -1892,7 +2013,7 @@ function toastUndo(html, dur=5000) {
   t.innerHTML = html;
   t.classList.add('show');
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { t.classList.remove('show'); _undoStack = null; }, dur);
+  _toastTimer = setTimeout(() => { t.classList.remove('show'); _undoStack = null; _pageUndoStack = null; }, dur);
 }
 function clearToast() {
   clearTimeout(_toastTimer);
@@ -2126,6 +2247,8 @@ function addCoverPageSilent() {
   `;
   c.appendChild(page);
   page.querySelectorAll('[contenteditable]').forEach(ed => ed.addEventListener('input', autosave));
+  attachPageToolbar(page);
+  page.addEventListener('click', () => { currentPage = page; });
   return page;
 }
 
@@ -2147,6 +2270,8 @@ function addTocPageSilent() {
   `;
   c.appendChild(page);
   page.querySelector('.toc-title').addEventListener('input', autosave);
+  attachPageToolbar(page);
+  page.addEventListener('click', () => { currentPage = page; });
   return page;
 }
 
