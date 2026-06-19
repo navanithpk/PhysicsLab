@@ -2513,6 +2513,8 @@ const EQ_PALETTES = {
   ],
   fractions: [
     { katex:'\\frac{a}{b}',      name:'Fraction',    latex:'\\frac{}{}',    cursor:-3 },
+    { katex:'\\frac{\\text{a}}{\\text{b}}', name:'Word fraction', latex:'\\frac{\\text{}}{\\text{}}', cursor:-11 },
+    { katex:'\\text{abc}',       name:'Text label',  latex:'\\text{}',       cursor:-1 },
     { katex:'\\frac{a}{b}+c',    name:'Frac + term', latex:'\\frac{}{} + ',  cursor:-5 },
     { katex:'a^{n}',             name:'Superscript', latex:'^{}',            cursor:-1 },
     { katex:'a_{n}',             name:'Subscript',   latex:'_{}',            cursor:-1 },
