@@ -311,7 +311,13 @@ body{font-family:var(--font-ui);background:var(--bg-page);color:var(--text-prima
 .toc-refresh-btn:hover { border-color:var(--accent-1); color:var(--accent-1); }
 
 /* ─── NOTE ELEMENTS ─── */
-.note-el{position:relative;margin:0 0 18px 0;outline:none;}
+.note-el{position:relative;margin:0 0 10px 0;outline:none;}
+/* tighter coupling when a heading sits directly above body content */
+.note-el[data-type="h1"] + .add-el-bar + .note-el[data-type="text"],
+.note-el[data-type="h2"] + .add-el-bar + .note-el[data-type="text"],
+.note-el[data-type="h3"] + .add-el-bar + .note-el[data-type="text"] {
+  margin-top: -4px;
+}
 .note-el:focus-within .el-toolbar,
 .note-el:hover .el-toolbar { opacity:1; pointer-events:all; }
 
@@ -566,9 +572,9 @@ body.numbered .sec-num{ display:inline; }
 .add-check-btn:hover{text-decoration:underline;}
 
 /* ─── ADD BAR ─── */
-.add-el-bar{display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;margin:2px 0;position:relative;}
+.add-el-bar{display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;margin:0;height:6px;position:relative;}
 .note-el:hover + .add-el-bar,.add-el-bar:hover{opacity:1;}
-.add-el-btn{width:22px;height:22px;border-radius:50%;background:var(--bg-element);border:1px dashed var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;box-shadow:0 1px 4px var(--shadow);font-size:16px;}
+.add-el-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:var(--bg-element);border:1px dashed var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;box-shadow:0 1px 4px var(--shadow);font-size:14px;z-index:5;}
 .add-el-btn:hover{background:var(--accent-1);border-color:var(--accent-1);color:#fff;transform:rotate(45deg) scale(1.15);}
 
 /* ─── FLOAT INSERT MENU ─── */
@@ -622,6 +628,38 @@ body.drag-active #paste-overlay{display:flex;}
   .el-image-zone input[type=file]{display:none!important;}
   [data-theme="forest"]{--bg-page:#fff;--bg-canvas:#fff;--text-primary:#000;--text-secondary:#333;--text-muted:#666;--border:#ccc;--accent-1:#000;--highlight:#f0f0f0;}
   @page{size:A4;margin:0;}
+
+  /* ── Suppress every placeholder hint in print: never show prompt text ── */
+  .el-h1[contenteditable]:empty::before,
+  .el-h2[contenteditable]:empty::before,
+  .el-h3[contenteditable]:empty::before,
+  .el-text[contenteditable]:empty::before,
+  .el-highlight[contenteditable]:empty::before,
+  .el-img-caption[contenteditable]:empty::before,
+  .el-callout .callout-body[contenteditable]:empty::before,
+  .el-definition .def-term[contenteditable]:empty::before,
+  .el-definition .def-body[contenteditable]:empty::before,
+  .eq-label[contenteditable]:empty::before,
+  .col-inner[contenteditable]:empty::before,
+  .check-item .check-text[contenteditable]:empty::before,
+  .cover-kicker[contenteditable]:empty::before,
+  .cover-title[contenteditable]:empty::before,
+  .cover-subtitle[contenteditable]:empty::before,
+  .cover-meta-value[contenteditable]:empty::before,
+  .eq-display .eq-placeholder,
+  .el-image-zone .eq-placeholder {
+    content: "" !important;
+    display: none !important;
+  }
+}
+
+/* ─── EMPTY-ELEMENT HIDING (for print + PDF export) ───
+   JS tags genuinely-empty elements with data-empty="true" right before
+   capture/print, then removes the tag afterward. This class works
+   outside @media print too, since html2canvas doesn't honour print media. */
+.note-el[data-empty="true"],
+.eq-label[data-empty="true"] {
+  display: none !important;
 }
 
 /* ─── RESPONSIVE ─── */
@@ -1760,6 +1798,7 @@ async function runExport() {
 
   // temporarily hide editor chrome
   document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='hidden');
+  markEmptyElements();
 
   try {
     for (let i = 0; i < pages.length; i++) {
@@ -1800,6 +1839,7 @@ async function runExport() {
     console.error(err);
   } finally {
     document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn').forEach(el => el.style.visibility='');
+    unmarkEmptyElements();
   }
 }
 
@@ -2807,10 +2847,92 @@ function runImportJSON() {
   toast('Note imported ✓ — ' + (data.pages.length) + ' page' + (data.pages.length>1?'s':'') + ' loaded');
 }
 
+/* ═══════ EMPTY ELEMENT DETECTION (print / PDF export) ═══════
+   Tags any inserted-but-never-filled element with data-empty="true"
+   so it's hidden from print and PDF output, without affecting the
+   live editing view at all. */
+function isTextEmpty(el) {
+  if (!el) return true;
+  return el.textContent.replace(/\u200B/g, '').trim() === '';
+}
+
+function markEmptyElements() {
+  document.querySelectorAll('.note-el').forEach(wrapper => {
+    const type = wrapper.getAttribute('data-type');
+    let empty = false;
+
+    switch (type) {
+      case 'h1': empty = isTextEmpty(wrapper.querySelector('.el-h1')); break;
+      case 'h2': empty = isTextEmpty(wrapper.querySelector('.el-h2')); break;
+      case 'h3': empty = isTextEmpty(wrapper.querySelector('.el-h3')); break;
+      case 'text': empty = isTextEmpty(wrapper.querySelector('.el-text')); break;
+      case 'highlight': empty = isTextEmpty(wrapper.querySelector('.el-highlight')); break;
+      case 'definition': {
+        const term = wrapper.querySelector('.def-term');
+        const body = wrapper.querySelector('.def-body');
+        empty = isTextEmpty(term) && isTextEmpty(body);
+        break;
+      }
+      case 'callout': empty = isTextEmpty(wrapper.querySelector('.callout-body')); break;
+      case 'equation': {
+        const display = wrapper.querySelector('.eq-display');
+        const latex = display ? (display.getAttribute('data-latex') || '').trim() : '';
+        empty = !latex;
+        // also hide the label if the equation itself is empty
+        const lbl = wrapper.querySelector('.eq-label');
+        if (lbl) lbl.setAttribute('data-empty', empty ? 'true' : 'false');
+        break;
+      }
+      case 'image': {
+        const zone = wrapper.querySelector('.el-image-zone');
+        empty = !(zone && zone.classList.contains('has-image'));
+        break;
+      }
+      case 'table': {
+        // empty if every cell (th + td) has no text
+        const cells = wrapper.querySelectorAll('.el-table th, .el-table td');
+        empty = cells.length > 0 && Array.from(cells).every(c => isTextEmpty(c));
+        break;
+      }
+      case 'columns': {
+        const cols = wrapper.querySelectorAll('.col-inner');
+        empty = cols.length > 0 && Array.from(cols).every(c => isTextEmpty(c));
+        break;
+      }
+      case 'checklist': {
+        const items = wrapper.querySelectorAll('.check-text');
+        empty = items.length === 0 || Array.from(items).every(c => isTextEmpty(c));
+        break;
+      }
+      case 'link': {
+        const btn = wrapper.querySelector('.el-link-btn');
+        const href = btn ? btn.getAttribute('href') : null;
+        empty = !href || href === '#';
+        break;
+      }
+      case 'divider': empty = false; break; // dividers are intentional, always show
+      default: empty = false;
+    }
+
+    wrapper.setAttribute('data-empty', empty ? 'true' : 'false');
+  });
+}
+
+function unmarkEmptyElements() {
+  document.querySelectorAll('.note-el[data-empty], .eq-label[data-empty]').forEach(el => {
+    el.removeAttribute('data-empty');
+  });
+}
+
+// Native browser printing (Cmd+P, Share → Print on iPad)
+window.addEventListener('beforeprint', markEmptyElements);
+window.addEventListener('afterprint', unmarkEmptyElements);
+
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveDoc(); }
   if (e.key==='Escape') { closeMenu(); closeExportModal(); closeInkModal(); closeEqEditor(); closeImportModal(); }
 });
+
 </script>
 
 <!-- ░░ NOTES MANAGER MODAL ░░ -->
