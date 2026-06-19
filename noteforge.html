@@ -11,8 +11,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Crimson+Pro:ital,wght@0,400;0,600;1,400;1,600&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Serif+Display:ital@0;1&family=Nunito:wght@300;400;600;700&family=Work+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <style>
-/* ─── COLOUR PROFILES ─── */
-:root, [data-theme="earthy"] {
+/* ─── COLOUR PROFILES ───
+   :root carries the default theme. Mist is the default — cool, low-glare,
+   high-contrast academic palette — applied before any data-theme attribute
+   is read, so first paint and any state without an explicit theme match it. */
+:root, [data-theme="mist"] {
+  --bg-page:#f0f2f5;--bg-canvas:#f8f9fb;--bg-toolbar:#2a3040;--bg-panel:#e8eaef;
+  --bg-element:#ffffff;--accent-1:#4a6fa5;--accent-2:#7a9fc8;--accent-3:#6b8fa0;
+  --text-primary:#1a2030;--text-secondary:#4a5568;--text-muted:#8090a8;
+  --border:#c8d0dc;--border-strong:#4a6fa5;--highlight:#e0e8f4;
+  --callout-info:#e8f0f8;--callout-warn:#fff8e8;--callout-tip:#f0f8f0;
+  --callout-info-border:#4a6fa5;--callout-warn-border:#c49a30;--callout-tip-border:#4a8a60;
+  --shadow:rgba(40,60,100,0.10);
+}
+[data-theme="earthy"] {
   --bg-page:#f5f0e8;--bg-canvas:#faf8f4;--bg-toolbar:#2c2416;--bg-panel:#ede8df;
   --bg-element:#ffffff;--accent-1:#8b5e3c;--accent-2:#c4956a;--accent-3:#4a7c59;
   --text-primary:#1a130a;--text-secondary:#5a4a3a;--text-muted:#8b7b6b;
@@ -30,15 +42,6 @@
   --callout-info-border:#7ec8a4;--callout-warn-border:#f4c87a;--callout-tip-border:#7ab4f4;
   --shadow:rgba(0,0,0,0.30);
 }
-[data-theme="mist"] {
-  --bg-page:#f0f2f5;--bg-canvas:#f8f9fb;--bg-toolbar:#2a3040;--bg-panel:#e8eaef;
-  --bg-element:#ffffff;--accent-1:#4a6fa5;--accent-2:#7a9fc8;--accent-3:#6b8fa0;
-  --text-primary:#1a2030;--text-secondary:#4a5568;--text-muted:#8090a8;
-  --border:#c8d0dc;--border-strong:#4a6fa5;--highlight:#e0e8f4;
-  --callout-info:#e8f0f8;--callout-warn:#fff8e8;--callout-tip:#f0f8f0;
-  --callout-info-border:#4a6fa5;--callout-warn-border:#c49a30;--callout-tip-border:#4a8a60;
-  --shadow:rgba(40,60,100,0.10);
-}
 [data-theme="vivid"] {
   --bg-page:#fff9f0;--bg-canvas:#fffcf8;--bg-toolbar:#1a0a2e;--bg-panel:#faf0e8;
   --bg-element:#ffffff;--accent-1:#e63946;--accent-2:#f4a261;--accent-3:#2a9d8f;
@@ -50,13 +53,20 @@
 }
 [data-theme="print"] {
   --bg-page:#ffffff;--bg-canvas:#ffffff;--bg-toolbar:#333;--bg-panel:#f0f0f0;
-  --bg-element:#ffffff;--accent-1:#000000;--accent-2:#444444;--accent-3:#222222;
-  --text-primary:#000000;--text-secondary:#333333;--text-muted:#666666;
-  --border:#cccccc;--border-strong:#000000;--highlight:#f0f0f0;
+  --bg-element:#ffffff;--accent-1:#e8e8e8;--accent-2:#555555;--accent-3:#333333;
+  --text-primary:#000000;--text-secondary:#222222;--text-muted:#555555;
+  --border:#999999;--border-strong:#000000;--highlight:#f3f3f3;
   --callout-info:#f8f8f8;--callout-warn:#f8f8f8;--callout-tip:#f8f8f8;
   --callout-info-border:#666;--callout-warn-border:#666;--callout-tip-border:#666;
   --shadow:none;
 }
+
+/* Print theme needs dark text on its now-light accent fills (definition
+   term bar, etc.) since --accent-1 is light grey, not black, in this theme. */
+[data-theme="print"] .def-term { color: #000 !important; border-bottom: 1.5px solid #000; }
+[data-theme="print"] .el-table th { color: #000 !important; border-bottom: 1.5px solid #000; }
+[data-theme="print"] .el-link-btn { color: #000 !important; border: 1px solid #000; }
+[data-theme="print"] .el-h1 { border-bottom-color: #000; }
 
 /* ─── FONT STACKS ─── */
 :root {
@@ -811,7 +821,7 @@ body.exporting .el-image-zone .eq-placeholder {
 }
 </style>
 </head>
-<body data-theme="earthy">
+<body data-theme="mist">
 
 <!-- ░░ TOOLBAR ░░ -->
 <div id="toolbar">
@@ -972,8 +982,8 @@ body.exporting .el-image-zone .eq-placeholder {
       <div class="exp-row">
         <label>Scale</label>
         <select id="exp-scale">
-          <option value="1">100% — full fidelity</option>
-          <option value="0.9" selected>90% — safe margins</option>
+          <option value="1" selected>100% — full fidelity</option>
+          <option value="0.9">90% — safe margins</option>
           <option value="0.75">75% — compact</option>
         </select>
       </div>
