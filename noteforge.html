@@ -2419,14 +2419,19 @@ async function runExport() {
       const canvasW = canvas.width / captureScale; // device pixels → CSS pixels
       const canvasH = canvas.height / captureScale;
 
-      // fit into pdf page with margin
-      const margin = (1 - scale) * pdfW / 2;
+      // Centre the page image inside an "available box" that's `scale` of
+      // the full PDF page, then centre that box on the page itself. x and y
+      // must use the identical box (availW/availH) — previously y used the
+      // full, unscaled pdfH, which only matched x's math by coincidence at
+      // scale=1 and silently drifted the image off-centre at any other
+      // scale, or whenever a page's actual content height differed from the
+      // nominal A4 proportions (very common with rich, multi-element notes).
       const availW = pdfW * scale;
       const availH = pdfH * scale;
       const ratio = Math.min(availW / canvasW, availH / canvasH);
       const imgW = canvasW * ratio;
       const imgH = canvasH * ratio;
-      const x = margin + (availW - imgW) / 2;
+      const x = (pdfW - imgW) / 2;
       const y = (pdfH - imgH) / 2;
 
       if (i > 0) pdf.addPage(pageSize, orient);
