@@ -189,13 +189,17 @@ body{font-family:var(--font-ui);background:var(--bg-page);color:var(--text-prima
 
 /* ─── PAGE ─── */
 .page{
-  width:794px;min-height:1123px;background:var(--bg-canvas);
+  width:794px;height:1123px;background:var(--bg-canvas);
   border:1px solid var(--border);border-radius:4px;
   box-shadow:0 4px 24px var(--shadow),0 1px 4px var(--shadow);
   padding:64px 72px;position:relative;margin-bottom:24px;
   transition:background .3s,border-color .3s;
-  overflow:visible;
+  overflow:hidden;
+  box-sizing:border-box;
 }
+/* Cover and TOC pages are exempt from auto-pagination — they're meant
+   to be exactly one page each, laid out by their own dedicated logic. */
+.page.is-cover, .page[data-toc] { overflow:visible; }
 .page-num{position:absolute;bottom:28px;right:72px;font-size:11px;color:var(--text-muted);font-family:var(--font-ui);}
 #doc-title-wrap{width:794px;margin-bottom:16px;}
 #doc-title{font-family:var(--font-heading);font-size:13px;font-weight:500;color:var(--text-muted);font-style:italic;background:transparent;border:none;outline:none;width:100%;text-align:center;padding:4px 0 0;letter-spacing:.02em;}
@@ -741,18 +745,20 @@ body.drag-active #paste-overlay{display:flex;}
   .add-check-btn,.fmt-bar,.toc-refresh-btn,.page-toolbar,#table-ctx-menu{display:none!important;}
   #app{padding-top:0!important;}
   #canvas-wrap{padding:0;background:white;}
-  .page{width:210mm!important;min-height:297mm!important;box-shadow:none!important;border:none!important;border-radius:0!important;padding:20mm 24mm!important;margin:0!important;page-break-after:always;}
+  .page{width:210mm!important;height:297mm!important;box-shadow:none!important;border:none!important;border-radius:0!important;padding:20mm 24mm!important;margin:0!important;page-break-after:always;page-break-inside:avoid;overflow:hidden!important;}
   .el-image-zone .drop-hint{display:none!important;}
   .el-image-zone input[type=file]{display:none!important;}
   [data-theme="forest"]{--bg-page:#fff;--bg-canvas:#fff;--text-primary:#000;--text-secondary:#333;--text-muted:#666;--border:#ccc;--accent-1:#000;--highlight:#f0f0f0;}
   @page{size:A4;margin:0;}
 }
 
-/* ─── EXPORT MODE (jsPDF / html2canvas capture) ───
-   body.exporting is toggled on right before html2canvas snapshots each
-   page, and removed right after. html2canvas renders the live DOM and
-   does NOT honour @media print, so every placeholder/empty-state rule
-   that must affect the exported PDF lives here instead. */
+/* ─── EXPORT MODE (native browser print only) ───
+   body.exporting is toggled on right before the native print dialog opens
+   (Cmd+P / Share→Print), and removed right after. The PDF export button
+   no longer uses this — it builds a vector PDF directly from document
+   data, not from a screenshot of the page — but native browser printing
+   still rasterizes the live DOM, so these placeholder/empty-state rules
+   remain necessary for that path. */
 body.exporting .el-h1[contenteditable]:empty::before,
 body.exporting .el-h2[contenteditable]:empty::before,
 body.exporting .el-h3[contenteditable]:empty::before,
@@ -775,26 +781,35 @@ body.exporting .el-image-zone .eq-placeholder {
   display: none !important;
 }
 
-/* ─── EMPTY-ELEMENT HIDING (print + PDF export) ───
+/* ─── EMPTY-ELEMENT HIDING (native print only) ───
    JS tags genuinely-empty elements with data-empty="true" right before
-   capture/print, then removes the tag afterward. Unscoped so it works
-   for both the native print dialog and the html2canvas/jsPDF path. */
+   the native print dialog opens, then removes the tag afterward. The
+   vector PDF export path checks emptiness directly from document data
+   instead and doesn't touch the DOM, so this is print-only now. */
 .note-el[data-empty="true"],
 .eq-label[data-empty="true"] {
   display: none !important;
 }
 
-/* ─── RESPONSIVE ─── */
+/* ─── RESPONSIVE ───
+   The page must always represent one true A4 sheet (794×1123px @96dpi)
+   so on-screen pagination matches print/export exactly. On narrower
+   viewports we scale the whole page down uniformly with a CSS transform
+   instead of reflowing its width — reflowing would change where content
+   wraps and break the fixed-height pagination model entirely. */
 @media(max-width:900px){
   #left-panel{width:180px;}
-  .page{width:calc(100vw - 180px - 32px);min-height:auto;padding:40px 36px;}
   #doc-title-wrap{width:100%;}
+}
+@media(max-width:860px){
+  #canvas-wrap{ overflow-x:hidden; }
+  .page{ transform:scale(0.82); transform-origin:top center; margin-bottom:-190px; }
 }
 @media(max-width:700px){
   #left-panel{display:none;}
   #app{flex-direction:column;}
-  #canvas-wrap{padding:12px 8px 60px;}
-  .page{width:100%;min-height:auto;padding:28px 20px;}
+  #canvas-wrap{padding:12px 8px 60px; overflow-x:hidden;}
+  .page{ transform:scale(0.46); transform-origin:top center; margin-bottom:-600px; }
   #doc-title-wrap{width:100%;}
   #toolbar{gap:2px;padding:0 8px;}
   .tb-btn span{display:none;}
@@ -1053,7 +1068,7 @@ body.exporting .el-image-zone .eq-placeholder {
 <div id="export-modal">
   <div id="export-box">
     <h3>Export to PDF</h3>
-    <p>Renders each page at print resolution (~280 DPI), lossless. Larger files, sharper output — worth the extra second per page.</p>
+    <p>Vector PDF — real selectable text, real tables, no screenshots. Crisp at any zoom.</p>
     <div class="exp-opt">
       <div class="exp-row">
         <label>Filename</label>
@@ -1075,11 +1090,11 @@ body.exporting .el-image-zone .eq-placeholder {
         </select>
       </div>
       <div class="exp-row">
-        <label>Scale</label>
+        <label>Margins</label>
         <select id="exp-scale">
-          <option value="1" selected>100% — full fidelity</option>
-          <option value="0.9">90% — safe margins</option>
-          <option value="0.75">75% — compact</option>
+          <option value="1" selected>Standard (20mm)</option>
+          <option value="0.9">Narrow (12mm)</option>
+          <option value="0.75">Wide (28mm)</option>
         </select>
       </div>
     </div>
@@ -1194,9 +1209,9 @@ body.exporting .el-image-zone .eq-placeholder {
 <div id="toast"></div>
 
 <!-- ══════════════════ SCRIPTS ══════════════════ -->
-<!-- jsPDF + html2canvas -->
+<!-- jsPDF + autotable for real vector PDF export (no screenshots) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <script>
 /* ═══════ STATE ═══════ */
@@ -1215,6 +1230,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDragDrop();
   setupSelectionBar();
   loadFromStorage();
+  setupPaginationObserver();
+  schedulePagination();
 });
 
 /* ═══════ THEME ═══════ */
@@ -1359,6 +1376,332 @@ function undoDeletePage() {
   autosave();
   clearToast();
   toast('Page restored ✓');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAGINATION ENGINE
+   The .page element is a fixed-height box (1123px, matching true
+   A4 at 96dpi) with overflow:hidden. After any content change,
+   repaginateAll() checks whether each regular page's content now
+   exceeds that height. If it does, the engine peels elements off
+   the bottom of the overflowing page and moves them onto the next
+   page (creating one if needed), so what you see on screen always
+   matches what export and Cmd+P produce — never a tall div that
+   silently grew past one real sheet of paper.
+
+   Rules:
+   - Cover and TOC pages are exempt (handled by their own logic).
+   - Most elements move as a whole unit — never sliced mid-box.
+   - Tables are the deliberate exception: if a table doesn't fit,
+     its rows are split at the row boundary, with the header
+     re-drawn at the top of the continuation table.
+═══════════════════════════════════════════════════════════ */
+
+let _paginationScheduled = false;
+let _paginationObserver = null;
+let _paginationSuspended = 0;
+
+function suspendPagination() { _paginationSuspended++; }
+function resumePagination() {
+  _paginationSuspended = Math.max(0, _paginationSuspended - 1);
+  if (_paginationSuspended === 0) schedulePagination();
+}
+
+function schedulePagination() {
+  if (_paginationSuspended > 0) return;
+  if (_paginationScheduled) return;
+  _paginationScheduled = true;
+  requestAnimationFrame(() => {
+    _paginationScheduled = false;
+    repaginateAll();
+  });
+}
+
+function isRegularPage(pg) {
+  return pg && pg.classList.contains('page') && !pg.hasAttribute('data-cover') && !pg.hasAttribute('data-toc');
+}
+
+function pageUsableHeight(pg) {
+  // content box height = clientHeight minus vertical padding
+  const cs = getComputedStyle(pg);
+  const padTop = parseFloat(cs.paddingTop) || 0;
+  const padBottom = parseFloat(cs.paddingBottom) || 0;
+  return pg.clientHeight - padTop - padBottom;
+}
+
+function getPageScale(pg) {
+  const cs = getComputedStyle(pg);
+  const t = cs.transform;
+  if (!t || t === 'none') return 1;
+  // transform matrix is "matrix(a, b, c, d, tx, ty)" — `a` is the x-scale,
+  // which is identical to the y-scale for our uniform scale() rules.
+  const m = t.match(/matrix\(([^,]+),/);
+  return m ? parseFloat(m[1]) || 1 : 1;
+}
+
+function pageContentBottom(pg) {
+  // distance from the page's content-box top to the bottom edge of its
+  // last real child (note-el or add-el-bar), used to detect overflow.
+  // getBoundingClientRect() reflects any CSS transform:scale() applied
+  // by the responsive breakpoints, but clientHeight (used for the usable
+  // height comparison) does not — so we divide back out by the current
+  // scale factor to keep both measurements in the same true layout space.
+  const children = Array.from(pg.children).filter(c =>
+    c.classList.contains('note-el') || c.classList.contains('add-el-bar')
+  );
+  if (!children.length) return 0;
+  const last = children[children.length - 1];
+  const pageRect = pg.getBoundingClientRect();
+  const lastRect = last.getBoundingClientRect();
+  const cs = getComputedStyle(pg);
+  const padTop = parseFloat(cs.paddingTop) || 0;
+  const scale = getPageScale(pg);
+  return ((lastRect.bottom - pageRect.top) / scale) - padTop;
+}
+
+function repaginateAll() {
+  const container = document.getElementById('pages-container');
+  if (!container) return;
+  let pages = Array.from(container.children).filter(c => c.classList.contains('page'));
+  let safetyCounter = 0;
+
+  for (let i = 0; i < pages.length; i++) {
+    const pg = pages[i];
+    if (!isRegularPage(pg)) continue;
+
+    let guard = 0;
+    while (pageContentBottom(pg) > pageUsableHeight(pg) && guard < 40) {
+      guard++; safetyCounter++;
+      if (safetyCounter > 400) { console.warn('Pagination safety limit hit'); return; }
+
+      const moved = pullOverflowToNextPage(pg, pages, i);
+      if (!moved) break; // nothing more can be done (single giant element)
+
+      // refresh local page list in case a new page was created
+      pages = Array.from(container.children).filter(c => c.classList.contains('page'));
+    }
+  }
+
+  // After redistributing, also try pulling content UP if a page has
+  // emptied out and a later page could fit back onto an earlier one.
+  // This keeps editing (especially deletions) from leaving sparse
+  // trailing pages behind.
+  consolidateUpward(container);
+
+  renumberPages();
+  if (numberingOn) rebuildNumbers();
+  const tocPg = document.querySelector('.page[data-toc]');
+  if (tocPg) refreshToc(tocPg);
+}
+
+function pullOverflowToNextPage(pg, pages, pgIndex) {
+  const children = Array.from(pg.children).filter(c =>
+    c.classList.contains('note-el') || c.classList.contains('add-el-bar')
+  );
+  if (!children.length) return false;
+
+  // walk backward from the end to find the deepest unit we can move
+  // (a note-el plus its trailing add-el-bar, treated as one pair)
+  let lastEl = null, lastBar = null;
+  for (let i = children.length - 1; i >= 0; i--) {
+    const c = children[i];
+    if (c.classList.contains('add-el-bar') && !lastBar) { lastBar = c; continue; }
+    if (c.classList.contains('note-el')) { lastEl = c; break; }
+  }
+  if (!lastEl) return false;
+
+  // Special case: tables may be split at a row boundary instead of
+  // moving the whole element, since long tables are expected to span
+  // pages naturally.
+  if (lastEl.getAttribute('data-type') === 'table') {
+    const splitHandled = trySplitTableAcrossPages(lastEl, pg, pages, pgIndex);
+    if (splitHandled) return true;
+  }
+
+  let nextPage = pages[pgIndex + 1];
+  if (!nextPage || !isRegularPage(nextPage)) {
+    nextPage = insertRegularPageAfter(pg);
+  }
+
+  // move element (and its add-bar) to the TOP of the next page
+  const nextPageNum = nextPage.querySelector('.page-num');
+  const firstChild = nextPage.firstChild;
+  nextPage.insertBefore(lastEl, firstChild);
+  if (lastBar) nextPage.insertBefore(lastBar, lastEl.nextSibling);
+  else nextPage.insertBefore(makeAddBar(lastEl), lastEl.nextSibling);
+
+  // re-wire anything that depends on live DOM listeners, since the
+  // element itself wasn't recreated (cloneNode wasn't used) — only its
+  // container changed — so existing listeners remain intact. Tables'
+  // button handlers and equation click-handlers are closures already
+  // bound to this exact node, so they continue to work after the move.
+  return true;
+}
+
+function trySplitTableAcrossPages(tableWrapper, pg, pages, pgIndex) {
+  const table = tableWrapper.querySelector('.el-table');
+  if (!table) return false;
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  if (rows.length <= 1) return false; // nothing to split, move the whole thing instead
+
+  // Find how many rows currently fit by trial removal from the bottom
+  const pageBottomLimit = pageUsableHeight(pg);
+  let removedRows = [];
+
+  while (rows.length - removedRows.length > 1 && pageContentBottom(pg) > pageBottomLimit) {
+    const idx = rows.length - 1 - removedRows.length;
+    removedRows.unshift(rows[idx]);
+    rows[idx].remove();
+    if (pageContentBottom(pg) <= pageBottomLimit) break;
+  }
+
+  if (!removedRows.length) return false;
+
+  let nextPage = pages[pgIndex + 1];
+  if (!nextPage || !isRegularPage(nextPage)) {
+    nextPage = insertRegularPageAfter(pg);
+  }
+
+  // Build a continuation table on the next page with the same header
+  const headHtml = table.querySelector('thead')?.outerHTML || '';
+  const contWrapper = document.createElement('div');
+  contWrapper.className = 'note-el';
+  contWrapper.setAttribute('data-type', 'table');
+  contWrapper.innerHTML = `
+    <div class="el-table-wrap">
+      <table class="el-table">
+        ${headHtml}
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="table-controls">
+      <button class="table-ctl-btn" data-act="add-row">+ Row</button>
+      <button class="table-ctl-btn" data-act="add-col">+ Col</button>
+      <button class="table-ctl-btn danger" data-act="del-row">– Row</button>
+      <button class="table-ctl-btn danger" data-act="del-col">– Col</button>
+    </div>
+  `;
+  const contTbody = contWrapper.querySelector('tbody');
+  removedRows.forEach(r => contTbody.appendChild(r));
+
+  attachElToolbar(contWrapper);
+  initTableBehaviors(contWrapper);
+
+  const nextFirstChild = nextPage.firstChild;
+  nextPage.insertBefore(contWrapper, nextFirstChild);
+  nextPage.insertBefore(makeAddBar(contWrapper), contWrapper.nextSibling);
+
+  return true;
+}
+
+function insertRegularPageAfter(pg) {
+  pageCount++;
+  const page = document.createElement('div');
+  page.className = 'page';
+  page.setAttribute('data-page', pageCount);
+  page.innerHTML = `<div class="page-num">— ${pageCount} —</div>`;
+  pg.insertAdjacentElement('afterend', page);
+  attachPageToolbar(page);
+  page.addEventListener('click', () => { currentPage = page; });
+  return page;
+}
+
+function consolidateUpward(container) {
+  // If a page (other than the last) has room and the NEXT page's first
+  // element would fit, pull it up. Repeat a bounded number of times to
+  // avoid infinite loops with large documents.
+  let pages = Array.from(container.children).filter(c => isRegularPage(c));
+  let iterations = 0;
+
+  for (let i = 0; i < pages.length - 1 && iterations < 200; i++) {
+    const pg = pages[i];
+    let nextPage = pages[i+1];
+    if (!nextPage) continue;
+
+    let guard = 0;
+    while (guard < 30) {
+      guard++; iterations++;
+      const nextChildren = Array.from(nextPage.children).filter(c =>
+        c.classList.contains('note-el') || c.classList.contains('add-el-bar')
+      );
+      const firstEl = nextChildren.find(c => c.classList.contains('note-el'));
+      if (!firstEl) break;
+
+      // simulate: would moving this element keep pg within bounds?
+      const pageNum = pg.querySelector('.page-num');
+      pg.insertBefore(firstEl, pageNum);
+      let bar = firstEl.nextSibling;
+      if (!bar || !bar.classList || !bar.classList.contains('add-el-bar')) {
+        bar = makeAddBar(firstEl);
+        pg.insertBefore(bar, firstEl.nextSibling);
+      } else {
+        pg.insertBefore(bar, firstEl.nextSibling);
+      }
+
+      if (pageContentBottom(pg) > pageUsableHeight(pg)) {
+        // doesn't fit — revert by pushing it back to the top of nextPage
+        const nextFirst = nextPage.firstChild;
+        nextPage.insertBefore(firstEl, nextFirst);
+        nextPage.insertBefore(bar, firstEl.nextSibling);
+        break;
+      }
+      // fits — remove empty trailing page if nextPage is now empty
+      const stillThere = Array.from(nextPage.children).some(c => c.classList.contains('note-el'));
+      if (!stillThere && nextPage !== pages[pages.length-1]) {
+        nextPage.remove();
+        pages = Array.from(container.children).filter(c => isRegularPage(c));
+        nextPage = pages[i+1];
+        if (!nextPage) break;
+      }
+    }
+  }
+
+  // finally, drop any fully-empty trailing regular page (but always
+  // leave at least one page in the whole document)
+  pages = Array.from(container.children).filter(c => isRegularPage(c));
+  const allPagesCount = Array.from(container.children).filter(c => c.classList.contains('page')).length;
+  pages.forEach(pg => {
+    const hasContent = Array.from(pg.children).some(c => c.classList.contains('note-el'));
+    if (!hasContent && allPagesCount > 1) {
+      pg.remove();
+    }
+  });
+}
+
+function renumberPages() {
+  const container = document.getElementById('pages-container');
+  if (!container) return;
+  let n = 0;
+  Array.from(container.children).forEach(pg => {
+    if (!pg.classList.contains('page')) return;
+    if (pg.hasAttribute('data-cover')) {
+      const lbl = pg.querySelector('.page-num');
+      if (lbl) lbl.textContent = '— cover —';
+      return;
+    }
+    if (pg.hasAttribute('data-toc')) {
+      const lbl = pg.querySelector('.page-num');
+      if (lbl) lbl.textContent = '— contents —';
+      return;
+    }
+    n++;
+    pg.setAttribute('data-page', n);
+    const lbl = pg.querySelector('.page-num');
+    if (lbl) lbl.textContent = `— ${n} —`;
+  });
+  pageCount = n;
+}
+
+function setupPaginationObserver() {
+  const container = document.getElementById('pages-container');
+  if (!container) return;
+  _paginationObserver = new MutationObserver(() => schedulePagination());
+  _paginationObserver.observe(container, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
 }
 
 function addPage() {
@@ -2377,81 +2720,621 @@ function openExportModal() {
 }
 function closeExportModal() { document.getElementById('export-modal').classList.remove('open'); }
 
+/* ═══════════════════════════════════════════════════════════
+   VECTOR PDF EXPORT — no screenshots. Walks the actual document
+   data (same shape as collectDocData) and draws real text, real
+   table grids, and real vector shapes directly with jsPDF. Text
+   stays selectable and searchable; output is sharp at any zoom.
+═══════════════════════════════════════════════════════════ */
+
+function hexFromCssVar(varName, fallback) {
+  const v = getComputedStyle(document.body).getPropertyValue(varName).trim();
+  return v || fallback;
+}
+
+function hexToRgb(hex) {
+  hex = hex.trim();
+  if (hex.startsWith('rgb')) {
+    const m = hex.match(/[\d.]+/g);
+    if (m) return [parseInt(m[0]), parseInt(m[1]), parseInt(m[2])];
+  }
+  hex = hex.replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex, 16);
+  if (isNaN(num)) return [0,0,0];
+  return [(num>>16)&255, (num>>8)&255, num&255];
+}
+
+/* Strip HTML to plain text but keep line-break semantics from <br> and
+   block tags, since contenteditable content often contains simple markup. */
+function htmlToPlainText(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  tmp.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+  tmp.querySelectorAll('div,p,li').forEach(el => el.appendChild(document.createTextNode('\n')));
+  return tmp.textContent.replace(/\n{3,}/g,'\n\n').trim();
+}
+
 async function runExport() {
   const prog = document.getElementById('export-progress');
   const filename = (document.getElementById('exp-filename').value || 'notes') + '.pdf';
   const pageSize = document.getElementById('exp-pagesize').value;
   const orient = document.getElementById('exp-orient').value;
-  const scale = parseFloat(document.getElementById('exp-scale').value);
+  const marginScale = parseFloat(document.getElementById('exp-scale').value); // repurposed: margin size selector
 
-  prog.textContent = 'Initialising…';
-
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: orient, unit: 'mm', format: pageSize });
-
-  const pages = document.querySelectorAll('.page');
-  const pdfW = pdf.internal.pageSize.getWidth();
-  const pdfH = pdf.internal.pageSize.getHeight();
-
-  // temporarily hide editor chrome
-  document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn,.page-toolbar').forEach(el => el.style.visibility='hidden');
-  closeTableContextMenu();
-  markEmptyElements();
-  document.body.classList.add('exporting');
+  prog.textContent = 'Building document…';
+  document.getElementById('export-progress').style.display = 'block';
 
   try {
-    for (let i = 0; i < pages.length; i++) {
-      prog.textContent = `Rendering page ${i+1} of ${pages.length}…`;
-      const pg = pages[i];
-      // scale:3 gives ~280 DPI on an A4 page — sharp enough for print and
-      // zoomed PDF viewing. scale:2 (the old value) undershoots print quality.
-      const captureScale = 3;
-      const canvas = await html2canvas(pg, {
-        scale: captureScale,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: pg.scrollWidth,
-        height: pg.scrollHeight
-      });
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const canvasW = canvas.width / captureScale; // device pixels → CSS pixels
-      const canvasH = canvas.height / captureScale;
+    closeTableContextMenu();
+    const docData = collectDocData(); // same structured data used for saving
 
-      // Centre the page image inside an "available box" that's `scale` of
-      // the full PDF page, then centre that box on the page itself. x and y
-      // must use the identical box (availW/availH) — previously y used the
-      // full, unscaled pdfH, which only matched x's math by coincidence at
-      // scale=1 and silently drifted the image off-centre at any other
-      // scale, or whenever a page's actual content height differed from the
-      // nominal A4 proportions (very common with rich, multi-element notes).
-      const availW = pdfW * scale;
-      const availH = pdfH * scale;
-      const ratio = Math.min(availW / canvasW, availH / canvasH);
-      const imgW = canvasW * ratio;
-      const imgH = canvasH * ratio;
-      const x = (pdfW - imgW) / 2;
-      const y = (pdfH - imgH) / 2;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: orient, unit: 'mm', format: pageSize });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
 
-      if (i > 0) pdf.addPage(pageSize, orient);
-      // 'NONE' = lossless embedding. 'FAST' (the old value) applies lossy
-      // JPEG-style compression to the PNG, which is the main cause of
-      // visible softness in exported text and table borders.
-      pdf.addImage(imgData, 'PNG', x, y, imgW, imgH, undefined, 'NONE');
+    // margin preset: 1=standard(20mm), 0.9=narrow(12mm), 0.75=wide(28mm)
+    const marginMap = { '1': 20, '0.9': 12, '0.75': 28 };
+    const margin = marginMap[String(marginScale)] ?? 20;
+    const contentW = pageW - margin*2;
+
+    // Pull live theme colors so the PDF matches whatever theme is active
+    const colors = {
+      text: hexToRgb(hexFromCssVar('--text-primary', '#1a130a')),
+      textSecondary: hexToRgb(hexFromCssVar('--text-secondary', '#5a4a3a')),
+      textMuted: hexToRgb(hexFromCssVar('--text-muted', '#8b7b6b')),
+      accent1: hexToRgb(hexFromCssVar('--accent-1', '#8b5e3c')),
+      accent2: hexToRgb(hexFromCssVar('--accent-2', '#c4956a')),
+      border: hexToRgb(hexFromCssVar('--border', '#ccc4b4')),
+      highlight: hexToRgb(hexFromCssVar('--highlight', '#f0e4c8')),
+      calloutInfo: hexToRgb(hexFromCssVar('--callout-info', '#e8f4ec')),
+      calloutWarn: hexToRgb(hexFromCssVar('--callout-warn', '#fef3e2')),
+      calloutTip: hexToRgb(hexFromCssVar('--callout-tip', '#e8edf8')),
+      calloutInfoBorder: hexToRgb(hexFromCssVar('--callout-info-border', '#4a7c59')),
+      calloutWarnBorder: hexToRgb(hexFromCssVar('--callout-warn-border', '#c4956a')),
+      calloutTipBorder: hexToRgb(hexFromCssVar('--callout-tip-border', '#5a7abf')),
+    };
+
+    let y = margin;
+    let firstPage = true;
+
+    function ensureSpace(neededH) {
+      if (y + neededH > pageH - margin) {
+        pdf.addPage(pageSize, orient);
+        y = margin;
+        return true;
+      }
+      return false;
     }
+
+    function setFont(style, size, color) {
+      pdf.setFont('helvetica', style || 'normal');
+      pdf.setFontSize(size);
+      if (color) pdf.setTextColor(color[0], color[1], color[2]);
+    }
+
+    function drawWrappedText(text, x, maxW, size, style, color, lineGap) {
+      setFont(style, size, color);
+      const lines = pdf.splitTextToSize(text, maxW);
+      const lh = (lineGap || size * 0.42);
+      lines.forEach(line => {
+        ensureSpace(lh);
+        pdf.text(line, x, y + lh*0.72);
+        y += lh;
+      });
+      return lines.length * lh;
+    }
+
+    // ── Per-element drawing routines ──
+
+    function drawHeading(html, level) {
+      const text = htmlToPlainText(html);
+      if (!text) return;
+      const sizes = { 1: 19, 2: 14.5, 3: 11.5 };
+      const styles = { 1: 'bold', 2: 'bold', 3: 'bold' };
+      const colorMap = { 1: colors.text, 2: colors.accent1, 3: colors.textSecondary };
+      const size = sizes[level], style = styles[level];
+
+      ensureSpace(size*0.6 + 4);
+      setFont(style, size, colorMap[level]);
+      const lines = pdf.splitTextToSize(text, contentW);
+      const lh = size * 0.45;
+      lines.forEach(line => {
+        ensureSpace(lh);
+        pdf.text(line, margin, y + lh*0.72);
+        y += lh;
+      });
+
+      if (level === 1) {
+        y += 1.2;
+        pdf.setDrawColor(colors.accent1[0], colors.accent1[1], colors.accent1[2]);
+        pdf.setLineWidth(0.5);
+        pdf.line(margin, y, margin+contentW, y);
+        y += 3.5;
+      } else {
+        y += level === 2 ? 1.5 : 1;
+      }
+    }
+
+    function drawText(html) {
+      const text = htmlToPlainText(html);
+      if (!text) return;
+      y += 0.5;
+      drawWrappedText(text, margin, contentW, 10.5, 'normal', colors.text, 4.6);
+      y += 2.5;
+    }
+
+    function drawHighlight(html) {
+      const text = htmlToPlainText(html);
+      if (!text) return;
+      const size = 10.5, lh = 4.6, padX = 4, padY = 3;
+      setFont('italic', size, colors.text);
+      const lines = pdf.splitTextToSize(text, contentW - padX*2 - 2);
+      const boxH = lines.length*lh + padY*2;
+      ensureSpace(boxH + 2);
+      pdf.setFillColor(colors.highlight[0], colors.highlight[1], colors.highlight[2]);
+      pdf.rect(margin, y, contentW, boxH, 'F');
+      pdf.setFillColor(colors.accent2[0], colors.accent2[1], colors.accent2[2]);
+      pdf.rect(margin, y, 1, boxH, 'F');
+      let ty = y + padY;
+      lines.forEach(line => {
+        pdf.text(line, margin + padX, ty + lh*0.72);
+        ty += lh;
+      });
+      y += boxH + 3;
+    }
+
+    function drawDefinition(html) {
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const term = htmlToPlainText(tmp.querySelector('.def-term')?.innerHTML || '');
+      const body = htmlToPlainText(tmp.querySelector('.def-body')?.innerHTML || '');
+      if (!term && !body) return;
+
+      const termSize = 10.5, bodySize = 9.8;
+      const padX = 4, padY = 2.6;
+      const termH = termSize*0.5 + padY*1.6;
+
+      setFont('normal', bodySize, colors.text);
+      const bodyLines = body ? pdf.splitTextToSize(body, contentW - padX*2) : [];
+      const bodyLh = bodySize * 0.42;
+      const bodyH = bodyLines.length*bodyLh + padY*2;
+
+      ensureSpace(termH + bodyH + 2);
+      // term bar
+      pdf.setFillColor(colors.accent1[0], colors.accent1[1], colors.accent1[2]);
+      pdf.rect(margin, y, contentW, termH, 'F');
+      setFont('bold', termSize, [255,255,255]);
+      pdf.text(term, margin+padX, y + termH/2 + termSize*0.32);
+      y += termH;
+      // body
+      pdf.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+      pdf.setLineWidth(0.2);
+      pdf.rect(margin, y, contentW, bodyH, 'S');
+      setFont('normal', bodySize, colors.text);
+      let ty = y + padY;
+      bodyLines.forEach(line => { pdf.text(line, margin+padX, ty + bodyLh*0.72); ty += bodyLh; });
+      y += bodyH + 3;
+    }
+
+    function drawCallout(html, variant) {
+      const text = htmlToPlainText(html);
+      if (!text) return;
+      const labelMap = { info:'Note', warn:'Warning', tip:'Tip' };
+      const bgMap = { info:colors.calloutInfo, warn:colors.calloutWarn, tip:colors.calloutTip };
+      const borderMap = { info:colors.calloutInfoBorder, warn:colors.calloutWarnBorder, tip:colors.calloutTipBorder };
+      const bg = bgMap[variant]||colors.calloutInfo, bd = borderMap[variant]||colors.calloutInfoBorder;
+
+      const padX = 4, padY = 3, labelSize = 7.5, bodySize = 9.8;
+      setFont('normal', bodySize, colors.text);
+      const lines = pdf.splitTextToSize(text, contentW - padX*2);
+      const lh = bodySize*0.42;
+      const boxH = labelSize*0.7 + lines.length*lh + padY*2;
+
+      ensureSpace(boxH + 2);
+      pdf.setFillColor(bg[0],bg[1],bg[2]);
+      pdf.rect(margin, y, contentW, boxH, 'F');
+      pdf.setFillColor(bd[0],bd[1],bd[2]);
+      pdf.rect(margin, y, 1.2, boxH, 'F');
+
+      setFont('bold', labelSize, bd);
+      pdf.text((labelMap[variant]||'Note').toUpperCase(), margin+padX, y+padY+labelSize*0.5);
+      let ty = y + padY + labelSize*0.9;
+      setFont('normal', bodySize, colors.text);
+      lines.forEach(line => { pdf.text(line, margin+padX, ty + lh*0.6); ty += lh; });
+      y += boxH + 3;
+    }
+
+    function drawEquation(html) {
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const display = tmp.querySelector('.eq-display');
+      const latex = display ? (display.getAttribute('data-latex')||'').trim() : '';
+      const label = htmlToPlainText(tmp.querySelector('.eq-label')?.innerHTML || '');
+      if (!latex) return;
+
+      // Render LaTeX as readable plain text — true LaTeX-to-vector typesetting
+      // is out of scope; this keeps the formula legible and selectable.
+      const readable = latexToReadable(latex);
+      const size = 11, padY = 4;
+      setFont('italic', size, colors.text);
+      const lines = pdf.splitTextToSize(readable, contentW - 8);
+      const lh = size*0.5;
+      const boxH = lines.length*lh + padY*2;
+
+      ensureSpace(boxH + (label ? 4.5 : 0) + 2);
+      pdf.setFillColor(colors.highlight[0],colors.highlight[1],colors.highlight[2]);
+      pdf.setDrawColor(colors.border[0],colors.border[1],colors.border[2]);
+      pdf.setLineWidth(0.2);
+      pdf.roundedRect(margin, y, contentW, boxH, 1, 1, 'FD');
+      let ty = y + padY;
+      const textW = pdf.getTextWidth(lines[0]||'');
+      lines.forEach(line => {
+        const lw = pdf.getTextWidth(line);
+        pdf.text(line, margin + (contentW-lw)/2, ty + lh*0.65);
+        ty += lh;
+      });
+      y += boxH;
+      if (label) {
+        setFont('normal', 7.5, colors.textMuted);
+        const lw = pdf.getTextWidth(label);
+        pdf.text(label, margin+contentW-lw, y+3.5);
+        y += 4.5;
+      }
+      y += 3;
+    }
+
+    function drawDivider() {
+      ensureSpace(6);
+      y += 2;
+      pdf.setDrawColor(colors.border[0],colors.border[1],colors.border[2]);
+      pdf.setLineWidth(0.2);
+      pdf.line(margin, y, margin+contentW*0.42, y);
+      setFont('normal', 9, colors.textMuted);
+      const mark = '\u25C6';
+      const mw = pdf.getTextWidth(mark);
+      pdf.text(mark, margin+contentW/2-mw/2, y+1);
+      pdf.line(margin+contentW*0.58, y, margin+contentW, y);
+      y += 5;
+    }
+
+    function drawLink(html) {
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const btn = tmp.querySelector('.el-link-btn');
+      const href = btn ? btn.getAttribute('href') : null;
+      if (!href || href === '#') return;
+      const label = htmlToPlainText(btn.innerHTML || 'Open Resource');
+
+      const size = 9.5, padX = 5, padY = 2.8;
+      setFont('bold', size, [255,255,255]);
+      const tw = pdf.getTextWidth(label);
+      const boxW = tw + padX*2, boxH = size*0.42 + padY*2;
+
+      ensureSpace(boxH + 3);
+      pdf.setFillColor(colors.accent1[0],colors.accent1[1],colors.accent1[2]);
+      pdf.roundedRect(margin, y, boxW, boxH, 1.2, 1.2, 'F');
+      pdf.text(label, margin+padX, y+boxH/2+size*0.32);
+      pdf.link(margin, y, boxW, boxH, { url: href });
+      y += boxH + 3;
+    }
+
+    function drawColumns(html) {
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const cols = Array.from(tmp.querySelectorAll('.col-inner')).map(c => htmlToPlainText(c.innerHTML));
+      if (!cols.length || cols.every(c=>!c)) return;
+      const gap = 5;
+      const colW = (contentW - gap*(cols.length-1)) / cols.length;
+      const padX = 3.5, padY = 3, size = 9.5;
+
+      setFont('normal', size, colors.text);
+      const colLines = cols.map(c => pdf.splitTextToSize(c, colW - padX*2));
+      const lh = size*0.42;
+      const maxLines = Math.max(...colLines.map(l=>l.length));
+      const boxH = maxLines*lh + padY*2;
+
+      ensureSpace(boxH + 3);
+      cols.forEach((c, i) => {
+        const cx = margin + i*(colW+gap);
+        pdf.setDrawColor(colors.border[0],colors.border[1],colors.border[2]);
+        pdf.setLineWidth(0.2);
+        pdf.roundedRect(cx, y, colW, boxH, 1, 1, 'S');
+        let ty = y + padY;
+        colLines[i].forEach(line => { pdf.text(line, cx+padX, ty+lh*0.72); ty += lh; });
+      });
+      y += boxH + 3;
+    }
+
+    function drawChecklist(html) {
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const items = Array.from(tmp.querySelectorAll('.check-item'));
+      if (!items.length) return;
+      const size = 10, lh = 5.4, boxSize = 3.2;
+
+      items.forEach(item => {
+        const checked = item.querySelector('input[type=checkbox]')?.checked;
+        const text = htmlToPlainText(item.querySelector('.check-text')?.innerHTML || '');
+        if (!text) return;
+        ensureSpace(lh);
+        pdf.setDrawColor(colors.accent1[0],colors.accent1[1],colors.accent1[2]);
+        pdf.setLineWidth(0.3);
+        pdf.rect(margin, y+0.8, boxSize, boxSize, 'S');
+        if (checked) {
+          pdf.setFillColor(colors.accent1[0],colors.accent1[1],colors.accent1[2]);
+          pdf.rect(margin+0.5, y+1.3, boxSize-1, boxSize-1, 'F');
+        }
+        setFont('normal', size, colors.text);
+        const lines = pdf.splitTextToSize(text, contentW - boxSize - 4);
+        let ty = y;
+        lines.forEach((line,idx) => {
+          if (idx>0) ensureSpace(lh*0.85);
+          pdf.text(line, margin+boxSize+3, ty + lh*0.62);
+          ty += lh*0.85;
+        });
+        y = ty + (lines.length>1 ? 0 : 0.6);
+      });
+      y += 2;
+    }
+
+    function drawTable(html) {
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const table = tmp.querySelector('.el-table');
+      if (!table) return;
+      const headRow = table.querySelector('thead tr');
+      const bodyRows = Array.from(table.querySelectorAll('tbody tr'));
+
+      const head = headRow ? [Array.from(headRow.cells).map(c => htmlToPlainText(c.innerHTML))] : [];
+      const body = bodyRows.map(r => Array.from(r.cells).map(c => htmlToPlainText(c.innerHTML)));
+
+      const allEmpty = [...head, ...body].every(row => row.every(cell => !cell.trim()));
+      if (allEmpty) return;
+
+      ensureSpace(12); // small buffer so autotable's own pagination has room to decide
+
+      pdf.autoTable({
+        head, body,
+        startY: y,
+        margin: { left: margin, right: margin },
+        tableWidth: contentW,
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 9.5, textColor: colors.text, lineColor: colors.border, lineWidth: 0.2, cellPadding: 2.2 },
+        headStyles: { fillColor: colors.accent1, textColor: [255,255,255], fontStyle: 'bold', fontSize: 9.5 },
+        alternateRowStyles: { fillColor: colors.highlight },
+        didDrawPage: (data) => { y = data.cursor.y; }
+      });
+      y = pdf.lastAutoTable.finalY + 4;
+    }
+
+    function drawImagePlaceholder(html, align) {
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const img = tmp.querySelector('img');
+      const caption = htmlToPlainText(tmp.querySelector('.el-img-caption')?.innerHTML || '');
+      if (!img) return;
+
+      return new Promise(resolve => {
+        const probe = new Image();
+        probe.onload = () => {
+          const naturalRatio = probe.naturalHeight / probe.naturalWidth;
+          let w = contentW * 0.7; // matches the editor's default 75% feel, slightly conservative for margins
+          let h = w * naturalRatio;
+          const maxH = pageH - margin*2 - 10;
+          if (h > maxH) { h = maxH; w = h / naturalRatio; }
+
+          ensureSpace(h + (caption ? 6 : 0) + 3);
+          let imgX = margin + (contentW - w) / 2;
+          if (align === 'left') imgX = margin;
+          else if (align === 'right') imgX = margin + contentW - w;
+
+          try {
+            const fmt = (img.src.match(/^data:image\/(\w+)/)||[])[1]?.toUpperCase() || 'PNG';
+            pdf.addImage(img.src, fmt === 'JPG' ? 'JPEG' : fmt, imgX, y, w, h, undefined, 'NONE');
+          } catch(e) { /* unsupported image format — skip silently */ }
+          y += h;
+
+          if (caption) {
+            setFont('italic', 8, colors.textMuted);
+            const cw = pdf.getTextWidth(caption);
+            pdf.text(caption, margin + (contentW-cw)/2, y+4);
+            y += 6;
+          }
+          y += 3;
+          resolve();
+        };
+        probe.onerror = () => resolve();
+        probe.src = img.src;
+      });
+    }
+
+    // ── Cover / TOC page renderers ──
+    function drawCoverPage(pgData) {
+      if (!firstPage) { pdf.addPage(pageSize, orient); }
+      y = pageH * 0.32;
+      const kicker = htmlToPlainText(pgData.kicker||'');
+      const title = htmlToPlainText(pgData.title||'');
+      const subtitle = htmlToPlainText(pgData.subtitle||'');
+
+      if (kicker) {
+        setFont('bold', 9, colors.accent2);
+        const kw = pdf.getTextWidth(kicker.toUpperCase());
+        pdf.text(kicker.toUpperCase(), pageW/2-kw/2, y);
+        y += 8;
+      }
+      if (title) {
+        setFont('bold', 24, colors.text);
+        const lines = pdf.splitTextToSize(title, contentW*0.8);
+        lines.forEach(line => {
+          const lw = pdf.getTextWidth(line);
+          pdf.text(line, pageW/2-lw/2, y);
+          y += 9;
+        });
+        y += 2;
+      }
+      if (subtitle) {
+        setFont('italic', 12, colors.accent1);
+        const lines = pdf.splitTextToSize(subtitle, contentW*0.7);
+        lines.forEach(line => {
+          const lw = pdf.getTextWidth(line);
+          pdf.text(line, pageW/2-lw/2, y);
+          y += 6;
+        });
+      }
+      y += 10;
+      pdf.setDrawColor(colors.accent1[0],colors.accent1[1],colors.accent1[2]);
+      pdf.setLineWidth(0.6);
+      pdf.line(pageW/2-12, y, pageW/2+12, y);
+      y += 12;
+
+      (pgData.meta||[]).forEach((m, i) => {
+        const labels = ['Prepared by','Date','Class'];
+        const val = htmlToPlainText(m||'');
+        if (!val) return;
+        setFont('normal', 9, colors.textSecondary);
+        const lbl = (labels[i]||'') + ':  ';
+        const lblW = pdf.getTextWidth(lbl);
+        const valW = pdf.getTextWidth(val);
+        pdf.setFont('helvetica','bold'); pdf.text(lbl, pageW/2-(lblW+valW)/2, y);
+        pdf.setFont('helvetica','normal'); pdf.text(val, pageW/2-(lblW+valW)/2+lblW, y);
+        y += 5.5;
+      });
+      firstPage = false;
+    }
+
+    function drawTocPage(pgData, headingsIndex) {
+      if (!firstPage) pdf.addPage(pageSize, orient);
+      y = margin;
+      const title = htmlToPlainText(pgData.tocTitle || 'Contents');
+      setFont('bold', 18, colors.text);
+      pdf.text(title, margin, y+6);
+      y += 9;
+      pdf.setDrawColor(colors.accent1[0],colors.accent1[1],colors.accent1[2]);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, y, margin+contentW, y);
+      y += 7;
+
+      headingsIndex.forEach(h => {
+        const indent = h.level===1?0:h.level===2?6:12;
+        const size = h.level===1?10.5:h.level===2?9.5:8.8;
+        const style = h.level===1?'bold':h.level===2?'bold':'normal';
+        const color = h.level===2?colors.accent1:colors.text;
+        ensureSpace(size*0.5+2);
+        setFont(style, size, color);
+        const label = (numberingOn && h.num ? h.num+'  ' : '') + h.text;
+        pdf.text(label, margin+indent, y+size*0.35);
+        setFont('normal', 8.5, colors.textMuted);
+        const pageLabel = 'p.' + h.page;
+        const plw = pdf.getTextWidth(pageLabel);
+        pdf.text(pageLabel, margin+contentW-plw, y+size*0.35);
+        y += size*0.5 + 2.2;
+      });
+      firstPage = false;
+    }
+
+    // ── Build a heading index for the TOC, mirroring rebuildNumbers() logic ──
+    function buildHeadingsIndex() {
+      const idx = [];
+      let h1=0,h2=0,h3=0,pageNum=0;
+      docData.pages.forEach(pg => {
+        if (pg && pg.special) return;
+        pageNum++;
+        (pg||[]).forEach(el => {
+          if (!['h1','h2','h3'].includes(el.type)) return;
+          const text = htmlToPlainText(el.html).replace(/^[\d.]+\s*/, '');
+          if (!text) return;
+          const level = parseInt(el.type[1]);
+          if (level===1){h1++;h2=0;h3=0;}
+          if (level===2){h2++;h3=0;}
+          if (level===3){h3++;}
+          const num = level===1?`${h1}.`:level===2?`${h1}.${h2}`:`${h1}.${h2}.${h3}`;
+          idx.push({ level, text, num, page: pageNum });
+        });
+      });
+      return idx;
+    }
+
+    // ── Main render loop ──
+    let regularPageNum = 0;
+    const totalSteps = docData.pages.length;
+
+    for (let p = 0; p < docData.pages.length; p++) {
+      prog.textContent = `Drawing page ${p+1} of ${totalSteps}…`;
+      const pgData = docData.pages[p];
+
+      if (pgData && pgData.special === 'cover') {
+        drawCoverPage(pgData);
+        continue;
+      }
+      if (pgData && pgData.special === 'toc') {
+        drawTocPage(pgData, buildHeadingsIndex());
+        continue;
+      }
+
+      regularPageNum++;
+      if (!firstPage) pdf.addPage(pageSize, orient);
+      y = margin;
+      firstPage = false;
+
+      for (const el of (pgData||[])) {
+        switch (el.type) {
+          case 'h1': drawHeading(el.html, 1); break;
+          case 'h2': drawHeading(el.html, 2); break;
+          case 'h3': drawHeading(el.html, 3); break;
+          case 'text': drawText(el.html); break;
+          case 'highlight': drawHighlight(el.html); break;
+          case 'definition': drawDefinition(el.html); break;
+          case 'callout': drawCallout(el.html, el.variant||'info'); break;
+          case 'equation': drawEquation(el.html); break;
+          case 'divider': drawDivider(); break;
+          case 'link': drawLink(el.html); break;
+          case 'columns': drawColumns(el.html); break;
+          case 'checklist': drawChecklist(el.html); break;
+          case 'table': drawTable(el.html); break;
+          case 'image': await drawImagePlaceholder(el.html, el.align); break;
+          default: break;
+        }
+      }
+
+      // page number footer
+      setFont('normal', 8, colors.textMuted);
+      const footer = `— ${regularPageNum} —`;
+      const fw = pdf.getTextWidth(footer);
+      pdf.text(footer, pageW - margin - fw, pageH - 10);
+    }
+
     prog.textContent = 'Saving…';
     pdf.save(filename);
     prog.textContent = 'Done ✓';
     setTimeout(closeExportModal, 1200);
+
   } catch (err) {
     prog.textContent = 'Error: ' + err.message;
     console.error(err);
-  } finally {
-    document.querySelectorAll('.el-toolbar,.add-el-bar,.table-controls,.img-size-bar,.link-inputs,.add-check-btn,.page-toolbar').forEach(el => el.style.visibility='');
-    unmarkEmptyElements();
-    document.body.classList.remove('exporting');
   }
+}
+
+/* Lightweight LaTeX→readable-text approximation for vector PDF output.
+   This is NOT a typesetting engine — it converts common LaTeX commands
+   into plain, readable notation (e.g. \frac{a}{b} → "a / b") so formulas
+   remain legible as real selectable text rather than a screenshot. */
+function latexToReadable(latex) {
+  let s = latex;
+  s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1) / ($2)');
+  s = s.replace(/\\sqrt\[(\w+)\]\{([^{}]*)\}/g, '$1√($2)');
+  s = s.replace(/\\sqrt\{([^{}]*)\}/g, '√($1)');
+  s = s.replace(/\\text\{([^{}]*)\}/g, '$1');
+  s = s.replace(/\^\{([^{}]*)\}/g, '^($1)');
+  s = s.replace(/_\{([^{}]*)\}/g, '_($1)');
+  s = s.replace(/\\Delta/g, 'Δ').replace(/\\delta/g, 'δ');
+  s = s.replace(/\\alpha/g, 'α').replace(/\\beta/g, 'β').replace(/\\gamma/g, 'γ');
+  s = s.replace(/\\theta/g, 'θ').replace(/\\pi/g, 'π').replace(/\\lambda/g, 'λ');
+  s = s.replace(/\\mu/g, 'μ').replace(/\\sigma/g, 'σ').replace(/\\omega/g, 'ω');
+  s = s.replace(/\\sum/g, 'Σ').replace(/\\int/g, '∫').replace(/\\infty/g, '∞');
+  s = s.replace(/\\partial/g, '∂').replace(/\\nabla/g, '∇');
+  s = s.replace(/\\approx/g, '≈').replace(/\\leq/g, '≤').replace(/\\geq/g, '≥');
+  s = s.replace(/\\neq/g, '≠').replace(/\\pm/g, '±').replace(/\\times/g, '×');
+  s = s.replace(/\\div/g, '÷').replace(/\\cdot/g, '·');
+  s = s.replace(/\\rightarrow/g, '→').replace(/\\leftarrow/g, '←');
+  s = s.replace(/\\left|\\right/g, '');
+  s = s.replace(/\\[a-zA-Z]+/g, ''); // strip any remaining unrecognised commands
+  s = s.replace(/[{}]/g, '');
+  return s.replace(/\s{2,}/g, ' ').trim();
 }
 
 /* ═══════ SAVE / LOAD ═══════ */
@@ -2655,6 +3538,7 @@ function collectDocData() {
 }
 
 function restoreDocData(data) {
+  suspendPagination();
   if (data.theme) setTheme(data.theme, null);
   if (data.fontHeading) { fontHeading = data.fontHeading; document.documentElement.style.setProperty('--font-heading', fontHeading); try{document.getElementById('font-heading-sel').value=fontHeading;}catch(e){} }
   if (data.fontBody) { fontBody = data.fontBody; document.documentElement.style.setProperty('--font-body', fontBody); try{document.getElementById('font-body-sel').value=fontBody;}catch(e){} }
@@ -2712,6 +3596,11 @@ function restoreDocData(data) {
   // refresh any TOC page now that all headings are in the DOM
   const tocPg = document.querySelector('.page[data-toc]');
   if (tocPg) refreshToc(tocPg);
+  resumePagination();
+  // older saved documents (or AI-generated imports) may have crammed more
+  // than one A4 page's worth of content onto a single page — repaginate
+  // immediately so the canvas reflects true page boundaries right away.
+  requestAnimationFrame(() => requestAnimationFrame(repaginateAll));
 }
 
 /* Silent variants used during restore — same structure as addCoverPage/addTocPage
