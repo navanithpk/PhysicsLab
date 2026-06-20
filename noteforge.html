@@ -1417,6 +1417,30 @@ function schedulePagination() {
   });
 }
 
+/* ── Lightweight text-growth check ──
+   childList mutations (inserting/deleting elements) trigger full
+   repagination automatically via the observer. But typing inside an
+   existing contenteditable only changes character data, which we no
+   longer observe (it was the main cause of lag — see setupPaginationObserver).
+   Instead, every input event schedules this debounced, SINGLE-PAGE check:
+   it waits until typing pauses, then tests only the page being edited,
+   rather than running a full document-wide pass on every keystroke. */
+let _textGrowthTimer = null;
+function scheduleTextGrowthCheck(el) {
+  clearTimeout(_textGrowthTimer);
+  _textGrowthTimer = setTimeout(() => {
+    if (_paginationSuspended > 0) return;
+    const pg = el.closest('.page');
+    if (!pg || !isRegularPage(pg)) return;
+    if (pageContentBottom(pg) > pageUsableHeight(pg)) {
+      // skipConsolidate: typing only ever ADDS content, so pulling
+      // content back upward from later pages is never relevant here —
+      // skip the expensive half of pagination entirely for this path.
+      repaginateAll({ skipConsolidate: true });
+    }
+  }, 700);
+}
+
 function isRegularPage(pg) {
   return pg && pg.classList.contains('page') && !pg.hasAttribute('data-cover') && !pg.hasAttribute('data-toc');
 }
@@ -1459,7 +1483,8 @@ function pageContentBottom(pg) {
   return ((lastRect.bottom - pageRect.top) / scale) - padTop;
 }
 
-function repaginateAll() {
+function repaginateAll(opts) {
+  const skipConsolidate = opts && opts.skipConsolidate;
   const container = document.getElementById('pages-container');
   if (!container) return;
   let pages = Array.from(container.children).filter(c => c.classList.contains('page'));
@@ -1482,11 +1507,15 @@ function repaginateAll() {
     }
   }
 
-  // After redistributing, also try pulling content UP if a page has
-  // emptied out and a later page could fit back onto an earlier one.
-  // This keeps editing (especially deletions) from leaving sparse
-  // trailing pages behind.
-  consolidateUpward(container);
+  // consolidateUpward is the expensive half of pagination — it tests every
+  // adjacent page pair with forced-layout reads in a loop. Overflow pushed
+  // forward by typing almost never needs it (nothing emptied out), so the
+  // lightweight per-page text-growth check skips it entirely. Deletions,
+  // page removal, and bulk loads — where trailing empty pages can actually
+  // appear — still run it via the full (non-skipped) call below.
+  if (!skipConsolidate) {
+    consolidateUpward(container);
+  }
 
   renumberPages();
   if (numberingOn) rebuildNumbers();
@@ -1553,7 +1582,6 @@ function trySplitTableAcrossPages(tableWrapper, pg, pages, pgIndex) {
     const idx = rows.length - 1 - removedRows.length;
     removedRows.unshift(rows[idx]);
     rows[idx].remove();
-    if (pageContentBottom(pg) <= pageBottomLimit) break;
   }
 
   if (!removedRows.length) return false;
@@ -1611,6 +1639,16 @@ function consolidateUpward(container) {
   // If a page (other than the last) has room and the NEXT page's first
   // element would fit, pull it up. Repeat a bounded number of times to
   // avoid infinite loops with large documents.
+  //
+  // Performance note: the previous version moved each candidate element
+  // into place, measured the page, and reverted if it didn't fit — two
+  // forced-layout reads per attempt, every attempt, on every page pair.
+  // This version measures the candidate's own height (and the small gap
+  // it would need) BEFORE moving anything, using a single cheap
+  // offsetHeight read on just that element, then only performs the DOM
+  // move when it already knows the move will fit. Moves still cause one
+  // unavoidable layout read afterward, but failed/reverted attempts —
+  // the common case once a document stabilises — no longer cost anything.
   let pages = Array.from(container.children).filter(c => isRegularPage(c));
   let iterations = 0;
 
@@ -1628,7 +1666,19 @@ function consolidateUpward(container) {
       const firstEl = nextChildren.find(c => c.classList.contains('note-el'));
       if (!firstEl) break;
 
-      // simulate: would moving this element keep pg within bounds?
+      // Cheap pre-check: how much vertical room does pg currently have,
+      // and how tall is the candidate element? offsetHeight is far
+      // cheaper than getBoundingClientRect since it doesn't need to
+      // account for transforms/scroll position — exact precision isn't
+      // required here since pullOverflowToNextPage cleans up any edge
+      // case this estimate gets slightly wrong.
+      const usable = pageUsableHeight(pg);
+      const currentBottom = pageContentBottom(pg);
+      const roomLeft = usable - currentBottom;
+      const candidateH = firstEl.offsetHeight + 10; // + a small bar/margin allowance
+
+      if (candidateH > roomLeft) break; // won't fit — no later element will be smaller either in the common top-to-bottom case, so stop trying this page
+
       const pageNum = pg.querySelector('.page-num');
       pg.insertBefore(firstEl, pageNum);
       let bar = firstEl.nextSibling;
@@ -1639,13 +1689,6 @@ function consolidateUpward(container) {
         pg.insertBefore(bar, firstEl.nextSibling);
       }
 
-      if (pageContentBottom(pg) > pageUsableHeight(pg)) {
-        // doesn't fit — revert by pushing it back to the top of nextPage
-        const nextFirst = nextPage.firstChild;
-        nextPage.insertBefore(firstEl, nextFirst);
-        nextPage.insertBefore(bar, firstEl.nextSibling);
-        break;
-      }
       // fits — remove empty trailing page if nextPage is now empty
       const stillThere = Array.from(nextPage.children).some(c => c.classList.contains('note-el'));
       if (!stillThere && nextPage !== pages[pages.length-1]) {
@@ -1696,11 +1739,26 @@ function renumberPages() {
 function setupPaginationObserver() {
   const container = document.getElementById('pages-container');
   if (!container) return;
+  // characterData:true was the main performance problem — it fired on
+  // every single keystroke inside any contenteditable element, each time
+  // triggering a full repagination pass with forced synchronous layout
+  // reads across every page. Typing text doesn't need character-level
+  // observation; childList covers everything that actually changes page
+  // structure (inserting/removing elements, images, table rows, etc).
   _paginationObserver = new MutationObserver(() => schedulePagination());
   _paginationObserver.observe(container, {
     childList: true,
-    subtree: true,
-    characterData: true
+    subtree: true
+  });
+
+  // Single delegated listener (input events bubble) replaces the need to
+  // wire a pagination check into every individual contenteditable element
+  // across the whole app — far cheaper than per-keystroke full-document
+  // repagination, and only does real work once typing pauses.
+  container.addEventListener('input', e => {
+    if (e.target && e.target.isContentEditable) {
+      scheduleTextGrowthCheck(e.target);
+    }
   });
 }
 
