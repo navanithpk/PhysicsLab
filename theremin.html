@@ -137,6 +137,19 @@
     color:var(--dim);
     margin-top:4px;
   }
+  .gesture-warning{
+    margin-top:28px;
+    max-width:480px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:12px;
+    line-height:1.6;
+    color:var(--copper);
+    text-align:center;
+    border:1px solid rgba(168,92,74,0.3);
+    background:rgba(168,92,74,0.06);
+    padding:14px 18px;
+    border-radius:2px;
+  }
 
   canvas{display:block;}
 
@@ -327,6 +340,23 @@
       <div class="role">Practice Mode</div>
       <div class="detail">Pitch-matching trainer</div>
     </div>
+    <div class="legend-item">
+      <div class="hand">Right Pinch / Trigger</div>
+      <div class="role">Pluck</div>
+      <div class="detail">Percussive attack on the tone</div>
+    </div>
+    <div class="legend-item">
+      <div class="hand">Left Spread / Grip</div>
+      <div class="role">Vibrato</div>
+      <div class="detail">Splay fingers, or squeeze grip</div>
+    </div>
+  </div>
+
+  <div class="gesture-warning">
+    ⚠ On bare hands, pinching while looking at your palm may open the
+    Quest system menu instead of plucking — that gesture is reserved by
+    the OS. Pluck with your hand out in front of you, not facing your palm,
+    or use a controller trigger to avoid the conflict entirely.
   </div>
 
   <div id="recordingPanel">
@@ -706,6 +736,13 @@ function initAudio(){
   gainNode = audioCtx.createGain();
   gainNode.gain.value = 0.0001;
 
+  // Pluck gain — a separate node summed in alongside gainNode (both feed
+  // masterGain directly) rather than multiplying gainNode, so a pluck's
+  // percussive decay can't fight or get clamped by the continuous
+  // hand-height volume automation running on gainNode at the same time.
+  pluckGain = audioCtx.createGain();
+  pluckGain.gain.value = 0;
+
   masterGain = audioCtx.createGain();
   masterGain.gain.value = 0.6;
 
@@ -722,8 +759,31 @@ function initAudio(){
   brightGain.connect(gainNode);
   subGain.connect(gainNode);
   gainNode.connect(masterGain);
+
+  // Pluck taps the same lead/bright/sub mix bus so a plucked attack has
+  // the same timbre as the sustained tone, just an added transient.
+  leadGain.connect(pluckGain);
+  brightGain.connect(pluckGain);
+  subGain.connect(pluckGain);
+  pluckGain.connect(masterGain);
+
   masterGain.connect(analyser);
   masterGain.connect(audioCtx.destination);
+
+  // Vibrato LFO — a slow sine oscillator whose output (±1) is scaled by
+  // vibratoDepthGain (±VIBRATO_MAX_CENTS * vibratoAmount) and fed into
+  // each oscillator's detune AudioParam. Connecting one LFO to all three
+  // detune params keeps the lead, bright, and sub voices vibrating in
+  // sync rather than drifting independently.
+  vibratoLFO = audioCtx.createOscillator();
+  vibratoLFO.type = 'sine';
+  vibratoLFO.frequency.value = VIBRATO_RATE_HZ;
+  vibratoDepthGain = audioCtx.createGain();
+  vibratoDepthGain.gain.value = 0; // depth starts at zero, gesture/analog raises it
+  vibratoLFO.connect(vibratoDepthGain);
+  vibratoDepthGain.connect(osc.detune);
+  vibratoDepthGain.connect(oscBright.detune);
+  vibratoDepthGain.connect(osc2.detune);
 
   // Recording tap — separate MediaStreamDestination so recording
   // doesn't affect what's heard
@@ -733,6 +793,7 @@ function initAudio(){
   osc.start();
   oscBright.start();
   osc2.start();
+  vibratoLFO.start();
   audioStarted = true;
 }
 
@@ -768,6 +829,52 @@ function setBodyBrightness(v){
   bodyBrightness = clamp(v, 0, 1);
   // lowpass cutoff updates next time setPitch runs (every frame while
   // a pitch hand is active), so no immediate audio node touch needed here.
+}
+
+// ============================================================
+// Pluck articulation (pinch gesture, right hand / hand-tracking,
+// or right trigger analog squeeze on controllers)
+// ============================================================
+// A pluck is a short, percussive volume envelope layered on top of
+// whatever the continuous hand-controlled volume already is — it does
+// not replace heightToVolume's value, it transiently boosts past it
+// and decays back, like a pizzicato attack on a bowed instrument.
+const PLUCK_ATTACK_S = 0.008;
+const PLUCK_DECAY_S = 0.22;
+let pluckGain = null; // created in initAudio, separate from gainNode so
+                       // the decay doesn't fight the continuous volume target
+
+function triggerPluck(intensity){
+  if (!audioStarted || !pluckGain) return;
+  const amt = clamp(intensity, 0, 1);
+  if (amt <= 0.02) return;
+  const t = audioCtx.currentTime;
+  const peak = amt * 0.5; // pluck adds at most +0.5 gain on top of the bed
+  pluckGain.gain.cancelScheduledValues(t);
+  pluckGain.gain.setValueAtTime(pluckGain.gain.value, t);
+  pluckGain.gain.linearRampToValueAtTime(peak, t + PLUCK_ATTACK_S);
+  pluckGain.gain.setTargetAtTime(0, t + PLUCK_ATTACK_S, PLUCK_DECAY_S);
+}
+
+// ============================================================
+// Vibrato (finger-spread gesture, left hand / hand-tracking,
+// or left grip analog squeeze on controllers)
+// ============================================================
+// Implemented as a slow LFO modulating oscillator detune rather than
+// touching setPitch's own frequency automation, so vibrato and the
+// hand-height pitch control don't fight over the same AudioParam.
+const VIBRATO_RATE_HZ = 5.5; // a natural, moderate vibrato speed
+const VIBRATO_MAX_CENTS = 35; // depth at full vibrato amount, in cents
+let vibratoLFO = null, vibratoDepthGain = null;
+let vibratoAmount = 0; // 0..1, set continuously from gesture/analog input
+
+function setVibratoAmount(v){
+  vibratoAmount = clamp(v, 0, 1);
+  if (!audioStarted || !vibratoDepthGain) return;
+  const t = audioCtx.currentTime;
+  // LFO output is +-1 (from a sine oscillator with gain 1); scale it to
+  // +-VIBRATO_MAX_CENTS*vibratoAmount, then that feeds osc.detune directly.
+  vibratoDepthGain.gain.setTargetAtTime(vibratoAmount * VIBRATO_MAX_CENTS, t, 0.08);
 }
 
 // ---------- Recording ----------
@@ -1079,6 +1186,66 @@ function isHandTracking(handObj){
   return handObj.hand.joints && handObj.hand.joints['wrist'] && handObj.hand.joints['wrist'].visible;
 }
 
+// ============================================================
+// Gesture detection (hand-tracking only — these joints don't
+// exist on controllers, see PLUCK_TRIGGER_INTENSITY/VIBRATO_DEPTH
+// below for the controller-equivalent analog inputs).
+// ============================================================
+
+// Distance below which thumb-tip and index-tip count as "pinched."
+// Measured in meters; ~2cm is a natural light pinch for most hands.
+const PINCH_DISTANCE_M = 0.025;
+// Hysteresis gap so the pinch doesn't flicker on/off right at the
+// threshold — release requires moving notably further apart than the
+// distance that triggered the pinch.
+const PINCH_RELEASE_DISTANCE_M = 0.04;
+
+const tmpVecA = new THREE.Vector3();
+const tmpVecB = new THREE.Vector3();
+const tmpVecC = new THREE.Vector3();
+
+// Returns the live thumb-tip to index-tip distance in meters, or null
+// if the joints aren't available (hand not tracked, or this is a
+// controller side with no hand object active).
+function getPinchDistance(handObj){
+  const joints = handObj.hand.joints;
+  if (!joints) return null;
+  const thumbTip = joints['thumb-tip'];
+  const indexTip = joints['index-finger-tip'];
+  if (!thumbTip || !indexTip || !thumbTip.visible || !indexTip.visible) return null;
+  tmpVecA.setFromMatrixPosition(thumbTip.matrixWorld);
+  tmpVecB.setFromMatrixPosition(indexTip.matrixWorld);
+  return tmpVecA.distanceTo(tmpVecB);
+}
+
+// Returns a normalized 0..1 "finger spread" value from index-tip to
+// pinky-tip distance, divided by the wrist-to-middle-knuckle distance
+// as a rough per-hand size reference so the measure isn't biased by
+// hand size or distance from the headset. 0 = fingers together,
+// 1 = fully splayed (clamped — most hands won't exceed this).
+const SPREAD_NORMALIZED_MAX = 1.6; // empirical scale factor, tune after on-device testing
+function getFingerSpread(handObj){
+  const joints = handObj.hand.joints;
+  if (!joints) return null;
+  const indexTip = joints['index-finger-tip'];
+  const pinkyTip = joints['pinky-finger-tip'];
+  const wrist = joints['wrist'];
+  const middleKnuckle = joints['middle-finger-metacarpal'] || joints['middle-finger-phalanx-proximal'];
+  if (!indexTip || !pinkyTip || !wrist || !middleKnuckle) return null;
+  if (!indexTip.visible || !pinkyTip.visible || !wrist.visible || !middleKnuckle.visible) return null;
+
+  tmpVecA.setFromMatrixPosition(indexTip.matrixWorld);
+  tmpVecB.setFromMatrixPosition(pinkyTip.matrixWorld);
+  const spreadDist = tmpVecA.distanceTo(tmpVecB);
+
+  tmpVecC.setFromMatrixPosition(wrist.matrixWorld);
+  tmpVecA.setFromMatrixPosition(middleKnuckle.matrixWorld);
+  const handSizeRef = Math.max(0.03, tmpVecC.distanceTo(tmpVecA)); // floor avoids divide-by-near-zero
+
+  const normalized = spreadDist / handSizeRef / SPREAD_NORMALIZED_MAX;
+  return clamp(normalized, 0, 1);
+}
+
 function updateMarker(marker, worldPos, active){
   marker.visible = active;
   if (!active) return;
@@ -1126,9 +1293,9 @@ function pollThumbsticks(){
       if (stickY !== 0) setBodyBrightness(bodyBrightness - stickY * 0.02);
     }
 
-    // Stick click toggles practice mode — checked on left stick, but
-    // falls back to right if only one controller is active, since a
-    // single-controller player shouldn't lose access to the feature.
+    // Stick click toggles practice mode. Currently bound to the left
+    // stick only — a single-right-controller player won't have access
+    // to this toggle. (Known limitation, not yet a fallback.)
     const stickButton = gp.buttons && (gp.buttons[3] || gp.buttons[2]);
     const pressed = !!(stickButton && stickButton.pressed);
     const key = handedness === 'left' ? 'left' : 'right';
@@ -1137,6 +1304,76 @@ function pollThumbsticks(){
     }
     stickClickWasPressed[key] = pressed;
   });
+}
+
+// ============================================================
+// Gesture + controller-analog polling for pluck and vibrato.
+//
+//   Right hand pinch (thumb+index)  -> pluck trigger
+//   Right controller trigger value  -> pluck trigger (analog squeeze)
+//   Left hand finger spread          -> vibrato depth
+//   Left controller grip value       -> vibrato depth (analog squeeze)
+//
+// Hand-tracking and controllers are mutually exclusive per the existing
+// rightMode/leftMode tracking, so only one source drives each gesture
+// at a time — no fighting between a hand and a controller on the same side.
+// ============================================================
+let pinchWasActive = false;       // hand-tracking pinch hysteresis state
+let triggerWasPressed = false;    // controller trigger press state (separate
+                                   // from pinch — different release semantics,
+                                   // and a player could conceivably switch
+                                   // input modes mid-session)
+
+function pollGestures(rightHandObj, leftHandObj, rightMode, leftMode){
+  // --- Pluck: right hand pinch, or right controller trigger ---
+  if (rightMode === 'hand' && rightHandObj) {
+    const dist = getPinchDistance(rightHandObj);
+    if (dist !== null) {
+      const isPinchedNow = pinchWasActive
+        ? dist < PINCH_RELEASE_DISTANCE_M   // already pinched: need to open wider to release
+        : dist < PINCH_DISTANCE_M;          // not yet pinched: need to close tighter to trigger
+      if (isPinchedNow && !pinchWasActive) {
+        // Rising edge — fresh pluck. Intensity scales with how decisively
+        // closed the pinch is, mostly cosmetic since most pinches will
+        // be fully closed, but gives a little dynamic range.
+        const closeness = clamp(1 - dist / PINCH_DISTANCE_M, 0, 1);
+        triggerPluck(0.6 + closeness * 0.4);
+      }
+      pinchWasActive = isPinchedNow;
+    }
+  } else if (rightMode === 'controller') {
+    const inputSource = controllers.find(c => c.controller.userData.handedness === 'right')?.controller.userData.inputSource;
+    const gp = inputSource && inputSource.gamepad;
+    const trigger = gp && gp.buttons && gp.buttons[0]; // xr-standard: buttons[0] is the main trigger
+    if (trigger) {
+      const triggerValue = trigger.value || (trigger.pressed ? 1 : 0);
+      const isPressed = triggerValue > 0.85;
+      if (isPressed && !triggerWasPressed) {
+        triggerPluck(triggerValue);
+      }
+      triggerWasPressed = isPressed;
+    }
+  }
+
+  // --- Vibrato: left hand finger spread, or left controller grip ---
+  let vibratoTarget = null;
+  if (leftMode === 'hand' && leftHandObj) {
+    const spread = getFingerSpread(leftHandObj);
+    if (spread !== null) vibratoTarget = spread;
+  } else if (leftMode === 'controller') {
+    const inputSource = controllers.find(c => c.controller.userData.handedness === 'left')?.controller.userData.inputSource;
+    const gp = inputSource && inputSource.gamepad;
+    const grip = gp && gp.buttons && gp.buttons[1]; // xr-standard: buttons[1] is the grip squeeze
+    if (grip) vibratoTarget = grip.value || (grip.pressed ? 1 : 0);
+  }
+  if (vibratoTarget !== null) {
+    setVibratoAmount(vibratoTarget);
+  } else if (calibrated) {
+    // No valid input for vibrato this frame (hand lost tracking, no
+    // controller) — ease depth back to zero rather than leaving it
+    // stuck at its last value indefinitely.
+    setVibratoAmount(vibratoAmount * 0.9);
+  }
 }
 
 renderer.setAnimationLoop((time, frame) => {
@@ -1162,6 +1399,8 @@ renderer.setAnimationLoop((time, frame) => {
 
   let rightY = null, leftY = null;
   let rightPos = null, leftPos = null;
+  let rightMode = null, leftMode = null; // 'hand' | 'controller'
+  let rightHandObj = null, leftHandObj = null; // hand object refs, for gesture polling
 
   // Mirror handedness from controller onto the corresponding hand object
   controllers.forEach((c) => {
@@ -1179,8 +1418,8 @@ renderer.setAnimationLoop((time, frame) => {
       const joints = h.hand.joints;
       const wrist = joints['wrist'];
       tmpVec.setFromMatrixPosition(wrist.matrixWorld);
-      if (handedness === 'right') { rightY = tmpVec.y; rightPos = tmpVec.clone(); }
-      if (handedness === 'left') { leftY = tmpVec.y; leftPos = tmpVec.clone(); }
+      if (handedness === 'right') { rightY = tmpVec.y; rightPos = tmpVec.clone(); rightMode = 'hand'; rightHandObj = h; }
+      if (handedness === 'left') { leftY = tmpVec.y; leftPos = tmpVec.clone(); leftMode = 'hand'; leftHandObj = h; }
     }
   });
 
@@ -1191,8 +1430,8 @@ renderer.setAnimationLoop((time, frame) => {
     if (already) return;
     if (c.grip.visible !== false) {
       tmpVec2.setFromMatrixPosition(c.grip.matrixWorld);
-      if (handedness === 'right') { rightY = tmpVec2.y; rightPos = tmpVec2.clone(); }
-      if (handedness === 'left') { leftY = tmpVec2.y; leftPos = tmpVec2.clone(); }
+      if (handedness === 'right') { rightY = tmpVec2.y; rightPos = tmpVec2.clone(); rightMode = 'controller'; }
+      if (handedness === 'left') { leftY = tmpVec2.y; leftPos = tmpVec2.clone(); leftMode = 'controller'; }
     }
   });
 
@@ -1230,6 +1469,13 @@ renderer.setAnimationLoop((time, frame) => {
   // WebXR doesn't fire events for axes/button state every frame, so this
   // is read live from each controller's underlying Gamepad object.
   pollThumbsticks();
+
+  // --- Gesture/analog polling: pluck (right hand pinch / trigger),
+  // vibrato (left hand spread / grip). Gated on calibrated so these
+  // don't fire meaninglessly before pitch mapping exists.
+  if (calibrated && audioStarted) {
+    pollGestures(rightHandObj, leftHandObj, rightMode, leftMode);
+  }
 
   // --- Practice mode update ---
   const dtSeconds = lastFrameTime ? (time - lastFrameTime) / 1000 : 0;
