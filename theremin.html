@@ -159,6 +159,30 @@
     transition:opacity 0.2s;
   }
   #hudRecState.active{opacity:1;}
+  #hudPracticeRow{
+    position:fixed;
+    bottom:38px;left:0;right:0;
+    display:none;
+    justify-content:center;
+    gap:14px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:11px;
+    letter-spacing:0.05em;
+    z-index:5;
+    pointer-events:none;
+  }
+  #hudPracticeState{
+    color:var(--signal);
+    opacity:0.25;
+    transition:opacity 0.2s;
+    text-transform:uppercase;
+    letter-spacing:0.15em;
+    font-size:10px;
+  }
+  #hudPracticeState.active{opacity:1;}
+  #hudPracticeDetail{
+    color:var(--dim);
+  }
   #exitNote{
     position:fixed;
     top:16px;
@@ -293,6 +317,16 @@
       <div class="role">Record</div>
       <div class="detail">Hold trigger 1s to start/stop</div>
     </div>
+    <div class="legend-item">
+      <div class="hand">Right Stick</div>
+      <div class="role">Timbre</div>
+      <div class="detail">X: brightness · Y: body tone</div>
+    </div>
+    <div class="legend-item">
+      <div class="hand">Left Stick Click</div>
+      <div class="role">Practice Mode</div>
+      <div class="detail">Pitch-matching trainer</div>
+    </div>
   </div>
 
   <div id="recordingPanel">
@@ -311,6 +345,10 @@
   <span id="hudLeft">Vol —</span>
   <span id="hudCenter"><span id="hudRecState">● REC</span> Aether Theremin</span>
   <span id="hudRight">Pitch — Hz</span>
+</div>
+<div id="hudPracticeRow">
+  <span id="hudPracticeState">PRACTICE</span>
+  <span id="hudPracticeDetail">—</span>
 </div>
 <div id="exitNote">Press B / Y or remove headset to exit</div>
 
@@ -362,6 +400,9 @@ const exitNote = document.getElementById('exitNote');
 const hudLeft = document.getElementById('hudLeft');
 const hudRight = document.getElementById('hudRight');
 const hudRecState = document.getElementById('hudRecState');
+const hudPracticeRow = document.getElementById('hudPracticeRow');
+const hudPracticeState = document.getElementById('hudPracticeState');
+const hudPracticeDetail = document.getElementById('hudPracticeDetail');
 const calibratingEl = document.getElementById('calibrating');
 const recordingPanel = document.getElementById('recordingPanel');
 const playbackEl = document.getElementById('playback');
@@ -573,6 +614,35 @@ function updateGuideLine(yMin, yMax){
   positions.needsUpdate = true;
 }
 
+// ---------- Practice mode: target pitch ring ----------
+// A horizontal ring hovering at the height corresponding to the current
+// target pitch. Color sweeps amber -> green as the player's right hand
+// height converges on the target, giving immediate visual feedback
+// without needing to read a number.
+const targetRingGeo = new THREE.TorusGeometry(0.09, 0.006, 8, 40);
+const targetRingMat = new THREE.MeshBasicMaterial({ color: 0xd4af7a, transparent:true, opacity:0.85 });
+const targetRing = new THREE.Mesh(targetRingGeo, targetRingMat);
+targetRing.rotation.x = Math.PI / 2;
+targetRing.position.set(0, 1, -0.5);
+targetRing.visible = false;
+scene.add(targetRing);
+
+const targetRingGlow = new THREE.PointLight(0xd4af7a, 0, 1.2, 2);
+targetRingGlow.position.copy(targetRing.position);
+scene.add(targetRingGlow);
+
+function updateTargetRingVisual(yPos, matchAmount){
+  // matchAmount: 0 = far off (amber), 1 = matched (green)
+  targetRing.position.y = yPos;
+  targetRingGlow.position.y = yPos;
+  const col = new THREE.Color().setHSL(THREE.MathUtils.lerp(0.09, 0.38, matchAmount), 0.75, 0.6);
+  targetRingMat.color.copy(col);
+  targetRingGlow.color.copy(col);
+  targetRingGlow.intensity = 0.6 + matchAmount * 0.8;
+  const pulse = 1 + Math.sin(performance.now() * 0.004) * (matchAmount > 0.85 ? 0.1 : 0.03);
+  targetRing.scale.setScalar(pulse);
+}
+
 // ============================================================
 // Audio graph
 //
@@ -582,21 +652,37 @@ function updateGuideLine(yMin, yMax){
 //                                                            └─► analyser (for scope)
 //                                                            └─► recorder destination
 // ============================================================
-let audioCtx, osc, osc2, lowpass, gainNode, masterGain, analyser;
+let audioCtx, osc, oscBright, osc2, lowpass, gainNode, masterGain, analyser;
+let leadGain, brightGain, subGain;
 let mediaStreamDest, mediaRecorder;
 let recordedChunks = [];
 let isRecording = false;
 let audioStarted = false;
 let scopeDataArray = null;
 
+// Timbre state, driven by the right thumbstick.
+// timbreBlend: 0 = pure sine (smooth/flute-like), 1 = sine+sawtooth blend (bright/buzzy)
+// bodyBrightness: 0 = dark/warm sub-oscillator, 1 = bright/present sub-oscillator
+let timbreBlend = 0.0;
+let bodyBrightness = 0.5;
+
 function initAudio(){
   if (audioStarted) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-  // Lead oscillator — tracks pitch directly
+  // Lead oscillator — tracks pitch directly, pure sine. This alone is the
+  // "classic" theremin tone.
   osc = audioCtx.createOscillator();
   osc.type = WAVEFORM;
   osc.frequency.value = 440;
+
+  // Bright lead oscillator — same pitch, sawtooth. Crossfaded in via the
+  // timbre control for a buzzier, more present voice. Two oscillators
+  // rather than switching osc.type live, since changing a native
+  // oscillator's type causes an audible click; crossfading is silent.
+  oscBright = audioCtx.createOscillator();
+  oscBright.type = 'sawtooth';
+  oscBright.frequency.value = 440;
 
   // Sub oscillator — one octave down, slightly detuned, warmed with a lowpass.
   // This is the "body" of the theremin tone, the part that gives it weight.
@@ -610,9 +696,11 @@ function initAudio(){
   lowpass.frequency.value = 900;
   lowpass.Q.value = 0.7;
 
-  const leadGain = audioCtx.createGain();
+  leadGain = audioCtx.createGain();
   leadGain.gain.value = 0.7;
-  const subGain = audioCtx.createGain();
+  brightGain = audioCtx.createGain();
+  brightGain.gain.value = 0.0; // starts pure sine; thumbstick fades this in
+  subGain = audioCtx.createGain();
   subGain.gain.value = 0.35;
 
   gainNode = audioCtx.createGain();
@@ -626,10 +714,12 @@ function initAudio(){
   scopeDataArray = new Uint8Array(analyser.fftSize);
 
   osc.connect(leadGain);
+  oscBright.connect(brightGain);
   osc2.connect(lowpass);
   lowpass.connect(subGain);
 
   leadGain.connect(gainNode);
+  brightGain.connect(gainNode);
   subGain.connect(gainNode);
   gainNode.connect(masterGain);
   masterGain.connect(analyser);
@@ -641,6 +731,7 @@ function initAudio(){
   masterGain.connect(mediaStreamDest);
 
   osc.start();
+  oscBright.start();
   osc2.start();
   audioStarted = true;
 }
@@ -649,15 +740,34 @@ function setPitch(hz){
   if (!audioStarted) return;
   const t = audioCtx.currentTime;
   osc.frequency.setTargetAtTime(hz, t, 0.03);
+  oscBright.frequency.setTargetAtTime(hz, t, 0.03);
   osc2.frequency.setTargetAtTime(hz / 2, t, 0.03); // one octave below lead
-  // brighten the sub filter slightly as pitch rises, for a touch of presence
-  lowpass.frequency.setTargetAtTime(600 + hz * 0.4, t, 0.05);
+  // brighten the sub filter slightly as pitch rises, for a touch of presence,
+  // further shaped by bodyBrightness from the thumbstick
+  const baseCutoff = 400 + bodyBrightness * 1400; // 400Hz..1800Hz range
+  lowpass.frequency.setTargetAtTime(baseCutoff + hz * 0.4, t, 0.05);
 }
 function setVolume(v){
   if (!audioStarted) return;
   const t = audioCtx.currentTime;
   const target = Math.max(0.0001, v);
   gainNode.gain.setTargetAtTime(target, t, 0.03);
+}
+
+// Called continuously from the render loop as the right thumbstick moves.
+function setTimbre(blend){
+  if (!audioStarted) return;
+  timbreBlend = clamp(blend, 0, 1);
+  const t = audioCtx.currentTime;
+  // Equal-power-ish crossfade: as bright comes up, sine eases down a touch
+  // (not fully, since the sine remains the "core" of the theremin voice).
+  leadGain.gain.setTargetAtTime(0.7 - timbreBlend * 0.25, t, 0.05);
+  brightGain.gain.setTargetAtTime(timbreBlend * 0.45, t, 0.05);
+}
+function setBodyBrightness(v){
+  bodyBrightness = clamp(v, 0, 1);
+  // lowpass cutoff updates next time setPitch runs (every frame while
+  // a pitch hand is active), so no immediate audio node touch needed here.
 }
 
 // ---------- Recording ----------
@@ -691,6 +801,134 @@ function toggleRecording(){
   if (isRecording) stopRecording(); else startRecording();
 }
 
+// ============================================================
+// Practice mode — a call-and-response pitch trainer.
+//
+// A short reference tone plays at a target pitch; the target ring
+// appears at the corresponding height on the pitch guide. The player
+// tries to bring their right hand to match it, sustaining the match
+// for a short hold time to register a "hit." Intervals start wide
+// (octave, fifth) and narrow as accuracy improves, same progressive
+// philosophy as a Koch-method trainer — only tighten the challenge
+// once the easier version is solid.
+// ============================================================
+let practiceActive = false;
+let practiceTargetHz = 440;
+let practiceTargetY = 1.0;
+let practiceHoldTime = 0;
+let practiceStreak = 0;
+let practiceRoundsAtLevel = 0;
+let practiceLevel = 0; // index into PRACTICE_INTERVALS_SEMITONES
+let practiceScoreHits = 0;
+let practiceScoreAttempts = 0;
+let practiceRefOsc = null;
+let practiceAwaitingNext = false;
+
+// Semitone intervals tried at each level, widest/easiest first.
+// Level advances after a run of consistent hits; never gets narrower
+// than a major second, since closer than that becomes ear-training
+// rather than theremin technique.
+const PRACTICE_INTERVALS_SEMITONES = [12, 7, 5, 4, 2];
+const PRACTICE_HITS_TO_ADVANCE = 4;
+const PRACTICE_HOLD_REQUIRED_S = 0.6;
+const PRACTICE_TOLERANCE_CENTS = 35; // pitch matching tolerance, in cents
+
+function centsBetween(hzA, hzB){
+  return 1200 * Math.log2(hzA / hzB);
+}
+
+function pickNextTargetHz(){
+  const semis = PRACTICE_INTERVALS_SEMITONES[Math.min(practiceLevel, PRACTICE_INTERVALS_SEMITONES.length - 1)];
+  // Reference note: a comfortable mid-range pitch, then jump up or down
+  // by the current interval — alternating direction keeps both reach
+  // directions in practice.
+  const baseHz = 260; // roughly middle of the playable range
+  const direction = (practiceScoreAttempts % 2 === 0) ? 1 : -1;
+  return baseHz * Math.pow(2, (direction * semis) / 12);
+}
+
+function playReferenceTone(hz){
+  if (!audioStarted) return;
+  // Brief, separate sine burst — distinct from the live theremin voice
+  // so the player can clearly tell "that's the target" vs "that's me."
+  const t = audioCtx.currentTime;
+  const refOsc = audioCtx.createOscillator();
+  refOsc.type = 'sine';
+  refOsc.frequency.value = hz;
+  const refGain = audioCtx.createGain();
+  refGain.gain.value = 0;
+  refOsc.connect(refGain);
+  refGain.connect(masterGain);
+  refGain.gain.setTargetAtTime(0.25, t, 0.02);
+  refGain.gain.setTargetAtTime(0.0001, t + 0.5, 0.08);
+  refOsc.start(t);
+  refOsc.stop(t + 0.9);
+}
+
+function startPracticeRound(){
+  practiceTargetHz = pickNextTargetHz();
+  practiceTargetY = frequencyToHeight(practiceTargetHz);
+  practiceHoldTime = 0;
+  practiceAwaitingNext = false;
+  targetRing.visible = true;
+  playReferenceTone(practiceTargetHz);
+}
+
+function enablePracticeMode(){
+  practiceActive = true;
+  practiceLevel = 0;
+  practiceRoundsAtLevel = 0;
+  practiceScoreHits = 0;
+  practiceScoreAttempts = 0;
+  hudPracticeState.classList.add('active');
+  startPracticeRound();
+}
+function disablePracticeMode(){
+  practiceActive = false;
+  targetRing.visible = false;
+  hudPracticeState.classList.remove('active');
+}
+function togglePracticeMode(){
+  if (practiceActive) disablePracticeMode(); else enablePracticeMode();
+}
+
+// Called every frame while practice is active and a pitch hand is present.
+function updatePractice(dt, currentHz){
+  if (!practiceActive) return;
+
+  updateTargetRingVisual(practiceTargetY, lastMatchAmount);
+
+  if (practiceAwaitingNext) return;
+
+  const cents = currentHz ? Math.abs(centsBetween(currentHz, practiceTargetHz)) : 9999;
+  const matched = cents <= PRACTICE_TOLERANCE_CENTS;
+  lastMatchAmount = clamp(1 - cents / 200, 0, 1);
+
+  if (matched) {
+    practiceHoldTime += dt;
+  } else {
+    practiceHoldTime = Math.max(0, practiceHoldTime - dt * 1.5);
+  }
+
+  hudPracticeDetail.textContent = `Target ${Math.round(practiceTargetHz)} Hz · Level ${practiceLevel + 1}/${PRACTICE_INTERVALS_SEMITONES.length} · ${practiceScoreHits}/${practiceScoreAttempts}`;
+
+  if (practiceHoldTime >= PRACTICE_HOLD_REQUIRED_S) {
+    practiceScoreHits++;
+    practiceScoreAttempts++;
+    practiceRoundsAtLevel++;
+    practiceAwaitingNext = true;
+    targetRing.visible = false;
+
+    if (practiceRoundsAtLevel >= PRACTICE_HITS_TO_ADVANCE && practiceLevel < PRACTICE_INTERVALS_SEMITONES.length - 1) {
+      practiceLevel++;
+      practiceRoundsAtLevel = 0;
+    }
+    setTimeout(() => { if (practiceActive) startPracticeRound(); }, 700);
+  }
+}
+
+let lastMatchAmount = 0;
+
 // ---------- Controllers & Hands ----------
 const controllerModelFactory = new XRControllerModelFactory();
 const handModelFactory = new XRHandModelFactory();
@@ -713,6 +951,13 @@ for (let i = 0; i < 2; i++){
   controller.addEventListener('connected', (e) => {
     controller.userData.handedness = e.data.handedness;
     grip.userData.handedness = e.data.handedness;
+    // Stash the XRInputSource so the render loop can poll its gamepad
+    // (axes/buttons) every frame — WebXR doesn't push thumbstick state
+    // via events, it has to be read live each frame.
+    controller.userData.inputSource = e.data;
+  });
+  controller.addEventListener('disconnected', () => {
+    controller.userData.inputSource = null;
   });
 
   // Trigger-hold-to-record, on either controller
@@ -787,6 +1032,7 @@ function finishCalibration(eyeHeight){
 // ---------- Session lifecycle ----------
 renderer.xr.addEventListener('sessionstart', () => {
   hud.style.display = 'flex';
+  hudPracticeRow.style.display = 'flex';
   exitNote.style.display = 'block';
   overlay.classList.add('hidden');
   initAudio();
@@ -795,10 +1041,12 @@ renderer.xr.addEventListener('sessionstart', () => {
 });
 renderer.xr.addEventListener('sessionend', () => {
   hud.style.display = 'none';
+  hudPracticeRow.style.display = 'none';
   exitNote.style.display = 'none';
   overlay.classList.remove('hidden');
   if (audioStarted) setVolume(0.0001);
   if (isRecording) stopRecording();
+  if (practiceActive) disablePracticeMode();
 });
 
 // ---------- Smoothing state ----------
@@ -815,6 +1063,12 @@ function heightToFrequency(y){
   const logMin = Math.log(PITCH_MIN_HZ);
   const logMax = Math.log(PITCH_MAX_HZ);
   return Math.exp(lerp(logMin, logMax, t));
+}
+function frequencyToHeight(hz){
+  const logMin = Math.log(PITCH_MIN_HZ);
+  const logMax = Math.log(PITCH_MAX_HZ);
+  const t = clamp((Math.log(hz) - logMin) / (logMax - logMin), 0, 1);
+  return lerp(pitchYMin, pitchYMax, t);
 }
 function heightToVolume(y){
   const t = clamp((y - volYMin) / (volYMax - volYMin), 0, 1);
@@ -837,6 +1091,53 @@ function updateMarker(marker, worldPos, active){
 // ---------- Main render loop ----------
 const tmpVec = new THREE.Vector3();
 const tmpVec2 = new THREE.Vector3();
+let lastFrameTime = 0;
+
+// Deadzone for thumbstick axes — small resting drift on real hardware
+// shouldn't bleed into timbre or trigger spurious clicks.
+const STICK_DEADZONE = 0.12;
+const stickClickWasPressed = { left: false, right: false };
+
+function applyDeadzone(v){
+  return Math.abs(v) < STICK_DEADZONE ? 0 : v;
+}
+
+// Reads each connected controller's live Gamepad state. The xr-standard
+// gamepad mapping puts the thumbstick on axes[2] (X) and axes[3] (Y), with
+// axes[0]/[1] reserved for a touchpad on controllers that have one (Quest
+// Touch controllers report 0 there). The stick-click button is typically
+// buttons[3] under xr-standard, but this is read defensively since some
+// runtimes vary slightly.
+function pollThumbsticks(){
+  controllers.forEach((c) => {
+    const inputSource = c.controller.userData.inputSource;
+    const handedness = c.controller.userData.handedness;
+    if (!inputSource || !inputSource.gamepad || !handedness) return;
+    const gp = inputSource.gamepad;
+    const axes = gp.axes || [];
+    const stickX = applyDeadzone(axes.length >= 4 ? axes[2] : (axes[0] || 0));
+    const stickY = applyDeadzone(axes.length >= 4 ? axes[3] : (axes[1] || 0));
+
+    if (handedness === 'right') {
+      // X: blend toward brighter/buzzier lead tone. Y: brighten/darken
+      // the sub-oscillator's body tone (pushed up = brighter, matching
+      // the usual "up = more" convention).
+      if (stickX !== 0) setTimbre(timbreBlend + stickX * 0.02);
+      if (stickY !== 0) setBodyBrightness(bodyBrightness - stickY * 0.02);
+    }
+
+    // Stick click toggles practice mode — checked on left stick, but
+    // falls back to right if only one controller is active, since a
+    // single-controller player shouldn't lose access to the feature.
+    const stickButton = gp.buttons && (gp.buttons[3] || gp.buttons[2]);
+    const pressed = !!(stickButton && stickButton.pressed);
+    const key = handedness === 'left' ? 'left' : 'right';
+    if (pressed && !stickClickWasPressed[key] && key === 'left') {
+      if (calibrated) togglePracticeMode();
+    }
+    stickClickWasPressed[key] = pressed;
+  });
+}
 
 renderer.setAnimationLoop((time, frame) => {
   // --- Calibration sampling (uses headset camera world Y as eye height) ---
@@ -923,6 +1224,18 @@ renderer.setAnimationLoop((time, frame) => {
 
   if (haveVolInput) {
     rim.intensity = 0.3 + smoothedVol * 1.2;
+  }
+
+  // --- Thumbstick polling: timbre on right stick, practice toggle on left stick click ---
+  // WebXR doesn't fire events for axes/button state every frame, so this
+  // is read live from each controller's underlying Gamepad object.
+  pollThumbsticks();
+
+  // --- Practice mode update ---
+  const dtSeconds = lastFrameTime ? (time - lastFrameTime) / 1000 : 0;
+  lastFrameTime = time;
+  if (practiceActive) {
+    updatePractice(dtSeconds, havePitchInput ? smoothedPitchHz : null);
   }
 
   // --- Oscilloscope draw ---
