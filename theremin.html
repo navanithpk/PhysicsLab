@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether — VR Theremin</title>
+<style>
+  :root{
+    --bg-0:#0a0a0c;
+    --bg-1:#14141a;
+    --brass:#b08d57;
+    --brass-bright:#d4af7a;
+    --copper:#a85c4a;
+    --ivory:#e8e3d8;
+    --dim:#6b6a66;
+    --line:#2a2a30;
+    --signal:#7ad9c4;
+    --rec:#c0594a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    background:var(--bg-0);
+    color:var(--ivory);
+    font-family:'Georgia','Iowan Old Style',serif;
+    height:100%;
+    overflow:hidden;
+  }
+  #overlay{
+    position:fixed;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(176,141,87,0.06), transparent 60%),
+      var(--bg-0);
+    transition:opacity 0.6s ease;
+    overflow-y:auto;
+    padding:40px 20px;
+  }
+  #overlay.hidden{opacity:0;pointer-events:none;}
+
+  .eyebrow{
+    letter-spacing:0.32em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:var(--brass);
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    margin-bottom:18px;
+    opacity:0.85;
+  }
+  h1{
+    font-size:clamp(40px,7vw,64px);
+    font-weight:400;
+    letter-spacing:0.01em;
+    color:var(--ivory);
+    margin-bottom:6px;
+    font-style:italic;
+    text-align:center;
+  }
+  .sub{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    color:var(--dim);
+    font-size:14px;
+    letter-spacing:0.02em;
+    max-width:440px;
+    text-align:center;
+    line-height:1.6;
+    margin-bottom:36px;
+  }
+  .divider{
+    width:1px;
+    height:40px;
+    background:linear-gradient(to bottom, transparent, var(--brass), transparent);
+    margin-bottom:36px;
+    opacity:0.5;
+  }
+  #enterBtn{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    background:transparent;
+    border:1px solid var(--brass);
+    color:var(--brass-bright);
+    padding:16px 48px;
+    font-size:13px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    cursor:pointer;
+    border-radius:1px;
+    transition:all 0.3s ease;
+    position:relative;
+  }
+  #enterBtn:hover{
+    background:rgba(176,141,87,0.1);
+    box-shadow:0 0 24px rgba(176,141,87,0.25);
+  }
+  #enterBtn:disabled{
+    opacity:0.4;
+    cursor:default;
+  }
+  #status{
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    margin-top:22px;
+    font-size:12px;
+    color:var(--dim);
+    letter-spacing:0.04em;
+    min-height:16px;
+    text-align:center;
+    max-width:380px;
+  }
+  .legend{
+    margin-top:48px;
+    display:flex;
+    gap:48px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .legend-item{
+    text-align:center;
+  }
+  .legend-item .hand{
+    font-size:10px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--copper);
+    margin-bottom:6px;
+  }
+  .legend-item .role{
+    font-size:13px;
+    color:var(--ivory);
+    font-style:italic;
+  }
+  .legend-item .detail{
+    font-size:11px;
+    color:var(--dim);
+    margin-top:4px;
+  }
+
+  canvas{display:block;}
+
+  #hud{
+    position:fixed;
+    bottom:0;left:0;right:0;
+    padding:14px 20px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:11px;
+    color:var(--dim);
+    letter-spacing:0.05em;
+    display:none;
+    justify-content:space-between;
+    background:linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+    z-index:5;
+  }
+  #hudRecState{
+    color:var(--rec);
+    opacity:0;
+    transition:opacity 0.2s;
+  }
+  #hudRecState.active{opacity:1;}
+  #exitNote{
+    position:fixed;
+    top:16px;
+    left:16px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    font-size:11px;
+    color:var(--dim);
+    z-index:5;
+    display:none;
+  }
+  #calibrating{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:8;
+    background:rgba(7,7,10,0.85);
+    font-family:'Helvetica Neue',Arial,sans-serif;
+  }
+  #calibrating .msg{
+    color:var(--brass-bright);
+    font-size:14px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+  }
+  #calibrating .ring{
+    width:48px;height:48px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    border-top-color:var(--brass);
+    animation:spin 1s linear infinite;
+    margin-bottom:18px;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* Recording panel — appears in overlay after a recording exists */
+  #recordingPanel{
+    margin-top:32px;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+  }
+  #recordingPanel .rp-label{
+    font-size:11px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--copper);
+  }
+  #downloadLink{
+    color:var(--signal);
+    text-decoration:none;
+    font-size:13px;
+    border:1px solid var(--signal);
+    padding:10px 28px;
+    letter-spacing:0.08em;
+  }
+  #downloadLink:hover{
+    background:rgba(122,217,196,0.08);
+  }
+  audio#playback{
+    margin-top:8px;
+    filter:invert(0.9) hue-rotate(180deg);
+  }
+
+  /* Posture toggle */
+  #postureToggle{
+    display:flex;
+    gap:0;
+    margin-bottom:28px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    border:1px solid var(--line);
+  }
+  #postureToggle button{
+    background:transparent;
+    border:none;
+    color:var(--dim);
+    padding:10px 26px;
+    font-size:12px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:all 0.25s ease;
+  }
+  #postureToggle button:not(:last-child){
+    border-right:1px solid var(--line);
+  }
+  #postureToggle button.active{
+    color:var(--brass-bright);
+    background:rgba(176,141,87,0.08);
+  }
+  #postureToggle button:hover:not(.active){
+    color:var(--ivory);
+  }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="eyebrow">An Instrument of the Aether</div>
+  <h1>Theremin</h1>
+  <div class="sub">
+    Move the right antenna to bend pitch. Raise the left to swell volume.
+    No string is touched; no key is pressed — only the field between your hands.
+    Choose how you'll be sitting or standing, then the instrument measures
+    your height and sets its reach to fit you.
+  </div>
+  <div id="postureToggle">
+    <button id="postureStanding" class="active">Standing</button>
+    <button id="postureSeated">Seated</button>
+  </div>
+  <div class="divider"></div>
+  <button id="enterBtn">Enter VR</button>
+  <div id="status">Checking for headset…</div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="hand">Right Hand</div>
+      <div class="role">Pitch Antenna</div>
+      <div class="detail">Height of hand</div>
+    </div>
+    <div class="legend-item">
+      <div class="hand">Left Hand</div>
+      <div class="role">Volume Loop</div>
+      <div class="detail">Height of hand</div>
+    </div>
+    <div class="legend-item">
+      <div class="hand">Either Trigger</div>
+      <div class="role">Record</div>
+      <div class="detail">Hold trigger 1s to start/stop</div>
+    </div>
+  </div>
+
+  <div id="recordingPanel">
+    <div class="rp-label">Last Take</div>
+    <audio id="playback" controls></audio>
+    <a id="downloadLink" download="theremin-take.webm">Download Recording</a>
+  </div>
+</div>
+
+<div id="calibrating">
+  <div class="ring"></div>
+  <div class="msg">Calibrating to your height…</div>
+</div>
+
+<div id="hud">
+  <span id="hudLeft">Vol —</span>
+  <span id="hudCenter"><span id="hudRecState">● REC</span> Aether Theremin</span>
+  <span id="hudRight">Pitch — Hz</span>
+</div>
+<div id="exitNote">Press B / Y or remove headset to exit</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+
+// ============================================================
+// Config — heights below are FRACTIONS of calibrated eye height,
+// except where noted. Calibration happens once per session.
+// ============================================================
+const PITCH_MIN_HZ = 80;
+const PITCH_MAX_HZ = 1500;
+const SMOOTHING = 0.18;        // 0..1, higher = snappier
+const WAVEFORM = 'sine';
+
+// Reach ranges as fractions of eye height (1.0 = eye level) — STANDING.
+// Defaults assume ~1.65m eye height; auto-recalculated after calibration.
+const PITCH_FRAC_MIN = 0.42;   // ~hip level
+const PITCH_FRAC_MAX = 1.12;   // above head, natural reach-up
+const VOL_FRAC_MIN = 0.36;     // low, near waist
+const VOL_FRAC_MAX = 1.0;      // eye level
+
+// Reach ranges as fractions of eye height — SEATED.
+// Seated eye height is lower and the torso is fixed, so a hand can't
+// drop to "hip level" the way it can standing — the lap is the floor.
+// Ranges are compressed and shifted upward relative to seated eye height.
+const PITCH_FRAC_MIN_SEATED = 0.55;  // roughly lap/thigh height
+const PITCH_FRAC_MAX_SEATED = 1.05;  // comfortable reach-up while seated
+const VOL_FRAC_MIN_SEATED = 0.5;     // near lap
+const VOL_FRAC_MAX_SEATED = 0.92;    // just below eye level
+
+const TRIGGER_HOLD_MS = 1000;  // hold trigger this long to toggle recording
+
+const statusEl = document.getElementById('status');
+const enterBtn = document.getElementById('enterBtn');
+const overlay = document.getElementById('overlay');
+const hud = document.getElementById('hud');
+const exitNote = document.getElementById('exitNote');
+const hudLeft = document.getElementById('hudLeft');
+const hudRight = document.getElementById('hudRight');
+const hudRecState = document.getElementById('hudRecState');
+const calibratingEl = document.getElementById('calibrating');
+const recordingPanel = document.getElementById('recordingPanel');
+const playbackEl = document.getElementById('playback');
+const downloadLink = document.getElementById('downloadLink');
+const postureStandingBtn = document.getElementById('postureStanding');
+const postureSeatedBtn = document.getElementById('postureSeated');
+
+let seatedMode = false;
+postureStandingBtn.addEventListener('click', () => {
+  seatedMode = false;
+  postureStandingBtn.classList.add('active');
+  postureSeatedBtn.classList.remove('active');
+});
+postureSeatedBtn.addEventListener('click', () => {
+  seatedMode = true;
+  postureSeatedBtn.classList.add('active');
+  postureStandingBtn.classList.remove('active');
+});
+
+// ---------- Renderer / Scene ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07070a);
+scene.fog = new THREE.Fog(0x07070a, 4, 14);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 50);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- Lighting ----------
+const hemi = new THREE.HemisphereLight(0x554433, 0x0a0a0c, 0.6);
+scene.add(hemi);
+const key = new THREE.PointLight(0xd4af7a, 1.2, 8, 2);
+key.position.set(0, 2.4, -0.5);
+scene.add(key);
+const rim = new THREE.PointLight(0x7ad9c4, 0.5, 6, 2);
+rim.position.set(0, 1, 1.5);
+scene.add(rim);
+
+// ---------- Floor: subtle radial grid ----------
+{
+  const floorGeo = new THREE.CircleGeometry(6, 64);
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x0d0d10, roughness: 0.9, metalness: 0.1 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI/2;
+  floor.position.y = 0;
+  scene.add(floor);
+
+  const ringGroup = new THREE.Group();
+  for (let r = 1; r <= 5; r++) {
+    const ringGeo = new THREE.RingGeometry(r - 0.01, r, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x3a3424, transparent:true, opacity: 0.12, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI/2;
+    ring.position.y = 0.001;
+    ringGroup.add(ring);
+  }
+  scene.add(ringGroup);
+}
+
+// ============================================================
+// Oscilloscope panel — a canvas-texture screen mounted on the
+// cabinet, drawn from the live audio waveform each frame.
+// ============================================================
+const scopeCanvas = document.createElement('canvas');
+scopeCanvas.width = 256;
+scopeCanvas.height = 128;
+const scopeCtx = scopeCanvas.getContext('2d');
+const scopeTexture = new THREE.CanvasTexture(scopeCanvas);
+
+function drawScopeBackground(){
+  scopeCtx.fillStyle = '#0c1210';
+  scopeCtx.fillRect(0, 0, scopeCanvas.width, scopeCanvas.height);
+}
+drawScopeBackground();
+
+function drawScope(dataArray){
+  drawScopeBackground();
+  // faint center line
+  scopeCtx.strokeStyle = 'rgba(122,217,196,0.15)';
+  scopeCtx.lineWidth = 1;
+  scopeCtx.beginPath();
+  scopeCtx.moveTo(0, scopeCanvas.height/2);
+  scopeCtx.lineTo(scopeCanvas.width, scopeCanvas.height/2);
+  scopeCtx.stroke();
+
+  if (!dataArray) { scopeTexture.needsUpdate = true; return; }
+
+  scopeCtx.strokeStyle = '#7ad9c4';
+  scopeCtx.lineWidth = 2;
+  scopeCtx.beginPath();
+  const sliceWidth = scopeCanvas.width / dataArray.length;
+  let x = 0;
+  for (let i = 0; i < dataArray.length; i++){
+    const v = dataArray[i] / 128.0; // Uint8 centered at 128
+    const y = (v * scopeCanvas.height) / 2;
+    if (i === 0) scopeCtx.moveTo(x, y);
+    else scopeCtx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  scopeCtx.stroke();
+  scopeTexture.needsUpdate = true;
+}
+
+// ---------- Theremin cabinet (visual anchor, not interactive) ----------
+const cabinet = new THREE.Group();
+{
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.55, metalness: 0.3 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xb08d57, roughness: 0.3, metalness: 0.85 });
+
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.35), bodyMat);
+  box.position.set(0, 0.45, -0.9);
+  cabinet.add(box);
+
+  const trimTop = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.02, 0.37), trimMat);
+  trimTop.position.set(0, 0.9, -0.9);
+  cabinet.add(trimTop);
+
+  // pitch antenna (vertical rod, right side of cabinet)
+  const pitchRod = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.008, 0.008, 1.1, 12),
+    trimMat
+  );
+  pitchRod.position.set(0.18, 1.45, -0.9);
+  cabinet.add(pitchRod);
+
+  // volume antenna (horizontal loop, left side)
+  const loop = new THREE.Mesh(
+    new THREE.TorusGeometry(0.16, 0.006, 8, 32),
+    trimMat
+  );
+  loop.position.set(-0.32, 0.55, -0.9);
+  loop.rotation.x = Math.PI/2;
+  cabinet.add(loop);
+
+  const loopArm = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.006, 0.006, 0.25, 8),
+    trimMat
+  );
+  loopArm.position.set(-0.2, 0.55, -0.9);
+  loopArm.rotation.z = Math.PI/2;
+  cabinet.add(loopArm);
+
+  // Oscilloscope screen, recessed into the front face of the cabinet
+  const screenFrameMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness:0.6, metalness:0.4 });
+  const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.2, 0.02), screenFrameMat);
+  screenFrame.position.set(0, 0.55, -0.722);
+  cabinet.add(screenFrame);
+
+  const screenMat = new THREE.MeshBasicMaterial({ map: scopeTexture });
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.16), screenMat);
+  screen.position.set(0, 0.55, -0.711);
+  cabinet.add(screen);
+}
+scene.add(cabinet);
+
+// ---------- User-hand-following field markers ----------
+function makeFieldMarker(color){
+  const group = new THREE.Group();
+
+  const glow = new THREE.PointLight(color, 0.8, 1.5, 2);
+  group.add(glow);
+
+  const coreGeo = new THREE.SphereGeometry(0.035, 24, 24);
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: color, emissive: color, emissiveIntensity: 1.4,
+    roughness: 0.3, metalness: 0.4, transparent:true, opacity:0.95
+  });
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  group.add(core);
+
+  const haloGeo = new THREE.RingGeometry(0.05, 0.07, 32);
+  const haloMat = new THREE.MeshBasicMaterial({ color, transparent:true, opacity:0.5, side:THREE.DoubleSide });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  group.add(halo);
+
+  group.userData = { core, halo, glow, baseColor: color };
+  return group;
+}
+
+const pitchMarker = makeFieldMarker(0xd4af7a); // brass — right hand / pitch
+const volMarker = makeFieldMarker(0x7ad9c4);   // signal teal — left hand / volume
+scene.add(pitchMarker, volMarker);
+pitchMarker.visible = false;
+volMarker.visible = false;
+
+// Pitch guide line — height set after calibration
+const guideMat = new THREE.LineBasicMaterial({ color: 0xb08d57, transparent:true, opacity:0.18 });
+const guideGeo = new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(0, 0, -0.5),
+  new THREE.Vector3(0, 1, -0.5)
+]);
+const pitchGuide = new THREE.Line(guideGeo, guideMat);
+scene.add(pitchGuide);
+
+function updateGuideLine(yMin, yMax){
+  const positions = pitchGuide.geometry.attributes.position;
+  positions.setXYZ(0, 0, yMin, -0.5);
+  positions.setXYZ(1, 0, yMax, -0.5);
+  positions.needsUpdate = true;
+}
+
+// ============================================================
+// Audio graph
+//
+//   osc (lead, full range) ──────────────┐
+//                                        ├─► gainNode ─► masterGain ─► destination
+//   osc2 (sub, -12 semitones, lowpassed) ┘                  │
+//                                                            └─► analyser (for scope)
+//                                                            └─► recorder destination
+// ============================================================
+let audioCtx, osc, osc2, lowpass, gainNode, masterGain, analyser;
+let mediaStreamDest, mediaRecorder;
+let recordedChunks = [];
+let isRecording = false;
+let audioStarted = false;
+let scopeDataArray = null;
+
+function initAudio(){
+  if (audioStarted) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Lead oscillator — tracks pitch directly
+  osc = audioCtx.createOscillator();
+  osc.type = WAVEFORM;
+  osc.frequency.value = 440;
+
+  // Sub oscillator — one octave down, slightly detuned, warmed with a lowpass.
+  // This is the "body" of the theremin tone, the part that gives it weight.
+  osc2 = audioCtx.createOscillator();
+  osc2.type = 'triangle';
+  osc2.frequency.value = 220;
+  osc2.detune.value = -8; // cents, gentle beating for warmth
+
+  lowpass = audioCtx.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = 900;
+  lowpass.Q.value = 0.7;
+
+  const leadGain = audioCtx.createGain();
+  leadGain.gain.value = 0.7;
+  const subGain = audioCtx.createGain();
+  subGain.gain.value = 0.35;
+
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = 0.0001;
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.6;
+
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  scopeDataArray = new Uint8Array(analyser.fftSize);
+
+  osc.connect(leadGain);
+  osc2.connect(lowpass);
+  lowpass.connect(subGain);
+
+  leadGain.connect(gainNode);
+  subGain.connect(gainNode);
+  gainNode.connect(masterGain);
+  masterGain.connect(analyser);
+  masterGain.connect(audioCtx.destination);
+
+  // Recording tap — separate MediaStreamDestination so recording
+  // doesn't affect what's heard
+  mediaStreamDest = audioCtx.createMediaStreamDestination();
+  masterGain.connect(mediaStreamDest);
+
+  osc.start();
+  osc2.start();
+  audioStarted = true;
+}
+
+function setPitch(hz){
+  if (!audioStarted) return;
+  const t = audioCtx.currentTime;
+  osc.frequency.setTargetAtTime(hz, t, 0.03);
+  osc2.frequency.setTargetAtTime(hz / 2, t, 0.03); // one octave below lead
+  // brighten the sub filter slightly as pitch rises, for a touch of presence
+  lowpass.frequency.setTargetAtTime(600 + hz * 0.4, t, 0.05);
+}
+function setVolume(v){
+  if (!audioStarted) return;
+  const t = audioCtx.currentTime;
+  const target = Math.max(0.0001, v);
+  gainNode.gain.setTargetAtTime(target, t, 0.03);
+}
+
+// ---------- Recording ----------
+function startRecording(){
+  if (!audioStarted || isRecording) return;
+  recordedChunks = [];
+  let mimeType = 'audio/webm';
+  if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = '';
+  mediaRecorder = new MediaRecorder(mediaStreamDest.stream, mimeType ? { mimeType } : undefined);
+  mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    playbackEl.src = url;
+    downloadLink.href = url;
+    const ext = (mediaRecorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+    downloadLink.download = `theremin-take.${ext}`;
+    recordingPanel.style.display = 'flex';
+  };
+  mediaRecorder.start();
+  isRecording = true;
+  hudRecState.classList.add('active');
+}
+function stopRecording(){
+  if (!isRecording) return;
+  mediaRecorder.stop();
+  isRecording = false;
+  hudRecState.classList.remove('active');
+}
+function toggleRecording(){
+  if (isRecording) stopRecording(); else startRecording();
+}
+
+// ---------- Controllers & Hands ----------
+const controllerModelFactory = new XRControllerModelFactory();
+const handModelFactory = new XRHandModelFactory();
+
+const controllers = [];
+const hands = [];
+
+for (let i = 0; i < 2; i++){
+  const controller = renderer.xr.getController(i);
+  scene.add(controller);
+
+  const grip = renderer.xr.getControllerGrip(i);
+  grip.add(controllerModelFactory.createControllerModel(grip));
+  scene.add(grip);
+
+  const hand = renderer.xr.getHand(i);
+  hand.add(handModelFactory.createHandModel(hand, 'mesh'));
+  scene.add(hand);
+
+  controller.addEventListener('connected', (e) => {
+    controller.userData.handedness = e.data.handedness;
+    grip.userData.handedness = e.data.handedness;
+  });
+
+  // Trigger-hold-to-record, on either controller
+  let holdTimer = null;
+  controller.addEventListener('selectstart', () => {
+    holdTimer = setTimeout(() => {
+      toggleRecording();
+      holdTimer = null;
+    }, TRIGGER_HOLD_MS);
+  });
+  controller.addEventListener('selectend', () => {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  });
+
+  controllers.push({ controller, grip, index: i });
+  hands.push({ hand, index: i });
+}
+
+// ============================================================
+// Calibration — measure eye height for ~1s after session start,
+// then derive pitch/volume ranges as fractions of that height.
+// ============================================================
+let calibrated = false;
+let pitchYMin = 0.7, pitchYMax = 1.9;
+let volYMin = 0.6, volYMax = 1.7;
+let calibrationSamples = [];
+let calibrationStartTime = null;
+const CALIBRATION_DURATION_MS = 1000;
+
+function beginCalibration(){
+  calibrated = false;
+  calibrationSamples = [];
+  calibrationStartTime = performance.now();
+  calibratingEl.style.display = 'flex';
+}
+
+function finishCalibration(eyeHeight){
+  // Guard against absurd values. Seated eye height runs lower than standing
+  // (often ~1.0-1.45m), so the floor of this clamp depends on posture.
+  const minPlausible = seatedMode ? 0.7 : 1.0;
+  const h = THREE.MathUtils.clamp(eyeHeight, minPlausible, 2.2);
+
+  if (seatedMode) {
+    pitchYMin = h * PITCH_FRAC_MIN_SEATED;
+    pitchYMax = h * PITCH_FRAC_MAX_SEATED;
+    volYMin = h * VOL_FRAC_MIN_SEATED;
+    volYMax = h * VOL_FRAC_MAX_SEATED;
+  } else {
+    pitchYMin = h * PITCH_FRAC_MIN;
+    pitchYMax = h * PITCH_FRAC_MAX;
+    volYMin = h * VOL_FRAC_MIN;
+    volYMax = h * VOL_FRAC_MAX;
+  }
+  updateGuideLine(pitchYMin, pitchYMax);
+
+  // Scale cabinet to sit comfortably for this user's height too,
+  // so the visual antenna roughly matches where their hands will be.
+  // Reference height differs by posture since seated eye height is
+  // naturally lower than standing eye height for the same person.
+  const referenceHeight = seatedMode ? 1.2 : 1.65;
+  const scale = THREE.MathUtils.clamp(h / referenceHeight, 0.85, 1.25);
+  cabinet.scale.setScalar(scale);
+
+  // Seated players can't reach the floor-anchored cabinet's lower controls
+  // as naturally — nudge it up slightly so the loop/screen sit nearer hand level.
+  cabinet.position.y = seatedMode ? h * 0.18 : 0;
+
+  calibrated = true;
+  calibratingEl.style.display = 'none';
+}
+
+// ---------- Session lifecycle ----------
+renderer.xr.addEventListener('sessionstart', () => {
+  hud.style.display = 'flex';
+  exitNote.style.display = 'block';
+  overlay.classList.add('hidden');
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  beginCalibration();
+});
+renderer.xr.addEventListener('sessionend', () => {
+  hud.style.display = 'none';
+  exitNote.style.display = 'none';
+  overlay.classList.remove('hidden');
+  if (audioStarted) setVolume(0.0001);
+  if (isRecording) stopRecording();
+});
+
+// ---------- Smoothing state ----------
+let smoothedPitchHz = 440;
+let smoothedVol = 0;
+let havePitchInput = false;
+let haveVolInput = false;
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+function heightToFrequency(y){
+  const t = clamp((y - pitchYMin) / (pitchYMax - pitchYMin), 0, 1);
+  const logMin = Math.log(PITCH_MIN_HZ);
+  const logMax = Math.log(PITCH_MAX_HZ);
+  return Math.exp(lerp(logMin, logMax, t));
+}
+function heightToVolume(y){
+  const t = clamp((y - volYMin) / (volYMax - volYMin), 0, 1);
+  return t * t;
+}
+
+function isHandTracking(handObj){
+  return handObj.hand.joints && handObj.hand.joints['wrist'] && handObj.hand.joints['wrist'].visible;
+}
+
+function updateMarker(marker, worldPos, active){
+  marker.visible = active;
+  if (!active) return;
+  marker.position.copy(worldPos);
+  const pulse = 1 + Math.sin(performance.now() * 0.006) * 0.06;
+  marker.userData.halo.scale.setScalar(pulse);
+  marker.userData.halo.lookAt(camera.position);
+}
+
+// ---------- Main render loop ----------
+const tmpVec = new THREE.Vector3();
+const tmpVec2 = new THREE.Vector3();
+
+renderer.setAnimationLoop((time, frame) => {
+  // --- Calibration sampling (uses headset camera world Y as eye height) ---
+  if (frame && !calibrated && calibrationStartTime !== null) {
+    const xrCam = renderer.xr.getCamera();
+    if (xrCam) {
+      tmpVec.setFromMatrixPosition(xrCam.matrixWorld);
+      if (tmpVec.y > 0.3) { // ignore zero/garbage frames before tracking locks
+        calibrationSamples.push(tmpVec.y);
+      }
+    }
+    if (performance.now() - calibrationStartTime >= CALIBRATION_DURATION_MS) {
+      if (calibrationSamples.length > 0) {
+        const avg = calibrationSamples.reduce((a,b) => a+b, 0) / calibrationSamples.length;
+        finishCalibration(avg);
+      } else {
+        finishCalibration(1.65); // fallback default
+      }
+      calibrationStartTime = null;
+    }
+  }
+
+  let rightY = null, leftY = null;
+  let rightPos = null, leftPos = null;
+
+  // Mirror handedness from controller onto the corresponding hand object
+  controllers.forEach((c) => {
+    const idx = c.index;
+    const correspondingHand = hands[idx];
+    if (c.controller.userData.handedness && correspondingHand) {
+      correspondingHand.hand.userData.handedness = c.controller.userData.handedness;
+    }
+  });
+
+  hands.forEach((h) => {
+    const handedness = h.hand.userData.handedness;
+    if (!handedness) return;
+    if (isHandTracking(h)) {
+      const joints = h.hand.joints;
+      const wrist = joints['wrist'];
+      tmpVec.setFromMatrixPosition(wrist.matrixWorld);
+      if (handedness === 'right') { rightY = tmpVec.y; rightPos = tmpVec.clone(); }
+      if (handedness === 'left') { leftY = tmpVec.y; leftPos = tmpVec.clone(); }
+    }
+  });
+
+  controllers.forEach((c) => {
+    const handedness = c.controller.userData.handedness;
+    if (!handedness) return;
+    const already = (handedness === 'right' && rightY !== null) || (handedness === 'left' && leftY !== null);
+    if (already) return;
+    if (c.grip.visible !== false) {
+      tmpVec2.setFromMatrixPosition(c.grip.matrixWorld);
+      if (handedness === 'right') { rightY = tmpVec2.y; rightPos = tmpVec2.clone(); }
+      if (handedness === 'left') { leftY = tmpVec2.y; leftPos = tmpVec2.clone(); }
+    }
+  });
+
+  havePitchInput = calibrated && rightY !== null;
+  haveVolInput = calibrated && leftY !== null;
+
+  if (havePitchInput) {
+    const targetHz = heightToFrequency(rightY);
+    smoothedPitchHz = lerp(smoothedPitchHz, targetHz, SMOOTHING);
+    setPitch(smoothedPitchHz);
+    updateMarker(pitchMarker, rightPos, true);
+    hudRight.textContent = `Pitch ${Math.round(smoothedPitchHz)} Hz`;
+  } else {
+    pitchMarker.visible = false;
+    hudRight.textContent = 'Pitch — Hz';
+  }
+
+  if (haveVolInput) {
+    const targetVol = heightToVolume(leftY);
+    smoothedVol = lerp(smoothedVol, targetVol, SMOOTHING);
+    setVolume(smoothedVol * 0.9);
+    updateMarker(volMarker, leftPos, true);
+    hudLeft.textContent = `Vol ${Math.round(smoothedVol * 100)}%`;
+  } else {
+    volMarker.visible = false;
+    if (audioStarted) setVolume(0.0001);
+    hudLeft.textContent = 'Vol —';
+  }
+
+  if (haveVolInput) {
+    rim.intensity = 0.3 + smoothedVol * 1.2;
+  }
+
+  // --- Oscilloscope draw ---
+  if (audioStarted && analyser) {
+    analyser.getByteTimeDomainData(scopeDataArray);
+    drawScope(scopeDataArray);
+  }
+
+  renderer.render(scene, camera);
+});
+
+// ---------- VR session bootstrap ----------
+async function checkXRSupport(){
+  if (!('xr' in navigator)) {
+    statusEl.textContent = 'WebXR is not available in this browser. Open this page in the Quest Browser.';
+    enterBtn.disabled = true;
+    return;
+  }
+  try {
+    const supported = await navigator.xr.isSessionSupported('immersive-vr');
+    if (supported) {
+      statusEl.textContent = 'Headset detected. Put on your Quest 2 and press Enter VR.';
+      enterBtn.disabled = false;
+    } else {
+      statusEl.textContent = 'Immersive VR is not supported on this device/browser.';
+      enterBtn.disabled = true;
+    }
+  } catch (err) {
+    statusEl.textContent = 'Could not query WebXR support: ' + err.message;
+    enterBtn.disabled = true;
+  }
+}
+checkXRSupport();
+
+enterBtn.addEventListener('click', async () => {
+  try {
+    const session = await navigator.xr.requestSession('immersive-vr', {
+      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+    });
+    renderer.xr.setReferenceSpaceType('local-floor');
+    await renderer.xr.setSession(session);
+  } catch (err) {
+    statusEl.textContent = 'Failed to start VR session: ' + err.message;
+  }
+});
+</script>
+</body>
+</html>
